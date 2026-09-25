@@ -42,6 +42,24 @@ class LkdOrganizationSeeder extends Seeder
             // (members are planned to move to linux.org.tr).
             'mail_forwarding_domains' => json_encode(['volunteer' => 'penguen.org.tr', 'member' => 'penguen.org.tr']),
             'mail_forwarding_label' => 'Gönüllü e-posta adresi',
+            // Membership application form (LKD_Yeni_Uye_Formu_v4.2): two member
+            // references, at most five in total and one per calendar year per
+            // member. Applications stay closed until opened in the settings.
+            'membership_applications_open' => '0',
+            'membership_references_required' => '2',
+            'membership_reference_limit_total' => '5',
+            'membership_reference_limit_yearly' => '1',
+            'membership_application_letter' => '<p>Linux Kullanıcıları Derneği Başkanlığına,</p>'
+                ."<p>LKD'nin amaç ve yükümlülüklerini benimsediğim için üye olmak istiyorum. Dernek üyesi referanslarımın bilgisi dahilinde gerekli olan bilgileri doğru olarak doldurdum. Yıllık üyelik aidatının yarısı olan giriş aidatı ödentimin dekontu ilişiktedir. (2025 yılı için giriş aidatı 150 TL ve üyelik aidatı 300 TL olarak belirlenmiştir)</p>"
+                ."<p>Kişisel Verileri Koruma Kanunu (KVKK) kapsamında, LKD'ye sağladığım verilerin saklanması ve işlenmesi hakkında bilgilendirme amacıyla https://www.lkd.org.tr/kvkk adresinde yayımlanan \"Kişisel Verileri Koruma Kanunu Hakkında Aydınlatma Metni\"ni okudum, anladım ve şartlarını kabul ediyorum.</p>"
+                .'<p>Gereğinin yapılmasını dilerim.</p>',
+            'membership_application_instructions' => '<ol>'
+                .'<li>Doldurulmuş formu e-Devlet (https://www.turkiye.gov.tr/icisleri-dernek-uyelik-basvurusu) üzerinden derneğe gönderin.</li>'
+                .'<li>Referans olarak yazdığınız kişilerden size referans olduklarının teyidi alınacaktır.</li>'
+                .'<li>Giriş aidatı ve yıllık üyelik aidatının ödenmesi ile size e-posta üzerinden bildirim yapılacaktır.</li>'
+                .'<li>Referanslarından onay alınmış ve giriş aidatını ödemiş kişiler Yönetim Kurulu tarafından değerlendirilip üyeliğe kabul ya da red edilecektir.</li>'
+                .'<li>Süreç tamamlandığında en geç 1 (bir) ay içinde e-posta yoluyla dönüş yapılacaktır.</li>'
+                .'</ol>',
         ];
 
         if (! $organization->get('logo_path') && is_file($logo = public_path('images/lkd-gonullusu.png'))) {

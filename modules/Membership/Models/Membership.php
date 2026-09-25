@@ -39,7 +39,7 @@ class Membership extends Model
         self::REJECTED => 'red',
     ];
 
-    protected $fillable = ['contact_id', 'number', 'status', 'applied_at', 'joined_at', 'left_at', 'derbis_registered', 'notes'];
+    protected $fillable = ['contact_id', 'number', 'status', 'applied_at', 'joined_at', 'left_at', 'decision_date', 'decision_number', 'leave_decision_date', 'leave_decision_number', 'derbis_registered', 'notes'];
 
     protected $attributes = [
         'status' => self::ACTIVE,
@@ -49,12 +49,19 @@ class Membership extends Model
         'applied_at' => 'date',
         'joined_at' => 'date',
         'left_at' => 'date',
+        'decision_date' => 'date',
+        'leave_decision_date' => 'date',
         'derbis_registered' => 'boolean',
     ];
 
     public function contact(): BelongsTo
     {
         return $this->belongsTo(Contact::class)->withTrashed();
+    }
+
+    public function applications(): HasMany
+    {
+        return $this->hasMany(MembershipApplication::class)->latest('id');
     }
 
     public function events(): HasMany

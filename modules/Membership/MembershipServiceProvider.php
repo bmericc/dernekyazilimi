@@ -9,6 +9,8 @@ use App\Modules\ModuleServiceProvider;
 use App\Modules\Slots;
 use Illuminate\Support\Facades\Event;
 use Modules\Membership\Models\Membership;
+use Modules\Membership\Models\MembershipApplication;
+use Modules\Membership\Support\ApplicationService;
 
 /**
  * Membership records: member number, status (applicant, member, suspended,
@@ -30,6 +32,15 @@ class MembershipServiceProvider extends ModuleServiceProvider
 
         $menu->label('admin', 'membership', 'Üyelik', 'id');
         $menu->add('admin', 'membership', 'Üyeler', 'admin.memberships', ['memberships.view'], 20);
+        $menu->add('admin', 'membership', 'Başvurular', 'admin.membership-applications', ['memberships.view'], 21);
+        $menu->add('admin', 'membership', 'Başvuru ayarları', 'admin.memberships.settings', ['memberships.manage'], 22);
+
+        // Applying: open to signed-in people who are not members yet.
+        $menu->label('user', 'membership', 'Üyelik', 'id');
+        $menu->add('user', 'membership', 'Üyelik başvurusu', 'membership.apply', [], 30, fn ($user) => $user && app(ApplicationService::class)->blocker($user) === null);
+        $menu->add('user', 'membership', 'Üyelik başvurum', 'membership.application', [], 31, fn ($user) => $user && MembershipApplication::where('contact_id', $user->contact_id)->exists());
+
+        $this->dashboard()->stat('Karar bekleyen başvuru', 'file-certificate', fn () => MembershipApplication::where('status', MembershipApplication::READY)->count(), 'admin.membership-applications', ['memberships.view'], 8);
 
         $slots->push('admin.contacts.show', 'membership::partials.contact-card', 10);
         $this->profileTabs()->add('membership', 'Üyelik', 'membership::partials.profile', 30, ['membership'], 'id');
