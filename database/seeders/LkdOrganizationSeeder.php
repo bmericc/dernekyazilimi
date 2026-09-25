@@ -4,6 +4,8 @@ namespace Database\Seeders;
 
 use App\Support\Organization;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -47,10 +49,11 @@ class LkdOrganizationSeeder extends Seeder
             // member. Applications stay closed until opened in the settings.
             'membership_applications_open' => '0',
             'membership_references_required' => '2',
+            'membership_entry_fee' => '1',
             'membership_reference_limit_total' => '5',
             'membership_reference_limit_yearly' => '1',
-            'membership_application_letter' => '<p>Linux Kullanıcıları Derneği Başkanlığına,</p>'
-                ."<p>LKD'nin amaç ve yükümlülüklerini benimsediğim için üye olmak istiyorum. Dernek üyesi referanslarımın bilgisi dahilinde gerekli olan bilgileri doğru olarak doldurdum. Yıllık üyelik aidatının yarısı olan giriş aidatı ödentimin dekontu ilişiktedir. (2025 yılı için giriş aidatı 150 TL ve üyelik aidatı 300 TL olarak belirlenmiştir)</p>"
+            'membership_application_letter' => '<p>{dernek} Başkanlığına,</p>'
+                ."<p>LKD'nin amaç ve yükümlülüklerini benimsediğim için üye olmak istiyorum. Dernek üyesi referanslarımın bilgisi dahilinde gerekli olan bilgileri doğru olarak doldurdum. Yıllık üyelik aidatının yarısı olan giriş aidatı ödentimin dekontu ilişiktedir. ({yil} yılı için giriş aidatı {giris_aidati} ve üyelik aidatı {yillik_aidat} olarak belirlenmiştir)</p>"
                 ."<p>Kişisel Verileri Koruma Kanunu (KVKK) kapsamında, LKD'ye sağladığım verilerin saklanması ve işlenmesi hakkında bilgilendirme amacıyla https://www.lkd.org.tr/kvkk adresinde yayımlanan \"Kişisel Verileri Koruma Kanunu Hakkında Aydınlatma Metni\"ni okudum, anladım ve şartlarını kabul ediyorum.</p>"
                 .'<p>Gereğinin yapılmasını dilerim.</p>',
             'membership_application_instructions' => '<ol>'
@@ -69,6 +72,12 @@ class LkdOrganizationSeeder extends Seeder
         }
 
         $organization->save(array_filter($values, fn ($value, $key) => $organization->get($key) === null, ARRAY_FILTER_USE_BOTH));
+
+        // Dues from the membership form v4.2; earlier years are entered at
+        // /admin/membership-fees.
+        if (Schema::hasTable('membership_fees') && ! DB::table('membership_fees')->exists()) {
+            DB::table('membership_fees')->insert(['year' => 2025, 'entry_fee' => 150, 'annual_fee' => 300, 'note' => 'Üye başvuru formu v4.2', 'created_at' => now(), 'updated_at' => now()]);
+        }
 
         $this->call(LkdAgreementSeeder::class);
     }

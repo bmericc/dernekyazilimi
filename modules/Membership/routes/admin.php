@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\Membership\Http\Controllers\Admin\ApplicationAdminController;
 use Modules\Membership\Http\Controllers\Admin\MembershipController;
+use Modules\Membership\Http\Controllers\Admin\MembershipFeeController;
 use Modules\Membership\Http\Controllers\Admin\MembershipSettingsController;
 
 Route::middleware('permission:memberships.view')->group(function () {
@@ -23,4 +24,8 @@ Route::middleware('permission:memberships.manage')->group(function () {
     Route::post('/membership-references/{reference}/resend', [ApplicationAdminController::class, 'resend'])->middleware('throttle:10,1')->name('membership-references.resend');
     Route::get('/memberships/settings', [MembershipSettingsController::class, 'edit'])->name('memberships.settings');
     Route::put('/memberships/settings', [MembershipSettingsController::class, 'update'])->name('memberships.settings.update');
+    Route::get('/membership-fees', [MembershipFeeController::class, 'index'])->name('membership-fees');
+    Route::post('/membership-fees', [MembershipFeeController::class, 'store'])->name('membership-fees.store');
+    Route::put('/membership-fees/{fee}', [MembershipFeeController::class, 'update'])->name('membership-fees.update');
+    Route::delete('/membership-fees/{fee}', [MembershipFeeController::class, 'destroy'])->name('membership-fees.destroy');
 });

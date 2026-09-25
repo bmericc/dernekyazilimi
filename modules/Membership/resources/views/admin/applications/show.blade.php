@@ -42,6 +42,9 @@
                         @endif
                         <dt class="col-md-4">Anne adı</dt><dd class="col-md-8">{{ $a->answer('mother_name') }}</dd>
                         <dt class="col-md-4">Doğum tarihi</dt><dd class="col-md-8">{{ $a->answer('birthday') ? \Illuminate\Support\Carbon::parse($a->answer('birthday'))->format('d.m.Y') : '—' }}</dd>
+                        @foreach ($a->data['fields'] ?? [] as $field)
+                            @if (($field['value'] ?? null) !== null)<dt class="col-md-4">{{ $field['label'] }}</dt><dd class="col-md-8">{{ $field['value'] }}</dd>@endif
+                        @endforeach
                         @if ($a->answer('photo_choice'))
                             <dt class="col-md-4">Fotoğraf</dt><dd class="col-md-8">{{ \Modules\Membership\Models\MembershipApplication::PHOTO_CHOICES[$a->answer('photo_choice')] ?? '' }}</dd>
                         @endif

@@ -4,11 +4,14 @@ namespace Modules\Membership\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Agreement;
+use App\Models\CustomField;
+use App\Support\CustomFields;
 use App\Support\Agreements;
 use App\Support\IdentityCheck;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -36,6 +39,8 @@ class ApplicationController extends Controller
         return view('membership::application.create', [
             'user' => $user,
             'settings' => $settings,
+            'fields' => $this->fields($user->syncContact()),
+            'values' => app(CustomFields::class)->values($user->syncContact()),
             'defaults' => [
                 'first_name' => $user->name,
                 'last_name' => $user->surname,
@@ -49,7 +54,7 @@ class ApplicationController extends Controller
         ]);
     }
 
-    public function store(Request $request, ApplicationService $service, MembershipSettings $settings, IdentityCheck $identity, Agreements $agreements): RedirectResponse
+    public function store(Request $request, ApplicationService $service, MembershipSettings $settings, IdentityCheck $identity, Agreements $agreements, CustomFields $customFields): RedirectResponse
     {
         $user = Auth::user();
         if ($blocker = $service->blocker($user)) {
@@ -57,7 +62,9 @@ class ApplicationController extends Controller
         }
 
         $required = $settings->referencesRequired();
-        $data = $request->validate([
+        $foreign = $settings->askForeignFields() ? 'required_if:nationality_type,foreign' : 'nullable';
+        $fields = $this->fields($user->syncContact());
+        $data = $request->validate($customFields->rules($fields) + [
             'gender' => ['required', Rule::in(array_keys(MembershipApplication::GENDERS))],
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
@@ -69,17 +76,17 @@ class ApplicationController extends Controller
             'nationality' => ['required', 'string', 'max:60'],
             'mother_name' => ['required', 'string', 'max:100'],
             'birthday' => ['required', 'date', 'before:today'],
-            'foreign_identity_number' => ['required_if:nationality_type,foreign', 'nullable', 'string', 'max:30'],
-            'residence_permit' => ['required_if:nationality_type,foreign', 'nullable', Rule::in(['yes', 'no'])],
-            'document_type' => ['required_if:nationality_type,foreign', 'nullable', Rule::in(array_keys(MembershipApplication::DOCUMENT_TYPES))],
+            'foreign_identity_number' => [$foreign, 'nullable', 'string', 'max:30'],
+            'residence_permit' => [$foreign, 'nullable', Rule::in(['yes', 'no'])],
+            'document_type' => [$foreign, 'nullable', Rule::in(array_keys(MembershipApplication::DOCUMENT_TYPES))],
             'document_type_other' => ['required_if:document_type,other', 'nullable', 'string', 'max:60'],
-            'document_number' => ['required_if:nationality_type,foreign', 'nullable', 'string', 'max:30'],
+            'document_number' => [$foreign, 'nullable', 'string', 'max:30'],
             'photo_choice' => [$settings->askPhotoChoice() ? 'required' : 'nullable', Rule::in(array_keys(MembershipApplication::PHOTO_CHOICES))],
             'references' => [$required > 0 ? 'required' : 'nullable', 'array', 'size:'.$required],
             'references.*.number' => ['required', 'string', 'max:20'],
             'references.*.surname' => ['required', 'string', 'max:100'],
             'agreement' => $agreements->rules(Agreement::PRIVACY),
-        ], [], $this->attributes());
+        ], [], $customFields->attributes($fields) + $this->attributes());
 
         if ($data['nationality_type'] === 'tr' && ! $identity->verify($data['identity_number'], $data['first_name'], $data['last_name'], Carbon::parse($data['birthday'])->year)) {
             throw ValidationException::withMessages(['identity_number' => 'TC kimlik numarası ad, soyad ve doğum yılıyla eşleşmiyor.']);
@@ -101,7 +108,15 @@ class ApplicationController extends Controller
             $referees[$referee->id] = $referee;
         }
 
-        $answers = collect($data)->except(['references', 'agreement'])->all();
+        if (! $settings->askForeignFields()) {
+            $data = collect($data)->except(['foreign_identity_number', 'residence_permit', 'document_type', 'document_type_other', 'document_number'])->all();
+        }
+
+        // Extra questions: kept on the person and, as shown, with the application.
+        $customFields->save($user->syncContact(), $fields, $data['fields'] ?? []);
+        $values = $customFields->values($user->syncContact());
+        $answers = collect($data)->except(['references', 'agreement', 'fields'])->all();
+        $answers['fields'] = $fields->mapWithKeys(fn (CustomField $field) => [$field->key => ['label' => $field->label, 'value' => $field->display($values[$field->id] ?? null)]])->all();
         $application = $service->submit($user, $answers, array_values($referees));
         $agreements->accept($user, 'membership-application', Agreement::PRIVACY);
         $this->set_log('create', "Üyelik başvurusu yapıldı ({$application->reference_no})");
@@ -163,6 +178,18 @@ class ApplicationController extends Controller
         $this->set_log('change', "Üyelik başvurusu geri çekildi ({$application->reference_no})");
 
         return back()->with('success-status', 'Başvurunuz geri çekildi.');
+    }
+
+    /**
+     * Extra questions of the form: custom fields of the "membership" group
+     * that the person may see.
+     *
+     * @return Collection<int, CustomField>
+     */
+    private function fields(\App\Models\Contact $contact): Collection
+    {
+        return CustomField::active()->for($contact)->where('group', 'membership')
+            ->whereIn('member_access', ['visible', 'editable'])->orderBy('sort')->orderBy('id')->get();
     }
 
     private function attributes(): array

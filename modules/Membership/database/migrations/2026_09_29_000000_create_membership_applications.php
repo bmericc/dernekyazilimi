@@ -58,10 +58,21 @@ return new class extends Migration
 
             $table->index(['referee_contact_id', 'status']);
         });
+
+        // Entry and yearly dues by year, kept for past years too.
+        Schema::create('membership_fees', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedSmallInteger('year')->unique();
+            $table->decimal('entry_fee', 10, 2)->nullable();
+            $table->decimal('annual_fee', 10, 2);
+            $table->string('note')->nullable();
+            $table->timestamps();
+        });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('membership_fees');
         Schema::dropIfExists('membership_references');
         Schema::dropIfExists('membership_applications');
         Schema::table('memberships', function (Blueprint $table) {

@@ -43,18 +43,36 @@
                 </div>
             </div>
 
+            <h3 class="mt-4">Aidat</h3>
+            <label class="form-check mb-1">
+                <input type="checkbox" class="form-check-input" name="entry_fee" value="1" @checked(old('entry_fee', $settings->chargesEntryFee()))>
+                <span class="form-check-label">Üyeliğe girişte giriş aidatı alınır</span>
+            </label>
+            <div class="form-hint mb-3">Giriş aidatı ve yıllık aidat tutarları <a href="{{ route('admin.membership-fees') }}">Aidatlar</a> sayfasında yıl yıl girilir.</div>
+
             <h3 class="mt-4">Form</h3>
+            <label class="form-check mb-2">
+                <input type="checkbox" class="form-check-input" name="foreign_fields" value="1" @checked(old('foreign_fields', $settings->askForeignFields()))>
+                <span class="form-check-label">Yabancı uyruklu başvuranlara yabancı kimlik ve oturma izni bilgilerini sor</span>
+            </label>
             <label class="form-check mb-3">
                 <input type="checkbox" class="form-check-input" name="photo_choice" value="1" @checked(old('photo_choice', $settings->askPhotoChoice()))>
                 <span class="form-check-label">Fotoğraf ve üye kartı tercihini sor</span>
             </label>
+            <div class="alert alert-info">
+                Metinlerde şu alanlar kullanılabilir:
+                @foreach (\Modules\Membership\Support\MembershipSettings::placeholders() as $placeholder => $label)
+                    <code>{{ $placeholder }}</code> {{ $label }}@if (! $loop->last), @endif
+                @endforeach.
+                Aidat tutarları <a href="{{ route('admin.membership-fees') }}">Aidatlar</a> sayfasından yıl yıl girilir. Logo kurum ayarlarındaki logodur. Referans sayısı 0 ise formda referans bölümü olmaz. Başvuru formuna ek soru eklemek için "Üyelik" grubunda, kişinin görebildiği bir <a href="{{ route('admin.custom-fields') }}">özel alan</a> tanımlayın.
+            </div>
             <div class="mb-3">
                 <label class="form-label" for="letter">Dilekçe metni (formun başında)</label>
-                <textarea id="letter" name="letter" rows="6" class="form-control wysiwyg">{{ old('letter', $settings->letter()) }}</textarea>
+                <textarea id="letter" name="letter" rows="6" class="form-control wysiwyg">{{ old('letter', $settings->rawLetter()) }}</textarea>
             </div>
             <div class="mb-3">
                 <label class="form-label" for="instructions">Yönergeler (başvurudan sonra gösterilir ve forma basılır)</label>
-                <textarea id="instructions" name="instructions" rows="6" class="form-control wysiwyg">{{ old('instructions', $settings->instructions()) }}</textarea>
+                <textarea id="instructions" name="instructions" rows="6" class="form-control wysiwyg">{{ old('instructions', $settings->rawInstructions()) }}</textarea>
             </div>
         </div>
         <div class="card-footer text-end"><button type="submit" class="btn btn-primary">Kaydet</button></div>

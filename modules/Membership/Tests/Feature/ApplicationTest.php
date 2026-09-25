@@ -3,6 +3,7 @@
 namespace Modules\Membership\Tests\Feature;
 
 use App\Models\Contact;
+use App\Models\CustomField;
 use App\Models\User;
 use App\Support\IdentityCheck;
 use App\Support\Organization;
@@ -14,6 +15,9 @@ use Modules\Membership\Mail\ReferenceDeclined;
 use Modules\Membership\Mail\ReferenceInvitation;
 use Modules\Membership\Models\Membership;
 use Modules\Membership\Models\MembershipApplication;
+use Modules\Membership\Models\MembershipFee;
+use Modules\Membership\Support\ApplicationPdf;
+use Modules\Membership\Support\MembershipSettings;
 use Modules\Membership\Models\MembershipReference;
 use Modules\Membership\Support\MembershipService;
 use Tests\TestCase;
@@ -275,5 +279,62 @@ class ApplicationTest extends TestCase
         $this->assertSame('3', $organization->get('membership_references_required'));
         $this->assertNull($organization->get('membership_reference_limit_total'));
         $this->assertStringNotContainsString('script', $organization->get('membership_application_letter'));
+    }
+
+    public function test_fees_are_kept_per_year_and_fill_the_letter(): void
+    {
+        $owner = User::factory()->create(['role' => 1]);
+        $this->actingAs($owner)->get('/admin/membership-fees')->assertOk()->assertSee('Henüz aidat');
+        $this->actingAs($owner)->post('/admin/membership-fees', ['year' => 2019, 'entry_fee' => 25, 'annual_fee' => 50])->assertSessionHasNoErrors();
+        $this->actingAs($owner)->post('/admin/membership-fees', ['year' => now()->year - 1, 'entry_fee' => 150, 'annual_fee' => 1250.5])->assertSessionHasNoErrors();
+        $this->actingAs($owner)->post('/admin/membership-fees', ['year' => 2019, 'annual_fee' => 60])->assertSessionHasErrors('year');
+
+        // A year without fees uses the latest earlier year.
+        $this->assertSame(now()->year - 1, MembershipFee::forYear(now()->year)->year);
+        $this->assertSame(2019, MembershipFee::forYear(2020)->year);
+        $this->assertNull(MembershipFee::forYear(2000));
+
+        $this->settings(['membership_application_letter' => '<p>{dernek} Başkanlığına. {yil}: {giris_aidati} / {yillik_aidat}</p>', 'name' => 'Pardus Kullanıcıları Derneği']);
+        $this->assertStringContainsString('2020: — / 50 TL', app(MembershipSettings::class)->letter(2020));
+        $this->actingAs($owner)->get('/admin/membership-fees')->assertDontSee('Giriş aidatı (TL)');
+        $this->settings(['membership_entry_fee' => '1']);
+        $this->actingAs($owner)->get('/admin/membership-fees')->assertSee('Giriş aidatı (TL)');
+        $settings = app(MembershipSettings::class);
+        $this->assertSame('<p>Pardus Kullanıcıları Derneği Başkanlığına. 2020: 25 TL / 50 TL</p>', $settings->letter(2020));
+        $this->assertStringContainsString('150 TL / 1.250,50 TL', $settings->letter());
+        $this->assertStringContainsString('{yillik_aidat}', $settings->rawLetter());
+
+        $fee = MembershipFee::where('year', 2019)->sole();
+        $this->actingAs($owner)->put("/admin/membership-fees/{$fee->id}", ['year' => 2019, 'annual_fee' => 55])->assertSessionHasNoErrors();
+        $this->assertSame('55.00', $fee->fresh()->annual_fee);
+        $this->actingAs($owner)->delete("/admin/membership-fees/{$fee->id}")->assertRedirect();
+        $this->assertSame(1, MembershipFee::count());
+    }
+
+    public function test_the_form_follows_the_installation_settings(): void
+    {
+        // No references, no foreigner fields, one extra question.
+        $this->settings(['membership_references_required' => '0', 'membership_foreign_fields' => '0', 'membership_photo_choice' => '0']);
+        CustomField::create(['key' => 'profession', 'label' => 'Meslek', 'group' => 'membership', 'type' => 'text', 'is_required' => true, 'member_access' => 'editable']);
+        CustomField::create(['key' => 'board_note', 'label' => 'Kurul notu', 'group' => 'membership', 'type' => 'text', 'member_access' => 'hidden']);
+        $applicant = User::factory()->create();
+
+        $this->actingAs($applicant)->get('/membership/apply')->assertOk()
+            ->assertSee('Meslek')->assertDontSee('Kurul notu')->assertDontSee('Referanslarınız')->assertDontSee('Yabancı kimlik no');
+
+        $form = $this->form(['references' => null, 'photo_choice' => null, 'nationality_type' => 'foreign', 'identity_number' => null]);
+        $this->actingAs($applicant)->post('/membership/apply', $form)->assertSessionHasErrors('fields.profession');
+        $this->actingAs($applicant)->post('/membership/apply', $form + ['fields' => ['profession' => 'Mühendis']])->assertSessionHasNoErrors();
+
+        $application = MembershipApplication::sole();
+        $this->assertSame(['profession' => ['label' => 'Meslek', 'value' => 'Mühendis']], $application->data['fields']);
+        $this->assertSame('Mühendis', app(\App\Modules\ContactFields::class)->value('custom.profession', $applicant->contact->fresh()));
+
+        $html = view('membership::pdf.application', app(ApplicationPdf::class)->viewData($application))->render();
+        $this->assertStringContainsString('EK BİLGİLER', $html);
+        $this->assertStringContainsString('Mühendis', $html);
+        $this->assertStringNotContainsString('REFERANS', $html);
+        $this->assertStringNotContainsString('YABANCI KİMLİK', $html);
+        $this->assertStringContainsString('BÖLÜM 4: ÜYE KAYIT', $html);
     }
 }

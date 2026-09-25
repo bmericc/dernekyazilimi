@@ -33,6 +33,8 @@ class MembershipSettingsController extends Controller
             'membership_reference_limit_total' => isset($data['reference_limit_total']) ? (string) $data['reference_limit_total'] : null,
             'membership_reference_limit_yearly' => isset($data['reference_limit_yearly']) ? (string) $data['reference_limit_yearly'] : null,
             'membership_reference_days' => (string) $data['reference_days'],
+            'membership_entry_fee' => $request->boolean('entry_fee') ? '1' : '0',
+            'membership_foreign_fields' => $request->boolean('foreign_fields') ? '1' : '0',
             'membership_photo_choice' => $request->boolean('photo_choice') ? '1' : '0',
             'membership_application_letter' => trim($sanitizer->sanitizePage($data['letter'] ?? '')) ?: null,
             'membership_application_instructions' => trim($sanitizer->sanitizePage($data['instructions'] ?? '')) ?: null,

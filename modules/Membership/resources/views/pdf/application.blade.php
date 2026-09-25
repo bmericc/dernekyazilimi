@@ -4,6 +4,9 @@
     $date = fn (?string $value) => $value ? \Illuminate\Support\Carbon::parse($value)->format('d/m/Y') : '___/___/_____';
     $membership = $application->membership;
     $foreign = $a('nationality_type') === 'foreign';
+    $year = $application->submitted_at->year;
+    $section = 0;
+    $extra = collect($application->data['fields'] ?? [])->filter(fn ($field) => ($field['value'] ?? null) !== null && $field['value'] !== '');
     $references = $application->currentReferences->where('status', '!=', \Modules\Membership\Models\MembershipReference::DECLINED)->values();
 @endphp
 <!doctype html>
@@ -41,7 +44,7 @@
         </tr>
     </table>
 
-    <div class="letter">{!! $settings->letter() !!}</div>
+    <div class="letter">{!! $settings->letter($year) !!}</div>
 
     <table class="sign">
         <tr>
@@ -50,7 +53,7 @@
         </tr>
     </table>
 
-    <h2>BÖLÜM 1: İLETİŞİM BİLGİLERİ <span style="font-weight: normal;">(Bu alan doldurulmak zorunludur)</span></h2>
+    <h2>BÖLÜM {{ ++$section }}: İLETİŞİM BİLGİLERİ <span style="font-weight: normal;">(Bu alan doldurulmak zorunludur)</span></h2>
     <table class="f">
         <tr><td class="l">Cinsiyet</td><td colspan="3">{{ $box($a('gender') === 'male') }} Erkek &nbsp;&nbsp;&nbsp; {{ $box($a('gender') === 'female') }} Kadın</td></tr>
         <tr><td class="l">Adı Soyadı</td><td colspan="3">{{ $a('first_name') }} {{ $a('last_name') }}</td></tr>
@@ -58,21 +61,36 @@
         <tr><td class="l">E-posta Adresi</td><td style="width: 40%;">{{ $a('email') }}</td><td class="l">Telefon Numarası</td><td>{{ $a('phone') }}</td></tr>
     </table>
 
-    <h2>BÖLÜM 2: NÜFUS BİLGİLERİ <span style="font-weight: normal;">(Bu alan doldurulmak zorunludur)</span></h2>
+    <h2>BÖLÜM {{ ++$section }}: NÜFUS BİLGİLERİ <span style="font-weight: normal;">(Bu alan doldurulmak zorunludur)</span></h2>
     <table class="f">
         <tr><td class="l">TC Kimlik No*</td><td style="width: 40%;">{{ $foreign ? '' : $a('identity_number') }}</td><td class="l">Tabiiyeti</td><td>{{ $a('nationality') }}</td></tr>
         <tr><td class="l">Anne Adı</td><td>{{ $a('mother_name') }}</td><td class="l">Doğum Tarihi</td><td>{{ $date($a('birthday')) }}</td></tr>
+        @if ($settings->askForeignFields())
         <tr><td class="g">YABANCI KİMLİK NO**</td><td>{{ $foreign ? $a('foreign_identity_number') : '' }}</td><td class="g">OTURMA İZNİ**</td><td>{{ $box($foreign && $a('residence_permit') === 'yes') }} Var &nbsp;&nbsp; {{ $box($foreign && $a('residence_permit') === 'no') }} Yok</td></tr>
         <tr>
             <td class="g">BELGE TÜRÜ**</td>
             <td>@foreach (\Modules\Membership\Models\MembershipApplication::DOCUMENT_TYPES as $key => $label){{ $box($foreign && $a('document_type') === $key) }} {{ $label }}@if ($key === 'other' && $foreign && $a('document_type') === 'other'): {{ $a('document_type_other') }}@endif &nbsp; @endforeach</td>
             <td class="g">BELGE NO**</td><td>{{ $foreign ? $a('document_number') : '' }}</td>
         </tr>
+        @endif
     </table>
-    <div class="note">* Sadece TC vatandaşları doldurur &nbsp;&nbsp;&nbsp;&nbsp; ** Sadece yabancılar doldurur.</div>
+    <div class="note">* Sadece TC vatandaşları doldurur @if ($settings->askForeignFields()) &nbsp;&nbsp;&nbsp;&nbsp; ** Sadece yabancılar doldurur.@endif</div>
+
+    @if ($extra->isNotEmpty())
+        <h2>BÖLÜM {{ ++$section }}: EK BİLGİLER</h2>
+        <table class="f">
+            @foreach ($extra->values()->chunk(2) as $pair)
+                <tr>
+                    @foreach ($pair as $field)
+                        <td class="l">{{ $field['label'] }}</td><td @if ($pair->count() === 1) colspan="3" @else style="width: 34%;" @endif>{{ $field['value'] }}</td>
+                    @endforeach
+                </tr>
+            @endforeach
+        </table>
+    @endif
 
     @if ($settings->referencesRequired() > 0)
-        <h2>BÖLÜM 3: REFERANS OLAN ÜYELERİMİZİN BİLGİLERİ <span style="font-weight: normal;">(Bu alan doldurulmak zorunludur)</span></h2>
+        <h2>BÖLÜM {{ ++$section }}: REFERANS OLAN ÜYELERİMİZİN BİLGİLERİ <span style="font-weight: normal;">(Bu alan doldurulmak zorunludur)</span></h2>
         <table class="f">
             @for ($i = 0; $i < max($settings->referencesRequired(), $references->count()); $i++)
                 @php($referee = $references[$i]->referee ?? null)
@@ -81,10 +99,10 @@
         </table>
     @endif
 
-    @if ($settings->instructions() || $settings->askPhotoChoice())
-        <h2>BÖLÜM {{ $settings->referencesRequired() > 0 ? 4 : 3 }}: BAŞVURU YÖNERGELERİ</h2>
+    @if ($settings->instructions($year) || $settings->askPhotoChoice())
+        <h2>BÖLÜM {{ ++$section }}: BAŞVURU YÖNERGELERİ</h2>
         <div class="box">
-            @if ($settings->instructions()){!! $settings->instructions() !!}@endif
+            @if ($settings->instructions($year)){!! $settings->instructions($year) !!}@endif
             @if ($settings->askPhotoChoice())
                 <p style="margin-top: 4pt;"><strong>Üye kartı ve dernek kullanımı için dijital fotoğraf:</strong><br>Adınıza üye kartı basımında ve derneğin çeşitli etkinliklerinde kullanılmak üzere vesikalık fotoğrafınızın taranmış kopyasına (4,5x6 cm boyutlarında, 300 dpi olarak, jpeg biçiminde) ihtiyaç duyulmaktadır. Fotoğrafınızı profil sayfanızdan yükleyebilirsiniz.</p>
                 @foreach (\Modules\Membership\Models\MembershipApplication::PHOTO_CHOICES as $key => $label)
@@ -94,7 +112,7 @@
         </div>
     @endif
 
-    <h2>BÖLÜM {{ 3 + ($settings->referencesRequired() > 0 ? 1 : 0) + ($settings->instructions() || $settings->askPhotoChoice() ? 1 : 0) }}: ÜYE KAYIT BİLGİLERİ*</h2>
+    <h2>BÖLÜM {{ ++$section }}: ÜYE KAYIT BİLGİLERİ*</h2>
     <table class="f">
         <tr><td class="l">Üye No</td><td style="width: 34%;">{{ $membership?->isActive() ? $membership->number : '' }}</td><td class="l">Takma Ad</td><td>{{ app(\App\Modules\ContactFields::class)->value('custom.nickname', $application->contact) }}</td></tr>
         <tr><td colspan="2" style="font-weight: bold;">ÜYELİK KARARININ</td><td colspan="2" style="font-weight: bold;">ÜYELİKTEN AYRILIŞ</td></tr>

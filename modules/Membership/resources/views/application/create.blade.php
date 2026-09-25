@@ -14,6 +14,17 @@
     <form method="POST" action="{{ route('membership.apply.store') }}" class="row row-cards">
         @csrf
 
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="markdown">{!! $settings->letter() !!}</div>
+                    @if ($fee = $settings->fees())
+                        <div class="text-secondary mt-2">{{ now()->year }} yılı için @if ($settings->chargesEntryFee() && $fee->entry_fee !== null) giriş aidatı {{ \Modules\Membership\Models\MembershipFee::format($fee->entry_fee) }}, @endif yıllık üyelik aidatı {{ \Modules\Membership\Models\MembershipFee::format($fee->annual_fee) }}.</div>
+                    @endif
+                </div>
+            </div>
+        </div>
+
         <div class="col-lg-6">
             <div class="card h-100">
                 <div class="card-header"><h3 class="card-title">İletişim bilgileri</h3></div>
@@ -53,6 +64,7 @@
                         <div class="col-md-6 mb-3"><label class="form-label required" for="mother_name">Anne adı</label><input id="mother_name" name="mother_name" class="form-control @error('mother_name') is-invalid @enderror" value="{{ $v('mother_name') }}" required>@error('mother_name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
                         <div class="col-md-6 mb-3"><label class="form-label required" for="birthday">Doğum tarihi</label><input id="birthday" type="date" name="birthday" class="form-control @error('birthday') is-invalid @enderror" value="{{ $v('birthday') }}" required>@error('birthday')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
                     </div>
+                    @if ($settings->askForeignFields())
                     <div class="row" data-foreign-only>
                         <div class="col-md-6 mb-3"><label class="form-label" for="foreign_identity_number">Yabancı kimlik no</label><input id="foreign_identity_number" name="foreign_identity_number" class="form-control @error('foreign_identity_number') is-invalid @enderror" value="{{ $v('foreign_identity_number') }}">@error('foreign_identity_number')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
                         <div class="col-md-6 mb-3"><div class="form-label">Oturma izni</div>@foreach (['yes' => 'Var', 'no' => 'Yok'] as $key => $label)<label class="form-check form-check-inline"><input type="radio" class="form-check-input" name="residence_permit" value="{{ $key }}" @checked($v('residence_permit') === $key)><span class="form-check-label">{{ $label }}</span></label>@endforeach @error('residence_permit')<div class="text-danger small">{{ $message }}</div>@enderror</div>
@@ -60,9 +72,23 @@
                         <div class="col-md-6 mb-3"><label class="form-label" for="document_number">Belge no</label><input id="document_number" name="document_number" class="form-control" value="{{ $v('document_number') }}">@error('document_number')<div class="text-danger small">{{ $message }}</div>@enderror</div>
                         <div class="col-12 mb-3"><input name="document_type_other" class="form-control" value="{{ $v('document_type_other') }}" placeholder="Belge türü diğer ise yazın">@error('document_type_other')<div class="text-danger small">{{ $message }}</div>@enderror</div>
                     </div>
+                    @endif
                 </div>
             </div>
         </div>
+
+        @if ($fields->isNotEmpty())
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header"><h3 class="card-title">Ek bilgiler</h3></div>
+                    <div class="card-body row">
+                        @foreach ($fields as $field)
+                            <div class="col-md-6"><x-custom-field-input :field="$field" :value="$values[$field->id] ?? null" /></div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+        @endif
 
         @if ($settings->referencesRequired() > 0)
             <div class="col-12">

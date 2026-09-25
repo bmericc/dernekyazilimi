@@ -50,8 +50,8 @@
                 <div class="card">
                     <div class="card-header"><h3 class="card-title">Sonraki adımlar</h3></div>
                     <div class="card-body">
-                        @if ($settings->instructions())
-                            <div class="markdown">{!! $settings->instructions() !!}</div>
+                        @if ($settings->instructions($application->submitted_at->year))
+                            <div class="markdown">{!! $settings->instructions($application->submitted_at->year) !!}</div>
                         @else
                             <p class="mb-0">Formu indirip imzalayın ve derneğe ulaştırın. Başvurunuz yönetim kurulunda değerlendirildikten sonra size e-posta ile bilgi verilir.</p>
                         @endif
