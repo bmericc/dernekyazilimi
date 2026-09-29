@@ -71,3 +71,6 @@ Route::middleware('auth')->group(function () {
     Route::put('/my-consents', [App\Http\Controllers\ConsentController::class, 'update'])->name('my-consents.update');
     Route::get('/photos/{photo}', [App\Http\Controllers\PhotoController::class, 'show'])->name('photos.show');
 });
+
+// Card payment gateways return the payer here (no session, no CSRF token).
+Route::post('/payments/callback/{gateway}', App\Http\Controllers\PaymentCallbackController::class)->middleware('throttle:30,1')->name('payments.callback');

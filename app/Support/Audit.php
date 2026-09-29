@@ -15,7 +15,7 @@ use Throwable;
 class Audit
 {
     /** Never stored. */
-    private const HIDDEN = ['password', 'remember_token', 'verification_code', 'verify_token', 'created_at', 'updated_at', 'deleted_at'];
+    private const HIDDEN = ['password', 'remember_token', 'verification_code', 'verify_token', 'gateway_token', 'gateway_response', 'credentials', 'created_at', 'updated_at', 'deleted_at'];
 
     /** Stored masked: personal identifiers. */
     private const MASKED = ['national_id', 'identity_number'];
@@ -34,6 +34,9 @@ class Audit
         \App\Models\Tag::class => 'Etiket',
         \App\Models\CustomField::class => 'Özel alan',
         \App\Models\CustomFieldValue::class => 'Özel alan değeri',
+        \App\Models\Payment::class => 'Ödeme',
+        \App\Models\BankAccount::class => 'Banka hesabı',
+        \App\Models\PaymentGateway::class => 'Ödeme sistemi',
         \Modules\IdCard\Models\IdCard::class => 'Kimlik kartı',
         \Modules\Membership\Models\Membership::class => 'Üyelik',
         \Modules\IdCard\Models\IdCardTemplate::class => 'Kart şablonu',
