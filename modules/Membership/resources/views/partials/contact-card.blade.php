@@ -128,3 +128,25 @@
         @endif
     @endif
 </div>
+
+@php($applications = \Modules\Membership\Models\MembershipApplication::where('contact_id', $contact->id)->latest('id')->get())
+@php($given = \Modules\Membership\Models\MembershipReference::with('applicant', 'application')->where('referee_contact_id', $contact->id)->where('status', '!=', \Modules\Membership\Models\MembershipReference::WITHDRAWN)->latest('id')->get())
+@if ($applications->isNotEmpty() || $given->isNotEmpty())
+    <div class="card mb-3">
+        <div class="card-header"><h3 class="card-title">Başvurular ve referanslar</h3></div>
+        <div class="list-group list-group-flush">
+            @foreach ($applications as $application)
+                <a href="{{ route('admin.membership-applications.show', $application) }}" class="list-group-item list-group-item-action">
+                    Başvuru {{ $application->reference_no }} · {{ $application->submitted_at->format('d.m.Y') }}
+                    <span class="badge bg-{{ \Modules\Membership\Models\MembershipApplication::STATUS_COLORS[$application->status] }}-lt ms-1">{{ $application->statusLabel() }}</span>
+                </a>
+            @endforeach
+            @foreach ($given as $reference)
+                <a href="{{ route('admin.membership-applications.show', $reference->application_id) }}" class="list-group-item list-group-item-action">
+                    Referans: {{ $reference->applicant?->display_name }} ({{ $reference->application->reference_no }}) · {{ $reference->invited_at->format('d.m.Y') }}
+                    <span class="badge bg-{{ $reference->statusColor() }}-lt ms-1">{{ $reference->statusLabel() }}</span>
+                </a>
+            @endforeach
+        </div>
+    </div>
+@endif

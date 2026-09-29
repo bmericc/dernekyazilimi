@@ -4,6 +4,8 @@ namespace Database\Seeders;
 
 use App\Support\Organization;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -42,6 +44,25 @@ class LkdOrganizationSeeder extends Seeder
             // (members are planned to move to linux.org.tr).
             'mail_forwarding_domains' => json_encode(['volunteer' => 'penguen.org.tr', 'member' => 'penguen.org.tr']),
             'mail_forwarding_label' => 'Gönüllü e-posta adresi',
+            // Membership application form (LKD_Yeni_Uye_Formu_v4.2): two member
+            // references, at most five in total and one per calendar year per
+            // member. Applications stay closed until opened in the settings.
+            'membership_applications_open' => '0',
+            'membership_references_required' => '2',
+            'membership_entry_fee' => '1',
+            'membership_reference_limit_total' => '5',
+            'membership_reference_limit_yearly' => '1',
+            'membership_application_letter' => '<p>{dernek} Başkanlığına,</p>'
+                ."<p>LKD'nin amaç ve yükümlülüklerini benimsediğim için üye olmak istiyorum. Dernek üyesi referanslarımın bilgisi dahilinde gerekli olan bilgileri doğru olarak doldurdum. Yıllık üyelik aidatının yarısı olan giriş aidatı ödentimin dekontu ilişiktedir. ({yil} yılı için giriş aidatı {giris_aidati} ve üyelik aidatı {yillik_aidat} olarak belirlenmiştir)</p>"
+                ."<p>Kişisel Verileri Koruma Kanunu (KVKK) kapsamında, LKD'ye sağladığım verilerin saklanması ve işlenmesi hakkında bilgilendirme amacıyla https://www.lkd.org.tr/kvkk adresinde yayımlanan \"Kişisel Verileri Koruma Kanunu Hakkında Aydınlatma Metni\"ni okudum, anladım ve şartlarını kabul ediyorum.</p>"
+                .'<p>Gereğinin yapılmasını dilerim.</p>',
+            'membership_application_instructions' => '<ol>'
+                .'<li>Doldurulmuş formu e-Devlet (https://www.turkiye.gov.tr/icisleri-dernek-uyelik-basvurusu) üzerinden derneğe gönderin.</li>'
+                .'<li>Referans olarak yazdığınız kişilerden size referans olduklarının teyidi alınacaktır.</li>'
+                .'<li>Giriş aidatı ve yıllık üyelik aidatının ödenmesi ile size e-posta üzerinden bildirim yapılacaktır.</li>'
+                .'<li>Referanslarından onay alınmış ve giriş aidatını ödemiş kişiler Yönetim Kurulu tarafından değerlendirilip üyeliğe kabul ya da red edilecektir.</li>'
+                .'<li>Süreç tamamlandığında en geç 1 (bir) ay içinde e-posta yoluyla dönüş yapılacaktır.</li>'
+                .'</ol>',
         ];
 
         if (! $organization->get('logo_path') && is_file($logo = public_path('images/lkd-gonullusu.png'))) {
@@ -51,6 +72,12 @@ class LkdOrganizationSeeder extends Seeder
         }
 
         $organization->save(array_filter($values, fn ($value, $key) => $organization->get($key) === null, ARRAY_FILTER_USE_BOTH));
+
+        // Dues from the membership form v4.2; earlier years are entered at
+        // /admin/membership-fees.
+        if (Schema::hasTable('membership_fees') && ! DB::table('membership_fees')->exists()) {
+            DB::table('membership_fees')->insert(['year' => 2025, 'entry_fee' => 150, 'annual_fee' => 300, 'note' => 'Üye başvuru formu v4.2', 'created_at' => now(), 'updated_at' => now()]);
+        }
 
         $this->call(LkdAgreementSeeder::class);
     }
