@@ -48,6 +48,7 @@ class ApplicationController extends Controller
                 'phone' => $user->phone_number,
                 'identity_number' => $user->national_id,
                 'birthday' => $user->birthday?->toDateString(),
+                'gender' => $user->contact?->gender,
                 'nationality' => 'T.C.',
                 'nationality_type' => 'tr',
             ],

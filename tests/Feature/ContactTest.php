@@ -91,4 +91,45 @@ class ContactTest extends TestCase
         $this->assertSame('Linux Kullanıcıları Derneği', $contact->display_name);
         $this->assertNull($contact->user);
     }
+
+    public function test_gender_is_kept_on_the_contact_from_the_profile_and_the_admin_form(): void
+    {
+        DB::table('cities')->insert(['id' => 34, 'city_name' => 'İstanbul', 'city_plate_no' => 34, 'city_phone_code' => 212]);
+        $user = User::factory()->create(['birthday' => '1990-01-01']);
+
+        $this->actingAs($user)->get('/my-infos')->assertOk()->assertSee('Cinsiyet');
+        $this->actingAs($user)->post('/my-infos', ['city' => 34, 'gender' => 'other'])->assertSessionHasErrors('gender');
+        $this->actingAs($user)->post('/my-infos', ['city' => 34, 'gender' => 'female'])->assertSessionHasNoErrors();
+        $this->assertSame('female', $user->contact->fresh()->gender);
+
+        // Saving the account again keeps it (the account has no gender of its own).
+        $user->update(['name' => 'Ada']);
+        $this->assertSame('Kadın', $user->contact->fresh()->genderLabel());
+
+        $owner = User::factory()->create(['role' => 1]);
+        $this->actingAs($owner)->post('/admin/contacts', ['type' => 'person', 'first_name' => 'Alan', 'last_name' => 'Turing', 'gender' => 'male'])->assertSessionHasNoErrors();
+        $contact = Contact::where('last_name', 'Turing')->sole();
+        $this->assertSame('male', $contact->gender);
+        $this->actingAs($owner)->get("/admin/contacts/{$contact->id}")->assertSee('Erkek');
+        $this->actingAs($owner)->put("/admin/contacts/{$contact->id}", ['type' => 'organization', 'organization_name' => 'Turing Ltd', 'gender' => 'male']);
+        $this->assertNull($contact->fresh()->gender);
+    }
+
+    public function test_the_gender_migration_takes_what_is_already_known(): void
+    {
+        $fromApplication = Contact::create(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+        $fromField = Contact::create(['first_name' => 'Alan', 'last_name' => 'Turing']);
+        $migration = require database_path('migrations/2026_09_30_120000_add_gender_to_contacts.php');
+        $migration->down();
+
+        $membership = DB::table('memberships')->insertGetId(['contact_id' => $fromApplication->id, 'status' => 'applicant']);
+        DB::table('membership_applications')->insert(['membership_id' => $membership, 'contact_id' => $fromApplication->id, 'reference_no' => '2026-0001', 'status' => 'ready', 'data' => json_encode(['gender' => 'female']), 'submitted_at' => now()]);
+        $field = DB::table('custom_fields')->insertGetId(['key' => 'cinsiyet', 'label' => 'Cinsiyet', 'type' => 'select', 'group' => 'personal']);
+        DB::table('custom_field_values')->insert(['custom_field_id' => $field, 'contact_id' => $fromField->id, 'value' => 'ERKEK']);
+
+        $migration->up();
+
+        $this->assertSame('female', $fromApplication->fresh()->gender);
+        $this->assertSame('male', $fromField->fresh()->gender);
+    }
 }

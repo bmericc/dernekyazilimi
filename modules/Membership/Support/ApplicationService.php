@@ -109,6 +109,7 @@ class ApplicationService
     {
         return DB::transaction(function () use ($user, $data, $referees) {
             $contact = $user->syncContact();
+            $contact->update(['gender' => $data['gender'] ?? $contact->gender]);
             $membership = Membership::firstOrNew(['contact_id' => $contact->id]);
             $membership->fill(['status' => Membership::APPLICANT, 'applied_at' => today()])->save();
 

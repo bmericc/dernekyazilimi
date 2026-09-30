@@ -58,6 +58,8 @@
                         @unless ($contact->isOrganization())
                             <dt class="col-5">Doğum tarihi</dt>
                             <dd class="col-7">{{ $contact->birthday?->format('d.m.Y') ?: '—' }}</dd>
+                            <dt class="col-5">Cinsiyet</dt>
+                            <dd class="col-7">{{ $contact->genderLabel() ?? '—' }}</dd>
                         @endunless
                         <dt class="col-5">Hesap</dt>
                         <dd class="col-7">{{ $contact->user ? 'Var' : 'Yok' }}</dd>

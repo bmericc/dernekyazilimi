@@ -48,7 +48,7 @@ class DerbisImport
     ];
 
     /** Columns without a place of their own; they can go to custom fields. */
-    public const EXTRA = ['gender', 'profession', 'education', 'website', 'member_type', 'honorary'];
+    public const EXTRA = ['profession', 'education', 'website', 'member_type', 'honorary'];
 
     private const REQUIRED = ['name', 'identity', 'status'];
 
@@ -63,6 +63,7 @@ class DerbisImport
         'email' => 'E-posta',
         'phone' => 'Telefon',
         'birthday' => 'Doğum tarihi',
+        'gender' => 'Cinsiyet',
     ];
 
     /** Account columns that feed the contact (User::syncContact()). */
@@ -267,6 +268,15 @@ class DerbisImport
             $item['warnings'][] = 'Telefon okunamadı: '.$record['phone'];
         }
 
+        $item['gender'] = match ($this->lower((string) $record['gender'])) {
+            'kadın', 'kadin', 'k' => 'female',
+            'erkek', 'e' => 'male',
+            default => null,
+        };
+        if ($record['gender'] !== null && $item['gender'] === null) {
+            $item['warnings'][] = 'Cinsiyet anlaşılamadı: '.$record['gender'];
+        }
+
         $item['membership_status'] = match ($this->lower((string) $record['status'])) {
             'aktif' => Membership::ACTIVE,
             'pasif' => Membership::LEFT,
@@ -381,6 +391,7 @@ class DerbisImport
             'email' => $item['email'],
             'phone' => $item['phone'],
             'birthday' => $item['organization'] ? null : $item['birthday'],
+            'gender' => $item['organization'] ? null : $item['gender'],
         ];
     }
 

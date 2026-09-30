@@ -210,6 +210,7 @@ class ApplicationTest extends TestCase
         $this->actingAs($applicant)->post('/membership/apply', $this->form(['references' => null]))->assertSessionHasNoErrors();
         $application = MembershipApplication::sole();
         $this->assertSame(MembershipApplication::READY, $application->status);
+        $this->assertSame('female', $applicant->contact->fresh()->gender);
 
         $owner = User::factory()->create(['role' => 1]);
         $this->actingAs($owner)->get('/admin/membership-applications')->assertOk()->assertSee($application->reference_no);

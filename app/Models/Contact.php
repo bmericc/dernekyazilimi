@@ -31,8 +31,11 @@ class Contact extends Model
         'email',
         'phone',
         'birthday',
+        'gender',
         'city_id',
     ];
+
+    public const GENDERS = ['female' => 'Kadın', 'male' => 'Erkek'];
 
     protected $attributes = [
         'type' => self::TYPE_PERSON,
@@ -120,6 +123,11 @@ class Contact extends Model
     {
         $this->affiliations()->active()->ofType($key)->get()
             ->each(fn (ContactAffiliation $affiliation) => $affiliation->update(['ended_at' => today()]));
+    }
+
+    public function genderLabel(): ?string
+    {
+        return self::GENDERS[$this->gender] ?? null;
     }
 
     public function isOrganization(): bool

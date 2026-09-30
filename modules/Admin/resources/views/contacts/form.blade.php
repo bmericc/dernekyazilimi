@@ -68,6 +68,16 @@
                     <input id="contact_birthday" name="birthday" type="date" class="form-control @error('birthday') is-invalid @enderror" value="{{ old('birthday', $contact->birthday?->toDateString()) }}">
                     @error('birthday')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
+                <div class="col-md-6 mb-3" data-for-type="person" @if ($organization) hidden @endif>
+                    <label for="contact_gender" class="form-label">Cinsiyet</label>
+                    <select id="contact_gender" name="gender" class="form-select @error('gender') is-invalid @enderror">
+                        <option value="">—</option>
+                        @foreach (\App\Models\Contact::GENDERS as $key => $label)
+                            <option value="{{ $key }}" @selected(old('gender', $contact->gender) === $key)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                    @error('gender')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
             </div>
 
             <div class="row">

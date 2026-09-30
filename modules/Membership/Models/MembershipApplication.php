@@ -40,6 +40,7 @@ class MembershipApplication extends Model
     ];
 
     public const GENDERS = ['male' => 'Erkek', 'female' => 'Kadın'];
+    // Same keys as Contact::GENDERS; the answer is also kept on the contact.
 
     public const DOCUMENT_TYPES = ['id_card' => 'Kimlik Kartı', 'passport' => 'Pasaport', 'other' => 'Diğer'];
 

@@ -7,8 +7,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Validation\Rule;
 
 use App\Events\ProfileUpdated;
+use App\Models\Contact;
 use App\Models\User;
 use App\Models\Cities;
 
@@ -85,6 +87,7 @@ class UserController extends Controller
             'city' => ['required', 'integer', 'exists:cities,id'],
             'birthday' => ['nullable', 'date', 'required_with:national_id'],
             'national_id' => ['nullable', 'digits:11'],
+            'gender' => ['nullable', Rule::in(array_keys(Contact::GENDERS))],
         ]);
 
         $user->name = $this->tr_ucwords($user->name);
@@ -117,6 +120,11 @@ class UserController extends Controller
         }
 
         $user->save();
+
+        // Gender lives on the contact only (the account has no such column).
+        if ($request->has('gender')) {
+            $user->syncContact()->update(['gender' => $request->input('gender') ?: null]);
+        }
 
         $event = new ProfileUpdated($user);
         event($event);
