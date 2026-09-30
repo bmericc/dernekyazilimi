@@ -73,6 +73,8 @@ class FonzipImportCommand extends Command
         $plan = $import->plan($snapshot);
         $this->table(['Kişiler', 'Sayı'], collect($plan['counts'])->map(fn ($count, $action) => [$action, $count])->values());
         $this->table(['Üyelik', 'Sayı'], collect($plan['memberships'])->map(fn ($count, $action) => [$action, $count])->values());
+        $this->table(['Hesap', 'Sayı'], collect($plan['accounts'])->map(fn ($count, $action) => [$action, $count])->values());
+        $this->table(['Yönlendirme', 'Sayı'], collect($plan['forwardings'])->map(fn ($count, $action) => [$action, $count])->values());
         $this->table(['Kayıt', 'Toplam', 'Yeni', 'Zaten aktarılmış', 'Kişisi yok', 'Tutar'], collect($plan['finance'])
             ->map(fn ($row, $kind) => [$kind, $row['total'], $row['new'], $row['linked'], $row['orphan'], number_format($row['amount'], 2, ',', '.')])->values());
 
