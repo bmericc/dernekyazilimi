@@ -94,7 +94,6 @@ class ContactTest extends TestCase
 
     public function test_gender_is_kept_on_the_contact_from_the_profile_and_the_admin_form(): void
     {
-        DB::table('cities')->insert(['id' => 34, 'city_name' => 'İstanbul', 'city_plate_no' => 34, 'city_phone_code' => 212]);
         $user = User::factory()->create(['birthday' => '1990-01-01']);
 
         $this->actingAs($user)->get('/my-infos')->assertOk()->assertSee('Cinsiyet');
@@ -131,5 +130,20 @@ class ContactTest extends TestCase
 
         $this->assertSame('female', $fromApplication->fresh()->gender);
         $this->assertSame('male', $fromField->fresh()->gender);
+    }
+
+    public function test_the_city_list_is_filled_once(): void
+    {
+        $this->assertSame(86, DB::table('cities')->count());
+        $this->assertSame('İstanbul', DB::table('cities')->where('city_plate_no', 34)->value('city_name'));
+
+        // A filled table (an installation's own list) is left as it is.
+        DB::table('cities')->where('id', 34)->update(['city_name' => 'İstanbul (Avrupa)']);
+        (require database_path('migrations/2026_09_30_130000_fill_cities.php'))->up();
+        $this->assertSame(86, DB::table('cities')->count());
+        $this->assertSame('İstanbul (Avrupa)', DB::table('cities')->where('id', 34)->value('city_name'));
+
+        $user = User::factory()->create();
+        $this->actingAs($user)->get('/my-infos')->assertOk()->assertSee('<option value="34"', false)->assertSee('Lefkoşa, KKTC');
     }
 }
