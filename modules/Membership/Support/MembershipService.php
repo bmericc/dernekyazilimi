@@ -18,29 +18,28 @@ use Modules\Membership\Models\Membership;
 class MembershipService
 {
     /**
-     * The next free numeric member number.
+     * The largest numeric member number in use, shown as a hint when
+     * numbers are typed in; numbers are never given automatically.
      */
-    public function nextNumber(): string
+    public function highestNumber(): ?string
     {
         $max = Membership::whereNotNull('number')->pluck('number')
             ->filter(fn ($number) => ctype_digit((string) $number))
             ->map(fn ($number) => (int) $number)
             ->max();
 
-        return (string) (($max ?? 0) + 1);
+        return $max === null ? null : (string) $max;
     }
 
     /**
-     * Members without a number and the number each would get: by joining
-     * date, then board decision date (unknown dates last), from the next
-     * free number on.
+     * Members without a number, by joining date, then board decision date
+     * (unknown dates last).
      *
-     * @return Collection<int, array{membership: Membership, number: string}>
+     * @return Collection<int, Membership>
      */
-    public function numberingPlan(bool $includeLeft = false): Collection
+    public function numberless(bool $includeLeft = false): Collection
     {
         $statuses = $includeLeft ? [Membership::ACTIVE, Membership::SUSPENDED, Membership::LEFT] : [Membership::ACTIVE, Membership::SUSPENDED];
-        $next = (int) $this->nextNumber();
 
         return Membership::with('contact')
             ->whereIn('status', $statuses)
@@ -48,23 +47,21 @@ class MembershipService
             ->orderByRaw('joined_at is null')->orderBy('joined_at')
             ->orderByRaw('decision_date is null')->orderBy('decision_date')
             ->orderBy('id')
-            ->get()
-            ->map(function (Membership $membership) use (&$next) {
-                return ['membership' => $membership, 'number' => (string) $next++];
-            });
+            ->get();
     }
 
     /**
-     * Give the members of numberingPlan() their numbers; each change goes
-     * into the membership history.
+     * Numbers typed in by management; each goes into the membership history.
+     *
+     * @param  array<int, string>  $numbers  membership id => number
      */
-    public function assignNumbers(bool $includeLeft = false): int
+    public function assignNumbers(array $numbers): int
     {
-        return DB::transaction(function () use ($includeLeft) {
-            $plan = $this->numberingPlan($includeLeft);
-            $plan->each(fn (array $row) => $this->changeNumber($row['membership'], $row['number']));
+        return DB::transaction(function () use ($numbers) {
+            $memberships = Membership::whereIn('id', array_keys($numbers))->get();
+            $memberships->each(fn (Membership $membership) => $this->changeNumber($membership, $numbers[$membership->id]));
 
-            return $plan->count();
+            return $memberships->count();
         });
     }
 

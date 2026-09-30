@@ -85,24 +85,33 @@ class MembershipController extends Controller
     }
 
     /**
-     * Numbers for members without one: preview, then assign.
+     * Members without a number, to type their numbers in.
      */
     public function numbers(Request $request, MembershipService $service): View
     {
         $includeLeft = $request->boolean('left');
 
         return view('membership::admin.numbers', [
-            'plan' => $service->numberingPlan($includeLeft),
+            'memberships' => $service->numberless($includeLeft),
+            'highest' => $service->highestNumber(),
             'includeLeft' => $includeLeft,
         ]);
     }
 
     public function assignNumbers(Request $request, MembershipService $service): RedirectResponse
     {
-        $count = $service->assignNumbers($request->boolean('left'));
+        $request->merge(['numbers' => array_map(fn ($number) => is_string($number) ? trim($number) : $number, (array) $request->input('numbers', []))]);
+        $numbers = array_filter($request->validate([
+            'numbers' => ['array'],
+            'numbers.*' => ['nullable', 'string', 'max:20', 'distinct', Rule::unique('memberships', 'number')],
+        ], ['numbers.*.distinct' => ':input numarası birden fazla üyeye yazılmış.', 'numbers.*.unique' => ':input numarası başka bir üyede var.'], ['numbers.*' => 'Üye no'])['numbers'] ?? [], fn ($number) => $number !== null && $number !== '');
+
+        // Only members still without a number; a number is changed on the contact page.
+        $numbers = array_intersect_key($numbers, $service->numberless(true)->keyBy('id')->all());
+        $count = $service->assignNumbers($numbers);
         $this->set_log('change', "Üye numarası verildi ({$count} üye)");
 
-        return redirect()->route('admin.memberships.numbers')->with('success-status', "{$count} üyeye numara verildi.");
+        return redirect()->route('admin.memberships.numbers', $request->boolean('left') ? ['left' => 1] : [])->with('success-status', "{$count} üyeye numara verildi.");
     }
 
     public function event(Request $request, Membership $membership, MembershipService $service): RedirectResponse

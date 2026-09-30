@@ -20,7 +20,8 @@
                     @csrf
                     <div class="col-md-3">
                         <label class="form-label" for="membership-number">Üye no</label>
-                        <input id="membership-number" name="number" class="form-control" maxlength="20" value="{{ old('number', app(\Modules\Membership\Support\MembershipService::class)->nextNumber()) }}">
+                        @php($highest = app(\Modules\Membership\Support\MembershipService::class)->highestNumber())
+                        <input id="membership-number" name="number" class="form-control" maxlength="20" value="{{ old('number') }}" @if ($highest) placeholder="En büyük: {{ $highest }}" @endif>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label" for="membership-joined">Katılma tarihi</label>

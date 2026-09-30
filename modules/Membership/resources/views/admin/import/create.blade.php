@@ -22,15 +22,10 @@
             <h3 class="mt-4">Eşleştirme</h3>
             <p class="text-secondary">Satırlar kişilere önce T.C. kimlik numarasıyla (tüzel üyede tüzel numarasıyla), bulunamazsa e-postayla eşleştirilir. Eşleşmeyen satırlar için hesapsız yeni kişi açılır; bu kişiler daha sonra hesaplarını <code>/activate</code> sayfasından etkinleştirebilir.</p>
 
-            <label class="form-check mb-2">
+            <label class="form-check mb-3">
                 <input type="checkbox" class="form-check-input" name="overwrite" value="1" @checked(old('overwrite'))>
                 <span class="form-check-label">Dolu alanları da DERBİS'teki değerle değiştir</span>
                 <span class="form-check-description">İşaretlenmezse yalnız boş alanlar doldurulur. Hesabı olan kişilerin bilgileri her durumda yalnız boşsa doldurulur, e-postaları hiç değişmez.</span>
-            </label>
-            <label class="form-check mb-3">
-                <input type="checkbox" class="form-check-input" name="assign_numbers" value="1" @checked(old('assign_numbers'))>
-                <span class="form-check-label">Yeni üyelere sıradaki üye numarasını ver</span>
-                <span class="form-check-description">DERBİS listesinde üye numarası yoktur. İşaretlenmezse yeni üyelik kayıtları numarasız açılır, numara sonra kişi sayfasından verilir.</span>
             </label>
 
             <h3 class="mt-4">Ek sütunlar</h3>

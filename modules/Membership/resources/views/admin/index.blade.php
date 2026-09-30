@@ -9,7 +9,7 @@
         </div>
         @if (Auth::user()->hasPermission('memberships.manage'))
             <div class="btn-list">
-                <a href="{{ route('admin.memberships.numbers') }}" class="btn btn-outline-primary">Üye numarası ver</a>
+                <a href="{{ route('admin.memberships.numbers') }}" class="btn btn-outline-primary">Numarasız üyeler</a>
                 <a href="{{ route('admin.memberships.import') }}" class="btn btn-outline-primary">DERBİS'ten aktar</a>
             </div>
         @endif
