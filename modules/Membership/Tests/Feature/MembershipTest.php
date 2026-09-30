@@ -103,4 +103,37 @@ class MembershipTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => 1]))->get('/admin/memberships')->assertOk()->assertSee('Ada Lovelace');
         $this->actingAs(User::factory()->create(['role' => 2]))->get('/admin/memberships')->assertForbidden();
     }
+
+    public function test_members_without_a_number_get_one_by_joining_and_decision_date(): void
+    {
+        $member = fn (string $name, ?string $joined, ?string $decision = null, string $status = Membership::ACTIVE, ?string $number = null) => Membership::create([
+            'contact_id' => Contact::create(['first_name' => $name, 'last_name' => 'Üye'])->id,
+            'number' => $number, 'status' => $status, 'joined_at' => $joined, 'decision_date' => $decision,
+        ]);
+        $member('Numaralı', '2010-01-01', number: '41');
+        $member('Metinli', null, number: 'A-7');
+        $late = $member('Geç', '2020-05-01');
+        $sameDayLater = $member('İkinci', '2015-03-01', '2015-02-20');
+        $sameDayFirst = $member('Birinci', '2015-03-01', '2015-02-10');
+        $unknown = $member('Tarihsiz', null);
+        $suspended = $member('Askıda', '2018-01-01', status: Membership::SUSPENDED);
+        $left = $member('Ayrılmış', '2012-01-01', status: Membership::LEFT);
+        $member('Aday', '2011-01-01', status: Membership::APPLICANT);
+
+        $owner = User::factory()->create(['role' => 1]);
+        $this->actingAs($owner)->get('/admin/memberships/numbers')->assertOk()
+            ->assertSeeInOrder(['<code>42</code>', 'Birinci Üye', '<code>43</code>', 'İkinci Üye', '<code>44</code>', 'Askıda Üye', '<code>45</code>', 'Geç Üye', '<code>46</code>', 'Tarihsiz Üye'], false)
+            ->assertDontSee('Ayrılmış Üye')->assertDontSee('Aday Üye');
+        $this->actingAs($owner)->get('/admin/memberships/numbers?left=1')->assertSeeInOrder(['<code>42</code>', 'Ayrılmış Üye', '<code>43</code>', 'Birinci Üye'], false);
+
+        $this->actingAs($owner)->post('/admin/memberships/numbers')->assertSessionHas('success-status', '5 üyeye numara verildi.');
+
+        $this->assertSame(['42', '43', '44', '45', '46'], [$sameDayFirst->fresh()->number, $sameDayLater->fresh()->number, $suspended->fresh()->number, $late->fresh()->number, $unknown->fresh()->number]);
+        $this->assertNull($left->fresh()->number);
+        $this->assertSame('number_changed', $late->events()->value('type'));
+
+        $this->actingAs($owner)->post('/admin/memberships/numbers', ['left' => '1'])->assertSessionHas('success-status', '1 üyeye numara verildi.');
+        $this->assertSame('47', $left->fresh()->number);
+        $this->actingAs($owner)->get('/admin/memberships/numbers')->assertSee('Numarasız üye yok.');
+    }
 }

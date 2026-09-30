@@ -84,6 +84,27 @@ class MembershipController extends Controller
         return back()->with('success-status', 'Üyelik durumu: '.Membership::STATUSES[$data['status']].'.');
     }
 
+    /**
+     * Numbers for members without one: preview, then assign.
+     */
+    public function numbers(Request $request, MembershipService $service): View
+    {
+        $includeLeft = $request->boolean('left');
+
+        return view('membership::admin.numbers', [
+            'plan' => $service->numberingPlan($includeLeft),
+            'includeLeft' => $includeLeft,
+        ]);
+    }
+
+    public function assignNumbers(Request $request, MembershipService $service): RedirectResponse
+    {
+        $count = $service->assignNumbers($request->boolean('left'));
+        $this->set_log('change', "Üye numarası verildi ({$count} üye)");
+
+        return redirect()->route('admin.memberships.numbers')->with('success-status', "{$count} üyeye numara verildi.");
+    }
+
     public function event(Request $request, Membership $membership, MembershipService $service): RedirectResponse
     {
         $data = $request->validate([

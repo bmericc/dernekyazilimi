@@ -25,6 +25,8 @@ Route::middleware('permission:memberships.manage')->group(function () {
     Route::post('/membership-references/{reference}/resend', [ApplicationAdminController::class, 'resend'])->middleware('throttle:10,1')->name('membership-references.resend');
     Route::get('/memberships/settings', [MembershipSettingsController::class, 'edit'])->name('memberships.settings');
     Route::put('/memberships/settings', [MembershipSettingsController::class, 'update'])->name('memberships.settings.update');
+    Route::get('/memberships/numbers', [MembershipController::class, 'numbers'])->name('memberships.numbers');
+    Route::post('/memberships/numbers', [MembershipController::class, 'assignNumbers'])->name('memberships.numbers.store');
     Route::get('/memberships/import', [DerbisImportController::class, 'create'])->name('memberships.import');
     Route::post('/memberships/import', [DerbisImportController::class, 'store'])->name('memberships.import.store');
     Route::get('/memberships/import/preview', [DerbisImportController::class, 'preview'])->name('memberships.import.preview');

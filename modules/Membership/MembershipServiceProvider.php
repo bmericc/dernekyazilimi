@@ -36,6 +36,7 @@ class MembershipServiceProvider extends ModuleServiceProvider
         $menu->add('admin', 'membership', 'Başvuru ayarları', 'admin.memberships.settings', ['memberships.manage'], 22);
         $menu->add('admin', 'membership', 'Aidat tutarları', 'admin.membership-fees', ['memberships.manage'], 23);
         $menu->add('admin', 'membership', 'DERBİS\'ten aktar', 'admin.memberships.import', ['memberships.manage'], 24);
+        $menu->add('admin', 'membership', 'Üye numarası ver', 'admin.memberships.numbers', ['memberships.manage'], 25);
 
         // Applying: open to signed-in people who are not members yet.
         $menu->label('user', 'membership', 'Üyelik', 'id');
