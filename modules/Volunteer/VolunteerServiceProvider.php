@@ -3,6 +3,7 @@
 namespace Modules\Volunteer;
 
 use App\Events\DashboardVisited;
+use App\Support\Organization;
 use App\Modules\Menu;
 use App\Modules\ModuleServiceProvider;
 use App\Modules\Slots;
@@ -34,7 +35,7 @@ class VolunteerServiceProvider extends ModuleServiceProvider
 
         $slots->push('welcome.intro', 'volunteer::partials.welcome');
 
-        View::composer('welcome', fn ($view) => $view->with('title', 'Linux Kullanıcıları Derneği Gönüllüsü Nedir?'));
+        View::composer(['welcome', 'admin::settings.organization'], fn ($view) => $view->with('defaultHomeTitle', app(Organization::class)->name().' Gönüllüsü Nedir?'));
 
         // A member (active member affiliation) is not counted as a volunteer.
         $memberContacts = fn () => ContactAffiliation::active()->ofType(AffiliationType::MEMBER)->select('contact_id');

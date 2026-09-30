@@ -16,6 +16,14 @@
 
     @include('admin::partials.status')
 
+    @if ($errors->any())
+        {{-- The form is long; say at the top that nothing was saved. --}}
+        <div class="alert alert-danger" role="alert">
+            Ayarlar kaydedilmedi, aşağıdaki hataları düzeltip yeniden kaydedin:
+            <ul class="mb-0">@foreach ($errors->all() as $message)<li>{{ $message }}</li>@endforeach</ul>
+        </div>
+    @endif
+
     <form method="POST" action="{{ route('admin.settings.organization.update') }}" enctype="multipart/form-data">
         @csrf @method('PUT')
 
@@ -125,12 +133,14 @@
                 <div class="card">
                     <div class="card-header"><h3 class="card-title">Ana sayfa</h3></div>
                     <div class="card-body">
-                        {{ $input('home_title', 'Başlık', 'text', 'Boşsa kurum adı gösterilir.') }}
+                        @php($homeTitle = $defaultHomeTitle ?? $organization->name())
+                        {{ $input('home_title', 'Başlık', 'text', "Boşsa \"{$homeTitle}\" gösterilir.", $homeTitle) }}
+                        @php($homeDefault = old('home_content') === null && ! $organization->get('home_content'))
                         <div class="mb-1">
                             <label for="home_content" class="form-label">İçerik</label>
-                            <textarea id="home_content" name="home_content" rows="14" class="wysiwyg form-control @error('home_content') is-invalid @enderror" data-upload-url="{{ route('admin.settings.organization.images') }}">{{ $value('home_content') }}</textarea>
+                            <textarea id="home_content" name="home_content" rows="14" class="wysiwyg form-control @error('home_content') is-invalid @enderror" data-upload-url="{{ route('admin.settings.organization.images') }}" @if ($homeDefault) data-home-default @endif>{{ $homeDefault ? trim(view('partials.home-default')->render()) : $value('home_content') }}</textarea>
                             @error('home_content')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                            <div class="form-hint">Giriş yapmamış ziyaretçilerin gördüğü ana sayfa. Boşsa logo ve modüllerin tanıtım metni gösterilir. Açık modüllerin bölümleri (ör. temsilcilikler) içeriğin altında görünmeye devam eder.</div>
+                            <div class="form-hint">Giriş yapmamış ziyaretçilerin gördüğü ana sayfa. Boşsa logo ve modüllerin tanıtım metni gösterilir; editör bu metinle açılır, değiştirilmezse kaydedilmez. Açık modüllerin bölümleri (ör. temsilcilikler) içeriğin altında görünmeye devam eder.</div>
                         </div>
                     </div>
                 </div>
@@ -148,6 +158,17 @@
     document.querySelectorAll('[data-color-default]').forEach(function (box) {
         box.addEventListener('change', function () {
             document.querySelector('[data-color-input]').disabled = box.checked;
+        });
+    });
+
+    // The editor starts from the default home page; it is stored only once edited,
+    // so the modules' texts keep following the modules until then.
+    document.querySelectorAll('[data-home-default]').forEach(function (field) {
+        field.form.addEventListener('submit', function () {
+            var editor = window.tinymce && tinymce.get(field.id);
+            if (editor && ! editor.isDirty()) {
+                field.removeAttribute('name');
+            }
         });
     });
 </script>
