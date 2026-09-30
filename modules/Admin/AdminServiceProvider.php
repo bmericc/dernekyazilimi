@@ -31,6 +31,10 @@ class AdminServiceProvider extends ModuleServiceProvider
         $this->permissions()->register('contacts.manage', 'Kişi ve kurum ekleyip düzenleyebilsin, sıfat verebilsin', 'contacts', 11);
         $this->permissions()->register('photos.review', 'Profil fotoğraflarını onaylayıp reddedebilsin', 'contacts', 12);
         $this->permissions()->register('data-deletion.manage', 'KVKK veri silme taleplerini onaylayıp reddedebilsin', 'contacts', 13);
+        $this->permissions()->group('payments', 'Ödemeler', 60);
+        $this->permissions()->register('payments.view', 'Ödemeleri görebilsin', 'payments', 60);
+        $this->permissions()->register('payments.manage', 'Havale ve elden ödemeleri onaylayabilsin, iptal/iade işaretleyebilsin', 'payments', 61);
+        $this->permissions()->register('payments.settings', 'Banka hesaplarını ve ödeme sistemlerini (API anahtarları) düzenleyebilsin', 'payments', 62);
         $this->permissions()->group('settings', 'Ayarlar', 90);
         $this->permissions()->register('settings.manage', 'Kurum ayarlarını (ad, logo, iletişim, ana sayfa) düzenleyebilsin', 'settings', 89);
         $this->permissions()->register('fields.manage', 'Etiketleri ve özel alanları tanımlayabilsin', 'settings', 89);
@@ -47,6 +51,12 @@ class AdminServiceProvider extends ModuleServiceProvider
         $this->dashboard()->stat('Başarısız kuyruk işi', 'alert-triangle', fn () => \Illuminate\Support\Facades\DB::table('failed_jobs')->count(), null, [1], 99, 'Gönderilemeyen e-postalar; queue:failed ile incelenir');
         $this->dashboard()->stat('Veri silme talebi', 'user-x', fn () => \App\Models\DataDeletionRequest::pending()->count(), 'admin.data-deletions', ['data-deletion.manage'], 15, 'Değerlendirme bekleyen');
         $this->dashboard()->stat('Onay bekleyen fotoğraf', 'photo-check', fn () => ContactPhoto::pending()->count(), 'admin.photos', ['photos.review'], 14);
+
+        $menu->label('admin', 'payments', 'Ödemeler', 'cash');
+        $menu->add('admin', 'payments', 'Ödemeler', 'admin.payments', ['payments.view'], 60);
+        $menu->add('admin', 'payments', 'Banka hesapları', 'admin.bank-accounts', ['payments.settings'], 61);
+        $menu->add('admin', 'payments', 'Kart ödeme sistemleri', 'admin.payment-gateways', ['payments.settings'], 62);
+        $this->dashboard()->stat('Onay bekleyen havale', 'building-bank', fn () => \App\Models\Payment::where('status', 'pending')->where('method', 'transfer')->count(), 'admin.payments', ['payments.view'], 12);
 
         $menu->label('admin', 'settings', 'Ayarlar', 'settings');
         $menu->add('admin', 'settings', 'Kurum ayarları', 'admin.settings.organization', ['settings.manage'], 89);

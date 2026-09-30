@@ -9,6 +9,9 @@ use Modules\Admin\Http\Controllers\ContactController;
 use Modules\Admin\Http\Controllers\ContactDetailsController;
 use Modules\Admin\Http\Controllers\CustomFieldController;
 use Modules\Admin\Http\Controllers\TagController;
+use Modules\Admin\Http\Controllers\BankAccountController;
+use Modules\Admin\Http\Controllers\PaymentAdminController;
+use Modules\Admin\Http\Controllers\PaymentGatewayController;
 use Modules\Admin\Http\Controllers\DashboardController;
 use Modules\Admin\Http\Controllers\DataDeletionAdminController;
 use Modules\Admin\Http\Controllers\OrganizationSettingsController;
@@ -110,4 +113,26 @@ Route::middleware('role:1')->group(function () {
     Route::post('/users/{user_id}/tc-kimlik', [UserAdminController::class, 'tcKimlikDogrula'])->name('users.tc-kimlik');
 
     Route::get('/process-logs', [ProcessLogController::class, 'getList'])->name('process-logs');
+});
+
+Route::middleware('permission:payments.view')->group(function () {
+    Route::get('/payments', [PaymentAdminController::class, 'index'])->name('payments');
+    Route::get('/payments/{payment}', [PaymentAdminController::class, 'show'])->whereNumber('payment')->name('payments.show');
+});
+
+Route::middleware('permission:payments.manage')->group(function () {
+    Route::patch('/payments/{payment}/confirm', [PaymentAdminController::class, 'confirm'])->name('payments.confirm');
+    Route::patch('/payments/{payment}/cancel', [PaymentAdminController::class, 'cancel'])->name('payments.cancel');
+    Route::patch('/payments/{payment}/refund', [PaymentAdminController::class, 'refund'])->name('payments.refund');
+});
+
+Route::middleware('permission:payments.settings')->group(function () {
+    Route::get('/bank-accounts', [BankAccountController::class, 'index'])->name('bank-accounts');
+    Route::post('/bank-accounts', [BankAccountController::class, 'store'])->name('bank-accounts.store');
+    Route::put('/bank-accounts/{account}', [BankAccountController::class, 'update'])->name('bank-accounts.update');
+    Route::delete('/bank-accounts/{account}', [BankAccountController::class, 'destroy'])->name('bank-accounts.destroy');
+    Route::get('/payment-gateways', [PaymentGatewayController::class, 'index'])->name('payment-gateways');
+    Route::post('/payment-gateways', [PaymentGatewayController::class, 'store'])->name('payment-gateways.store');
+    Route::put('/payment-gateways/{gateway}', [PaymentGatewayController::class, 'update'])->name('payment-gateways.update');
+    Route::delete('/payment-gateways/{gateway}', [PaymentGatewayController::class, 'destroy'])->name('payment-gateways.destroy');
 });

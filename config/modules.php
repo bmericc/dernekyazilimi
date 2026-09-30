@@ -90,6 +90,11 @@ return [
             'provider' => IdCardServiceProvider::class,
         ],
 
+        'donation' => [
+            'enabled' => env('MODULE_DONATION', false),
+            'provider' => \Modules\Donation\DonationServiceProvider::class,
+        ],
+
     ],
 
 ];

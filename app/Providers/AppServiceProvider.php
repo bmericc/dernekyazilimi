@@ -26,6 +26,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(Organization::class);
+        $this->app->singleton(\App\Support\Payments\Payments::class);
         $this->app->singleton(\App\Support\Agreements::class);
 
         // Messaging channels behind interfaces; "log" writes instead of sending.
