@@ -1,5 +1,5 @@
-<p>Linux Kullanıcıları Derneği (LKD) Gönüllüsü, derneğin özgür yazılım ve Linux ekosistemini destekleme misyonuna katkıda bulunmak isteyen bireylerdir. Gönüllüler, dernek faaliyetlerine katılarak topluluğun büyümesine ve gelişmesine yardımcı olurlar.</p>
-<h2>LKD Gönüllüsü Olmanın Avantajları</h2>
+<p>{{ $organization->name() }} gönüllüleri, derneğin amaçlarına katkıda bulunmak isteyen bireylerdir. Gönüllüler, dernek faaliyetlerine katılarak topluluğun büyümesine ve gelişmesine yardımcı olurlar.</p>
+<h2>{{ $organization->shortName() }} Gönüllüsü Olmanın Avantajları</h2>
 <ul>
     <li>
         <strong>Öncelikli Bilgilendirme:</strong> Dernek ile ilgili duyuruları ve etkinlikleri öncelikli olarak e-posta ile alabilirsiniz.
@@ -10,7 +10,7 @@
     </li>
     @endmodule
     <li>
-        <strong>Üyelik İçin Referans:</strong> LKD, referans ile üye kabul etmektedir. Gönüllü olarak sistem üzerinden talepte bulunup daha hızlı referans bulabilirsiniz.
+        <strong>Üyelik İçin Referans:</strong> Gönüllü olarak sistem üzerinden referans talebinde bulunup üyelik başvurunuz için daha hızlı referans bulabilirsiniz.
     </li>
     <li>
         <strong>Organizasyon Görevleri:</strong> Dernek etkinliklerinin organizasyon süreçlerinde aktif rol alabilirsiniz.

@@ -89,6 +89,36 @@ class OrganizationSettingsTest extends TestCase
         $this->get($organization->logoUrl())->assertOk();
     }
 
+    public function test_the_home_editor_starts_from_the_default_home_page(): void
+    {
+        app(Organization::class)->save(['name' => 'Örnek Derneği']);
+        $manager = $this->settingsManager();
+
+        $this->actingAs($manager)->get('/admin/settings/organization')
+            ->assertOk()
+            ->assertSee(' data-home-default ', false)
+            ->assertSee('Örnek Derneği gönüllüleri', false)
+            ->assertSee('placeholder="Örnek Derneği Gönüllüsü Nedir?"', false);
+
+        $this->post('/logout');
+        $this->get('/')->assertSee('Örnek Derneği Gönüllüsü Nedir?')->assertDontSee('Linux Kullanıcıları Derneği');
+
+        app(Organization::class)->save(['home_content' => '<p>Yazılmış metin</p>']);
+        $this->actingAs($manager)->get('/admin/settings/organization')
+            ->assertDontSee(' data-home-default ', false)
+            ->assertSee('Yazılmış metin', false);
+    }
+
+    public function test_a_failed_save_says_so_at_the_top(): void
+    {
+        $this->actingAs($this->settingsManager())->from('/admin/settings/organization')
+            ->put('/admin/settings/organization', $this->valid(['home_content' => '<p>Metin</p>', 'logo' => $this->fakePng('logo.png', 300, 100)->size(3000)]))
+            ->assertSessionHasErrors('logo');
+
+        $this->get('/admin/settings/organization')->assertSee('Ayarlar kaydedilmedi');
+        $this->assertNull(app(Organization::class)->get('home_content'));
+    }
+
     public function test_the_iframe_policy_follows_the_setting(): void
     {
         $this->get('/login?in-iframe=1')->assertHeader('Content-Security-Policy', "frame-ancestors 'self'");
