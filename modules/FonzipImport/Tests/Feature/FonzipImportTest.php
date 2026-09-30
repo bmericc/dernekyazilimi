@@ -51,6 +51,7 @@ class FonzipImportTest extends TestCase
             'fonzip-import.client_id' => 'id', 'fonzip-import.client_secret' => 'secret', 'fonzip-import.min_interval_ms' => 0,
             'fonzip-import.fields' => ['member_since' => 'uyelik-yili', 'derbis' => 'derbis-e-ekli-mi', 'alias' => 'lkd-e-posta'],
             'fonzip-import.forwarding_domain' => 'linux.org.tr',
+            'fonzip-import.create_accounts' => true,
         ]);
         $this->owner = User::factory()->create(['role' => 1]);
 
@@ -64,6 +65,9 @@ class FonzipImportTest extends TestCase
             // Not a member.
             103 => $this->fonzipUser(103, 'Grace', 'Hopper', 'grace@ornek.test', null, null, []),
         ];
+        // Registered in the portal with another address, the one Fonzip has as the second e-mail.
+        $this->users[104] = $this->fonzipUser(104, 'Alan', 'Turing', 'alan@fonzip.test', null, 508, []);
+        $this->users[104]['detail']['email_second'] = 'alan@portal.test';
         $this->debts = [
             ['id' => 9001, 'user_id' => 101, 'amount' => 300, 'period' => '2025-01-01', 'details' => '2025 Yılı Aidatı', 'status' => 8, 'operation_date' => '2025-01-05T10:00:00Z', 'create_date' => '2025-01-05T10:00:00Z'],
             ['id' => 9002, 'user_id' => 102, 'amount' => 150, 'period' => null, 'details' => 'Giriş Aidatı', 'status' => 1, 'operation_date' => '2024-03-01T10:00:00Z', 'create_date' => '2024-03-01T10:00:00Z'],
@@ -72,6 +76,11 @@ class FonzipImportTest extends TestCase
             ['id' => 9004, 'user_id' => 999, 'amount' => 300, 'period' => '2025-01-01', 'details' => '2025 Yılı Aidatı', 'status' => 1],
         ];
         $this->payments = [
+            // Of a person deleted from Fonzip: rebuilt from the payments, a former member.
+            ['id' => 7101, 'user_id' => 888, 'user__name' => 'Eski Üye Kişi', 'first_name' => '', 'last_name' => '', 'email' => 'eski@ornek.test', 'phone' => null, 'tckno' => $this->identity('323456789'),
+                'transaction__amount' => 100, 'transaction__complete_date' => '2020-05-01T09:00:00Z', 'transaction__payment_method' => 2, 'transaction__currency__iso_code' => 'TRY'],
+            ['id' => 7102, 'user_id' => 888, 'user__name' => 'Eski Üye Kişi', 'email' => 'eski@ornek.test', 'tckno' => $this->identity('323456789'),
+                'transaction__amount' => 100, 'transaction__complete_date' => '2021-06-01T09:00:00Z', 'transaction__payment_method' => 2, 'transaction__currency__iso_code' => 'TRY'],
             ['id' => 7001, 'user_id' => 101, 'user__name' => 'Ada Lovelace', 'email' => 'ada@ornek.test', 'phone' => '+90 532 123 45 67', 'details' => 'Aidat',
                 'transaction__amount' => 300, 'transaction__complete_date' => '2025-03-01T09:00:00Z', 'transaction__payment_method' => 2,
                 'transaction__currency__iso_code' => 'TRY', 'transaction__fonzip_id' => 'FZAI1'],
@@ -158,17 +167,21 @@ class FonzipImportTest extends TestCase
         app(MembershipService::class)->start($ada->contact, null, Carbon::parse('2005-01-01'));
         // This year's dues charged in the portal already: the same Fonzip debt.
         $charged = app(DuesService::class)->charge($ada->contact, DuesCharge::ANNUAL, 2025, 300);
+        $alan = User::factory()->create(['name' => 'Alan', 'surname' => 'Turing', 'email' => 'alan@portal.test', 'national_id' => null]);
+        $users = User::count();
 
         $this->actingAs($this->owner)->post('/admin/fonzip/fetch')->assertRedirect('/admin/fonzip');
-        $this->actingAs($this->owner)->get('/admin/fonzip')->assertOk()->assertSee('Veri çekildi')->assertSee('3 kişi');
+        $this->actingAs($this->owner)->get('/admin/fonzip')->assertOk()->assertSee('Veri çekildi')->assertSee('4 kişi');
 
         $contacts = Contact::count();
         $this->actingAs($this->owner)->get('/admin/fonzip/preview')->assertOk()
-            ->assertSee('Yeni kişi: 2')
-            ->assertSee('Güncellenecek: 1')
-            ->assertSee('Yeni üyelik açılacak: 1')
+            ->assertSee('Yeni kişi: 3')
+            ->assertSee('Güncellenecek: 2')
+            ->assertSee('Fonzip\'te silinmiş, ayrılmış üye olarak açılacak: 1')
+            ->assertSee('Açılacak hesap: 2')
+            ->assertSee('Yeni üyelik açılacak: 2')
             ->assertSee('Üyeliğe üye no yazılacak: 1')
-            ->assertSee('Yeni @linux.org.tr yönlendirmesi: 1')
+            ->assertSee('Yeni @linux.org.tr yönlendirmesi: 2')
             ->assertSee('LKD Takma Ad');
         $this->assertSame($contacts, Contact::count(), 'The preview writes nothing.');
 
@@ -194,15 +207,32 @@ class FonzipImportTest extends TestCase
         $this->assertSame(['Üyelik formu yok'], $ismail->tags()->pluck('name')->all());
         $this->assertSame('2010', $ismail->customFieldValues()->where('custom_field_id', CustomField::where('key', 'uyelik_yili')->value('id'))->value('value'));
         $this->assertSame('ismail.isik', $ismail->customFieldValues()->where('custom_field_id', CustomField::where('key', 'lkd_e_posta')->value('id'))->value('value'));
-        $this->assertSame(0, EmailRedirects::where('email_alias', 'ismail.isik@linux.org.tr')->count(), 'No account, no forwarding.');
+        $this->assertSame('ismail@ornek.test', EmailRedirects::where('email_alias', 'ismail.isik@linux.org.tr')->sole()->email_forwarding, 'The new account gets the forwarding.');
         $email = ConsentEvent::where('contact_id', $ismail->id)->where('channel', 'email')->sole();
         $this->assertTrue($email->granted);
         $this->assertSame('2022-08-26', $email->created_at->toDateString());
         $this->assertFalse(ConsentEvent::where('contact_id', $ismail->id)->where('channel', 'sms')->sole()->granted);
 
-        // Not a member: contact only.
+        // Not a member: contact only, with an account like /activate opens.
         $grace = Contact::where('email', 'grace@ornek.test')->sole();
         $this->assertFalse(Membership::where('contact_id', $grace->id)->exists());
+        $this->assertSame($grace->id, User::where('email', 'grace@ornek.test')->sole()->contact_id);
+        $this->assertSame($ismail->id, User::where('email', 'ismail@ornek.test')->sole()->contact_id);
+        $this->assertSame($users + 2, User::count(), 'Accounts for İsmail and Grace; Ada and Alan had theirs.');
+        $this->assertSame(1, Contact::where('email', 'ismail@ornek.test')->count(), 'The account joins the contact.');
+
+        // Matched to the existing account by the second e-mail.
+        $this->assertSame('508', (string) Membership::where('contact_id', $alan->contact_id)->sole()->number);
+        $this->assertFalse(Contact::where('email', 'alan@fonzip.test')->exists());
+
+        // Deleted from Fonzip: a former member as of the last payment, payments kept, no account.
+        $former = Contact::where('email', 'eski@ornek.test')->sole();
+        $this->assertSame(['Eski Üye', 'Kişi'], [$former->first_name, $former->last_name]);
+        $left = Membership::where('contact_id', $former->id)->sole();
+        $this->assertSame([Membership::LEFT, '2021-06-01'], [$left->status, $left->left_at->toDateString()]);
+        $this->assertFalse($former->hasAffiliation('member'));
+        $this->assertSame(2, Payment::where('contact_id', $former->id)->count());
+        $this->assertNull($former->user);
 
         // Debts: the portal's 2025 charge is linked, the entry fee and the
         // removed debt come over, the unknown person's debt does not.
@@ -214,7 +244,7 @@ class FonzipImportTest extends TestCase
         $this->assertSame(3, DuesCharge::count());
 
         // Payment as collected, by transfer, with no receipt mailed.
-        $payment = Payment::where('purpose', 'dues')->sole();
+        $payment = Payment::where('purpose', 'dues')->where('contact_id', $ada->contact_id)->sole();
         $this->assertSame([Payment::SUCCEEDED, Payment::TRANSFER, '300.00', $ada->contact_id, $membership->id], [$payment->status, $payment->method, $payment->amount, $payment->contact_id, $payment->payable_id]);
         $this->assertSame('2025-03-01', $payment->paid_at->toDateString());
         $this->assertSame(0.0, app(DuesService::class)->account($ada->contact)->balance());
@@ -231,7 +261,7 @@ class FonzipImportTest extends TestCase
         $this->fakeFonzip();
         $this->fetchAndApply();
         $counts = fn () => [Contact::count(), Membership::count(), DuesCharge::count(), Payment::count(), Donation::count(), ConsentEvent::count(),
-            Tag::count(), CustomField::count(), FonzipLink::count(), \App\Models\CustomFieldValue::count(), EmailRedirects::count()];
+            Tag::count(), CustomField::count(), FonzipLink::count(), \App\Models\CustomFieldValue::count(), EmailRedirects::count(), User::count()];
         $before = $counts();
 
         $this->fetchAndApply();
@@ -265,6 +295,6 @@ class FonzipImportTest extends TestCase
 
         $this->actingAs($this->owner)->post('/admin/fonzip/resume')->assertRedirect('/admin/fonzip');
         $this->assertSame(FonzipStore::FETCHED, app(FonzipStore::class)->state()['phase']);
-        $this->assertCount(3, app(FonzipStore::class)->snapshot()['users']);
+        $this->assertCount(4, app(FonzipStore::class)->snapshot()['users']);
     }
 }

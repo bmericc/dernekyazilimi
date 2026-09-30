@@ -9,12 +9,14 @@ use App\Models\CustomField;
 use App\Models\CustomFieldValue;
 use App\Models\Payment;
 use App\Models\Tag;
+use App\Models\User;
 use App\Support\Audit;
 use App\Support\Consents;
 use App\Support\CustomFields;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Modules\Donation\Models\Donation;
 use Modules\Donation\Models\DonationCause;
@@ -95,9 +97,9 @@ class FonzipImport
         $claimed = [];
         $numbers = [];
         $contacts = [];
-        foreach ($snapshot['users'] as $user) {
+        foreach ($this->people($snapshot) as $user) {
             $contacts[] = $item = $this->planContact($user, $snapshot, $claimed, $numbers);
-            if ($item['contact_id']) {
+            if ($item['contact_id'] && ! $item['deleted']) {
                 $claimed[$item['contact_id']] = $item['fonzip_id'];
             }
             if ($item['membership_no'] !== null) {
@@ -113,6 +115,7 @@ class FonzipImport
             'counts' => collect($contacts)->countBy('action')->all(),
             'memberships' => collect($contacts)->countBy('membership_action')->except([''])->all(),
             'forwardings' => collect($contacts)->countBy('forwarding')->except([''])->all(),
+            'accounts' => collect($contacts)->countBy('account')->except([''])->all(),
             'fields' => $this->planFields($snapshot),
             'tags' => collect($snapshot['users'])->pluck('tag_names')->flatten()->filter()->unique()->values()
                 ->mapWithKeys(fn ($name) => [$name => Tag::where('name', $name)->exists()])->all(),
@@ -146,7 +149,7 @@ class FonzipImport
         if ($phase === 'setup') {
             $this->setup($snapshot, $summary);
         } else {
-            $records = $phase === 'contacts' ? array_values($snapshot['users']) : $snapshot[$phase === 'charges' ? 'debts' : $phase];
+            $records = $phase === 'contacts' ? array_values($this->people($snapshot)) : $snapshot[$phase === 'charges' ? 'debts' : $phase];
             foreach (array_slice($records, $offset, $batch[$phase]) as $record) {
                 $this->{'apply'.ucfirst(Str::singular($phase))}($record, $snapshot, $summary);
             }
@@ -165,13 +168,47 @@ class FonzipImport
     {
         return array_fill_keys([
             'contacts_new', 'contacts_updated', 'contacts_unchanged', 'contacts_skipped',
-            'memberships_new', 'numbers_set', 'fields_new', 'values', 'tags_attached', 'consents', 'forwardings',
+            'memberships_new', 'memberships_left', 'numbers_set', 'accounts_new', 'fields_new', 'values', 'tags_attached', 'consents', 'forwardings',
             'charges', 'charges_matched', 'charges_skipped', 'payments', 'payments_skipped',
             'refunds', 'donations',
         ], 0);
     }
 
     // ---- People ---------------------------------------------------------
+
+    /**
+     * Fonzip's people, and those deleted from Fonzip whose dues payments
+     * remain: they are rebuilt from the payment rows (name, e-mail, phone,
+     * T.C.) so the payments keep their payer, and imported as former members.
+     *
+     * @return array<string, array>  Fonzip id => person
+     */
+    public function people(array $snapshot): array
+    {
+        $people = $snapshot['users'];
+        foreach (array_merge($snapshot['payments'], $snapshot['refunds']) as $row) {
+            $id = (string) ($row['user_id'] ?? '');
+            if ($id === '' || (isset($people[$id]) && ! ($people[$id]['deleted'] ?? false))) {
+                continue;
+            }
+
+            [$first, $last] = filled($row['first_name'] ?? null) || filled($row['last_name'] ?? null)
+                ? [$row['first_name'] ?? null, $row['last_name'] ?? null]
+                : $this->splitName((string) ($row['user__name'] ?? ''));
+            // The latest payment has the latest details; empty ones do not overwrite.
+            $paid = $row['transaction__complete_date'] ?? null;
+            $latest = max((string) ($people[$id]['last_paid'] ?? ''), (string) $paid) ?: null;
+            $people[$id] = array_filter([
+                'first_name' => $first, 'last_name' => $last,
+                'email' => $row['email'] ?? null, 'phone' => $row['phone'] ?? null, 'tckno' => $row['tckno'] ?? null,
+            ], 'filled') + ['last_paid' => $latest] + ($people[$id] ?? []) + [
+                'id' => $id, 'corporate_type' => false, 'membership_no' => null,
+                'detail' => [], 'tag_names' => [], 'deleted' => true,
+            ];
+        }
+
+        return $people;
+    }
 
     /**
      * @param  array<int, string>  $claimed  contact id => Fonzip id already matched in this plan
@@ -186,7 +223,11 @@ class FonzipImport
         }
 
         $contact = $item['problems'] ? null : $this->findContact($item);
-        if ($contact && isset($claimed[$contact->id])) {
+        // Two Fonzip people on one contact is a mistake, except a deleted
+        // Fonzip person found again (their payments join the contact).
+        $taken = $contact && ! $item['deleted'] && (isset($claimed[$contact->id]) || ($item['match'] !== 'önceki aktarım'
+            && FonzipLink::where('kind', FonzipLink::CONTACT)->where('linkable_id', $contact->id)->where('fonzip_id', '!=', $item['fonzip_id'])->exists()));
+        if ($taken) {
             $item['problems'][] = "Portaldaki \"{$contact->display_name}\" kişisi başka bir Fonzip kaydıyla da eşleşti.";
             $contact = null;
         }
@@ -202,10 +243,11 @@ class FonzipImport
             $item['custom_count'] = count($this->customChanges($contact, $item));
             $item['consent_count'] = count($this->consentChanges($contact, $item));
             $item['tag_count'] = count($this->tagChanges($contact, $item));
+            $item['account'] = $this->accountPlan($contact, $item);
             $item['forwarding'] = $this->forwardingPlan($contact, $item);
         }
 
-        $extra = $item['membership_action'] || $item['membership_changes'] || $item['custom_count'] || $item['consent_count'] || $item['tag_count'] || $item['forwarding'] === 'new';
+        $extra = $item['membership_action'] || $item['membership_changes'] || $item['custom_count'] || $item['consent_count'] || $item['tag_count'] || $item['forwarding'] === 'new' || $item['account'] === 'new';
         $item['action'] = match (true) {
             (bool) $item['problems'] => 'skip',
             ! $contact => 'new',
@@ -233,7 +275,15 @@ class FonzipImport
             'custom_count' => 0, 'consent_count' => 0, 'tag_count' => 0, 'forwarding' => null,
             'tag_names' => $user['tag_names'] ?? [],
             'details_missing' => ($user['detail'] ?? null) === null,
+            'deleted' => (bool) ($user['deleted'] ?? false),
+            // Fonzip gives no date for a deleted person; the last dues payment is the closest known.
+            'left_at' => $this->date($user['last_paid'] ?? null),
+            'second_email' => filled($detail['email_second'] ?? null) ? mb_strtolower(trim($detail['email_second'])) : null,
+            'account' => null,
         ];
+        if ($item['deleted']) {
+            $item['warnings'][] = 'Fonzip\'te silinmiş; aidat ödemelerinden açılır, üyeliği son ödeme tarihiyle ('.($item['left_at'] ?? 'bilinmiyor').') ayrılmış olarak kaydedilir.';
+        }
 
         $identity = preg_replace('/\D/', '', (string) ($user['tckno'] ?? ''));
         $item['identity'] = $identity === '' ? null : $identity;
@@ -344,9 +394,21 @@ class FonzipImport
             }
             if ($contact) {
                 $item['match'] = 'e-posta';
-            }
 
-            return $contact;
+                return $contact;
+            }
+        }
+
+        // An account registered with the person's other address.
+        if ($item['second_email'] && ($user = User::where('email', $item['second_email'])->first()) && $user->contact) {
+            if ($user->contact->identity_number && $item['identity'] && $user->contact->identity_number !== $item['identity']) {
+                $item['warnings'][] = 'İkinci e-posta bir hesapta kayıtlı ama kimlik numarası farklı; eşleştirilmedi.';
+
+                return null;
+            }
+            $item['match'] = 'ikinci e-posta (hesap)';
+
+            return $user->contact;
         }
 
         return null;
@@ -392,6 +454,14 @@ class FonzipImport
      */
     private function membershipPlan(?Contact $contact, ?Membership $membership, array &$item): array
     {
+        if ($item['deleted']) {
+            if ($membership?->isActive()) {
+                $item['warnings'][] = 'Portalda aktif üye; üyeliğine dokunulmaz.';
+            }
+
+            return $membership ? [null, []] : ['left', ['status' => [null, Membership::STATUSES[Membership::LEFT]]]];
+        }
+
         $number = $item['membership_no'];
         $owner = $number ? Membership::where('number', $number)->first() : null;
         $numberFree = ! $owner || ($membership && $owner->id === $membership->id);
@@ -514,6 +584,12 @@ class FonzipImport
 
             $this->saveMembership($contact, $item, $summary);
 
+            if ($this->accountPlan($contact, $item) === 'new') {
+                $this->saveAccount($contact);
+                $contact->refresh();
+                $summary['accounts_new']++;
+            }
+
             if ($this->forwardingPlan($contact, $item) === 'new') {
                 $this->saveForwarding($contact, $item);
                 $summary['forwardings']++;
@@ -558,6 +634,15 @@ class FonzipImport
         $membership = Membership::where('contact_id', $contact->id)->first();
         [$action, $changes] = $this->membershipPlan($contact, $membership, $item);
 
+        if ($action === 'left') {
+            $left = $item['left_at'] ? Carbon::parse($item['left_at']) : today();
+            $membership = Membership::create(['contact_id' => $contact->id, 'status' => Membership::LEFT, 'left_at' => $left]);
+            $this->memberships->event($membership, 'left', $left, self::NOTE.': Fonzip\'te silinmiş kişi, aidat ödemelerinden açıldı. Fonzip silinme tarihini vermiyor; tarih son aidat ödemesidir.');
+            $summary['memberships_left']++;
+
+            return;
+        }
+
         if ($action === 'new') {
             $joined = $item['joined_at'] ?? $item['member_since'];
             $membership = $this->memberships->start($contact, $item['membership_no'], $joined ? Carbon::parse($joined) : today(), self::NOTE);
@@ -580,6 +665,62 @@ class FonzipImport
         }
     }
 
+    // ---- Accounts -------------------------------------------------------
+
+    /**
+     * 'new' when an account is to be opened for the person (config
+     * create_accounts): members and other people with a usable e-mail that
+     * no account holds. People deleted from Fonzip get none.
+     */
+    private function accountPlan(?Contact $contact, array &$item): ?string
+    {
+        if ($contact?->user) {
+            return 'exists';
+        }
+        if (! config('fonzip-import.create_accounts') || $item['deleted'] || $item['organization']) {
+            return null;
+        }
+
+        $email = $contact && filled($contact->email) ? mb_strtolower($contact->email) : $item['email'];
+        if (! $email) {
+            return 'no_email';
+        }
+        if (User::where('email', $email)->exists()) {
+            $item['warnings'][] = "$email başka bir kişinin hesabında; hesap açılmayacak, kişileri birleştirin.";
+
+            return 'email_taken';
+        }
+        $identity = $contact?->identity_number ?? $item['identity'];
+        if ($identity && User::where('national_id', $identity)->exists()) {
+            $item['warnings'][] = 'Kimlik no başka bir hesapta; hesap açılmayacak, kişileri birleştirin.';
+
+            return 'identity_taken';
+        }
+
+        return 'new';
+    }
+
+    /**
+     * An account like /activate opens, with a random password: the person
+     * sets their own with "Şifremi unuttum". No mail is sent here.
+     */
+    private function saveAccount(Contact $contact): void
+    {
+        $user = new User([
+            'name' => $contact->first_name,
+            'surname' => $contact->last_name,
+            'email' => mb_strtolower($contact->email),
+            'phone_number' => $contact->phone,
+            'national_id' => $contact->identity_number,
+            'birthday' => $contact->birthday,
+            'city_id' => $contact->city_id ?? 0,
+            'password' => Hash::make(Str::random(40)),
+        ]);
+        // Linked before the first save, so the contact is kept, not duplicated.
+        $user->contact_id = $contact->id;
+        $user->save();
+    }
+
     // ---- Mail forwarding ------------------------------------------------
 
     /**
@@ -594,26 +735,28 @@ class FonzipImport
         if (! $item['alias'] || $domain === '') {
             return null;
         }
+        // An account opened in this import counts as there.
         $user = $contact?->user;
-        if (! $user) {
+        $accountEmail = $user?->email ?? ($item['account'] === 'new' ? ($contact?->email ?: $item['email']) : null);
+        if (! $accountEmail) {
             return 'no_account';
         }
 
         $address = $item['alias'].'@'.$domain;
         $existing = EmailRedirects::where('email_alias', $address)->first();
         if ($existing) {
-            if ((int) $existing->user_id !== (int) $user->id) {
+            if (! $user || (int) $existing->user_id !== (int) $user->id) {
                 $item['warnings'][] = "$address portalda başka bir hesabın yönlendirmesi.";
             }
 
             return 'exists';
         }
-        if (EmailRedirects::where('user_id', $user->id)->where('domain', $domain)->exists()) {
+        if ($user && EmailRedirects::where('user_id', $user->id)->where('domain', $domain)->exists()) {
             $item['warnings'][] = "Hesabın @$domain yönlendirmesi zaten var; takma ad yazılmayacak.";
 
             return 'exists';
         }
-        if (! $this->forwardingTarget($user->email, $address)) {
+        if (! $this->forwardingTarget($accountEmail, $address)) {
             $item['warnings'][] = "$address yönlendireceği kişisel adres yok (hesap e-postası aynı adres).";
 
             return 'no_target';
@@ -943,6 +1086,19 @@ class FonzipImport
         }
 
         return $this->text(is_bool($value) ? ($value ? '1' : '0') : (string) $value);
+    }
+
+    /**
+     * "Ahmet Can Yılmaz" → ["Ahmet Can", "Yılmaz"].
+     *
+     * @return array{0: ?string, 1: ?string}
+     */
+    private function splitName(string $name): array
+    {
+        $words = preg_split('/\s+/u', trim($name), -1, PREG_SPLIT_NO_EMPTY);
+        $last = count($words) > 1 ? array_pop($words) : null;
+
+        return [$words ? implode(' ', $words) : null, $last];
     }
 
     private function city(?string $name): ?int

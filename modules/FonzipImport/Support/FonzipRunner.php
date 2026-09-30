@@ -99,7 +99,7 @@ class FonzipRunner
     public static function message(array $summary): string
     {
         return "Fonzip aktarıldı: {$summary['contacts_new']} yeni kişi, {$summary['contacts_updated']} güncellenen, {$summary['contacts_skipped']} atlanan kişi; "
-            ."{$summary['memberships_new']} yeni üyelik, {$summary['numbers_set']} üye no; "
+            ."{$summary['memberships_new']} yeni üyelik, ".($summary['memberships_left'] ?? 0)." ayrılmış üyelik (Fonzip'te silinmiş), {$summary['numbers_set']} üye no, ".($summary['accounts_new'] ?? 0)." yeni hesap; "
             ."{$summary['charges']} aidat borcu ({$summary['charges_matched']} mevcut borçla eşleşti), {$summary['payments']} aidat ödemesi, {$summary['donations']} bağış.";
     }
 

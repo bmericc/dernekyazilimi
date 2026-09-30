@@ -8,7 +8,7 @@
         'unchanged' => ['Değişiklik yok', 'secondary'],
         'skip' => ['Atlanacak', 'red'],
     ];
-    $membershipActions = ['new' => 'Yeni üyelik açılacak', 'number' => 'Üyeliğe üye no yazılacak'];
+    $membershipActions = ['new' => 'Yeni üyelik açılacak', 'number' => 'Üyeliğe üye no yazılacak', 'left' => 'Fonzip\'te silinmiş, ayrılmış üye olarak açılacak'];
     $finance = [
         'charges' => 'Aidat borçları',
         'payments' => 'Aidat ödemeleri',
@@ -41,6 +41,10 @@
         @foreach ($membershipActions as $key => $label)
             <span class="badge bg-blue-lt fs-5">{{ $label }}: {{ $plan['memberships'][$key] ?? 0 }}</span>
         @endforeach
+        @if (config('fonzip-import.create_accounts'))
+            <span class="badge bg-azure-lt fs-5">Açılacak hesap: {{ $plan['accounts']['new'] ?? 0 }}</span>
+            <span class="badge bg-secondary-lt fs-5">Hesabı zaten var: {{ $plan['accounts']['exists'] ?? 0 }}</span>
+        @endif
         @if (config('fonzip-import.forwarding_domain'))
             <span class="badge bg-purple-lt fs-5">Yeni {{ '@'.config('fonzip-import.forwarding_domain') }} yönlendirmesi: {{ $plan['forwardings']['new'] ?? 0 }}</span>
             <span class="badge bg-secondary-lt fs-5">Hesabı olmadığı için yönlendirmesi açılmayacak: {{ $plan['forwardings']['no_account'] ?? 0 }}</span>
@@ -129,6 +133,7 @@
                                 @if ($item['custom_count'])<div>{{ $item['custom_count'] }} özel alan</div>@endif
                                 @if ($item['consent_count'])<div>{{ $item['consent_count'] }} iletişim izni</div>@endif
                                 @if ($item['tag_count'])<div>{{ $item['tag_count'] }} etiket</div>@endif
+                                @if ($item['account'] === 'new')<div>Hesap açılacak</div>@endif
                                 @if ($item['forwarding'] === 'new')<div>{{ $item['alias'].'@'.config('fonzip-import.forwarding_domain') }} yönlendirmesi</div>@endif
                             </td>
                             <td class="small">

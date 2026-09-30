@@ -28,6 +28,10 @@ return [
         'alias' => env('FONZIP_FIELD_ALIAS'),
     ],
 
+    // Open an account for imported people who have none (random password,
+    // no mail: they set a password with "Şifremi unuttum").
+    'create_accounts' => (bool) env('FONZIP_CREATE_ACCOUNTS', false),
+
     // Domain of the aliases above (ad.soyad@<domain>). Empty: no forwardings.
     'forwarding_domain' => env('FONZIP_FORWARDING_DOMAIN'),
 
