@@ -10,7 +10,7 @@ class ModuleToggleTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const DISABLED = ['MODULE_VOLUNTEER', 'MODULE_LKD_YOUNG'];
+    private const DISABLED = ['MODULE_VOLUNTEER', 'MODULE_LKD_YOUNG', 'MODULE_FONZIP_IMPORT'];
 
     private array $saved = [];
 
@@ -42,7 +42,7 @@ class ModuleToggleTest extends TestCase
 
     public function test_mail_forwarding_is_off_when_no_enabled_module_needs_it(): void
     {
-        // phpunit.xml does not set MODULE_MAIL_FORWARDING; only volunteer and lkd-young require it.
+        // phpunit.xml does not set MODULE_MAIL_FORWARDING; only volunteer, lkd-young and fonzip-import require it.
         $this->assertFalse(app(\App\Modules\ModuleManager::class)->enabled('mail-forwarding'));
         $this->assertFalse(\Illuminate\Support\Facades\Route::has('email-redirects'));
     }
