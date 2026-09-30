@@ -23,7 +23,7 @@
         <div class="text-secondary mt-1">
             {{ $state['name'] }} · {{ count($plan) }} satır ·
             {{ $state['options']['overwrite'] ? 'dolu alanlar değiştirilecek' : 'yalnız boş alanlar doldurulacak' }} ·
-            {{ $state['options']['assign_numbers'] ? 'yeni üyelere numara verilecek' : 'yeni üyelikler numarasız açılacak' }}
+            yeni üyelikler numarasız açılır
             @if ($mappedFields->isNotEmpty())
                 · özel alanlara: {{ $mappedFields->map(fn ($field, $key) => \Modules\Membership\Support\DerbisImport::COLUMNS[$key].' → '.$field->label)->join(', ') }}
             @endif

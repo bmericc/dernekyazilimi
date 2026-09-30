@@ -181,7 +181,7 @@ class DerbisImport
     /**
      * Carry out the plan. Rows with problems are skipped.
      *
-     * @param  array{overwrite?: bool, assign_numbers?: bool, fields?: array<string, int|null>}  $options
+     * @param  array{overwrite?: bool, fields?: array<string, int|null>}  $options
      * @return array<string, int>
      */
     public function apply(array $plan, array $options = []): array
@@ -199,7 +199,7 @@ class DerbisImport
                 $contact = $item['contact_id'] ? Contact::find($item['contact_id']) : null;
                 $contact = $this->saveContact($contact, $item);
                 $this->saveCustomFields($contact, $item, $options['fields'] ?? [], $fields);
-                $this->saveMembership($contact, $item, (bool) ($options['assign_numbers'] ?? false));
+                $this->saveMembership($contact, $item);
             });
         }
 
@@ -453,7 +453,7 @@ class DerbisImport
         }
     }
 
-    private function saveMembership(Contact $contact, array $item, bool $assignNumber): void
+    private function saveMembership(Contact $contact, array $item): void
     {
         $membership = Membership::where('contact_id', $contact->id)->first();
         $status = $item['membership_status'];
@@ -461,7 +461,7 @@ class DerbisImport
         $joined = $item['joined_at'] ? Carbon::parse($item['joined_at']) : today();
 
         if (! $membership && $status === Membership::ACTIVE) {
-            $membership = $this->memberships->start($contact, $assignNumber ? $this->memberships->nextNumber() : null, $joined, $note);
+            $membership = $this->memberships->start($contact, null, $joined, $note);
         } elseif (! $membership) {
             // A former member: the record keeps the register, the member
             // affiliation only as history.

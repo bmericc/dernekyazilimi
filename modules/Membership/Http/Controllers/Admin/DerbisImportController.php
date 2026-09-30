@@ -60,7 +60,6 @@ class DerbisImportController extends Controller
             'name' => $request->file('file')->getClientOriginalName(),
             'options' => [
                 'overwrite' => $request->boolean('overwrite'),
-                'assign_numbers' => $request->boolean('assign_numbers'),
                 'fields' => array_intersect_key($data['fields'] ?? [], array_flip(DerbisImport::EXTRA)),
             ],
         ]]);

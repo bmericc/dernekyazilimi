@@ -34,7 +34,7 @@ class ApplicationAdminController extends Controller
     {
         return view('membership::admin.applications.show', [
             'application' => $application->load(['contact', 'membership', 'references.referee']),
-            'nextNumber' => $memberships->nextNumber(),
+            'highestNumber' => $memberships->highestNumber(),
         ]);
     }
 

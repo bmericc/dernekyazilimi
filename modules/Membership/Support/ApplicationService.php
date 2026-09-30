@@ -215,7 +215,7 @@ class ApplicationService
     {
         DB::transaction(function () use ($application, $number, $joinedAt, $decisionDate, $decisionNumber) {
             $membership = $application->membership;
-            $membership->update(['number' => $number ?: ($membership->number ?: $this->memberships->nextNumber()), 'decision_date' => $decisionDate, 'decision_number' => $decisionNumber]);
+            $membership->update(['number' => $number ?: $membership->number, 'decision_date' => $decisionDate, 'decision_number' => $decisionNumber]);
             $this->memberships->changeStatus($membership, Membership::ACTIVE, $joinedAt, $decisionNumber ? 'Karar '.$decisionNumber : null);
 
             $application->forceFill(['status' => MembershipApplication::APPROVED, 'decided_at' => now(), 'decided_by' => Auth::id()])->save();

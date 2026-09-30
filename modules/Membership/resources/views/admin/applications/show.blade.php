@@ -115,7 +115,9 @@
                         @endif
                         <form method="POST" action="{{ route('admin.membership-applications.approve', $a) }}">
                             @csrf @method('PATCH')
-                            <div class="mb-2"><label class="form-label" for="number">Üye no</label><input id="number" name="number" class="form-control @error('number') is-invalid @enderror" value="{{ old('number', $a->membership?->number) }}" placeholder="Boş bırakılırsa {{ $nextNumber }}">@error('number')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                            <div class="mb-2"><label class="form-label" for="number">Üye no</label><input id="number" name="number" class="form-control @error('number') is-invalid @enderror" value="{{ old('number', $a->membership?->number) }}" placeholder="Boş bırakılırsa numarasız kalır">
+                                @if ($highestNumber)<div class="form-hint">En büyük mevcut numara: {{ $highestNumber }}</div>@endif
+                                @error('number')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
                             <div class="mb-2"><label class="form-label required" for="joined_at">Katılma tarihi</label><input id="joined_at" type="date" name="joined_at" class="form-control @error('joined_at') is-invalid @enderror" value="{{ old('joined_at', today()->toDateString()) }}" required>@error('joined_at')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
                             <div class="row">
                                 <div class="col-6 mb-2"><label class="form-label" for="decision_date">Karar tarihi</label><input id="decision_date" type="date" name="decision_date" class="form-control" value="{{ old('decision_date') }}"></div>

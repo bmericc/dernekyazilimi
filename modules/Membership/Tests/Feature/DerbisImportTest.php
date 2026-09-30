@@ -139,7 +139,7 @@ class DerbisImportTest extends TestCase
         $this->assertSame([], Storage::disk('local')->files('imports/derbis'));
     }
 
-    public function test_account_holders_keep_their_details_and_numbers_can_be_assigned(): void
+    public function test_account_holders_keep_their_details_and_get_no_number(): void
     {
         $manager = $this->manager();
         Membership::create(['contact_id' => Contact::create(['first_name' => 'X', 'last_name' => 'Y'])->id, 'number' => '41']);
@@ -149,13 +149,13 @@ class DerbisImportTest extends TestCase
             $this->row(['Ad Soyad / Temsilci Bilgileri' => 'LİNUS BENEDİCT TORVALDS', 'T.C. Kimlik No' => $this->identity('523456789'), 'E-Posta' => 'baska@ornek.test', 'Telefon No' => '5551111111']),
         ]);
 
-        $this->actingAs($manager)->post('/admin/memberships/import', ['file' => $file, 'overwrite' => '1', 'assign_numbers' => '1']);
+        $this->actingAs($manager)->post('/admin/memberships/import', ['file' => $file, 'overwrite' => '1']);
         $this->actingAs($manager)->post('/admin/memberships/import/apply');
 
         $user->refresh();
         $this->assertSame(['Linus', 'linus@ornek.test', '5550000000'], [$user->name, $user->email, $user->phone_number]);
         $this->assertSame('linus@ornek.test', $user->contact->email);
-        $this->assertSame('42', Membership::where('contact_id', $user->contact_id)->value('number'));
+        $this->assertNull(Membership::where('contact_id', $user->contact_id)->value('number'));
     }
 
     public function test_a_file_without_the_derbis_columns_is_refused(): void

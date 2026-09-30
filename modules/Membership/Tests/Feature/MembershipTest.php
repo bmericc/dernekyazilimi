@@ -37,14 +37,14 @@ class MembershipTest extends TestCase
         $this->assertSame(['joined'], $carried->events()->pluck('type')->all());
     }
 
-    public function test_managers_make_a_contact_a_member_with_the_next_number(): void
+    public function test_managers_make_a_contact_a_member_with_a_number_they_type(): void
     {
         Membership::create(['contact_id' => Contact::create(['first_name' => 'A', 'last_name' => 'B'])->id, 'number' => '1506']);
         $owner = User::factory()->create(['role' => 1]);
         $contact = Contact::create(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
 
-        $this->assertSame('1507', app(MembershipService::class)->nextNumber());
-        $this->actingAs($owner)->get("/admin/contacts/{$contact->id}")->assertOk()->assertSee('Üye yap')->assertSee('1507');
+        // The largest number is only a hint; the field starts empty.
+        $this->actingAs($owner)->get("/admin/contacts/{$contact->id}")->assertOk()->assertSee('Üye yap')->assertSee('placeholder="En büyük: 1506"', false)->assertDontSee('value="1507"', false);
 
         $this->actingAs($owner)->post("/admin/contacts/{$contact->id}/membership", ['number' => '1506', 'joined_at' => '2026-09-01'])->assertSessionHasErrors('number');
         $this->actingAs($owner)->post("/admin/contacts/{$contact->id}/membership", ['number' => '1507', 'joined_at' => '2026-09-01', 'note' => 'YK 2026/12'])->assertRedirect();
@@ -54,6 +54,11 @@ class MembershipTest extends TestCase
         $this->assertTrue($contact->hasAffiliation('member'));
         $this->assertSame('YK 2026/12', $membership->events()->sole()->note);
         $this->assertSame('1507', app(ContactFields::class)->value('member_number', $contact));
+
+        // Without a number the membership stays numberless.
+        $other = Contact::create(['first_name' => 'Grace', 'last_name' => 'Hopper']);
+        $this->actingAs($owner)->post("/admin/contacts/{$other->id}/membership", ['number' => '', 'joined_at' => '2026-09-01']);
+        $this->assertNull(Membership::where('contact_id', $other->id)->value('number'));
     }
 
     public function test_status_changes_follow_the_member_affiliation_and_the_history(): void
@@ -104,36 +109,37 @@ class MembershipTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => 2]))->get('/admin/memberships')->assertForbidden();
     }
 
-    public function test_members_without_a_number_get_one_by_joining_and_decision_date(): void
+    public function test_numbers_of_numberless_members_are_typed_in(): void
     {
         $member = fn (string $name, ?string $joined, ?string $decision = null, string $status = Membership::ACTIVE, ?string $number = null) => Membership::create([
             'contact_id' => Contact::create(['first_name' => $name, 'last_name' => 'Üye'])->id,
             'number' => $number, 'status' => $status, 'joined_at' => $joined, 'decision_date' => $decision,
         ]);
-        $member('Numaralı', '2010-01-01', number: '41');
-        $member('Metinli', null, number: 'A-7');
+        $numbered = $member('Numaralı', '2010-01-01', number: '41');
         $late = $member('Geç', '2020-05-01');
-        $sameDayLater = $member('İkinci', '2015-03-01', '2015-02-20');
-        $sameDayFirst = $member('Birinci', '2015-03-01', '2015-02-10');
+        $second = $member('İkinci', '2015-03-01', '2015-02-20');
+        $first = $member('Birinci', '2015-03-01', '2015-02-10');
         $unknown = $member('Tarihsiz', null);
-        $suspended = $member('Askıda', '2018-01-01', status: Membership::SUSPENDED);
         $left = $member('Ayrılmış', '2012-01-01', status: Membership::LEFT);
         $member('Aday', '2011-01-01', status: Membership::APPLICANT);
 
         $owner = User::factory()->create(['role' => 1]);
         $this->actingAs($owner)->get('/admin/memberships/numbers')->assertOk()
-            ->assertSeeInOrder(['<code>42</code>', 'Birinci Üye', '<code>43</code>', 'İkinci Üye', '<code>44</code>', 'Askıda Üye', '<code>45</code>', 'Geç Üye', '<code>46</code>', 'Tarihsiz Üye'], false)
-            ->assertDontSee('Ayrılmış Üye')->assertDontSee('Aday Üye');
-        $this->actingAs($owner)->get('/admin/memberships/numbers?left=1')->assertSeeInOrder(['<code>42</code>', 'Ayrılmış Üye', '<code>43</code>', 'Birinci Üye'], false);
+            ->assertSee('Kullanılan en büyük numara: <strong>41</strong>', false)
+            ->assertSeeInOrder(['Birinci Üye', 'İkinci Üye', 'Geç Üye', 'Tarihsiz Üye'])
+            ->assertDontSee('Numaralı Üye')->assertDontSee('Ayrılmış Üye')->assertDontSee('Aday Üye');
+        $this->actingAs($owner)->get('/admin/memberships/numbers?left=1')->assertSeeInOrder(['Ayrılmış Üye', 'Birinci Üye']);
 
-        $this->actingAs($owner)->post('/admin/memberships/numbers')->assertSessionHas('success-status', '5 üyeye numara verildi.');
+        // Taken or repeated numbers are refused; nothing is saved then.
+        $this->actingAs($owner)->post('/admin/memberships/numbers', ['numbers' => [$first->id => '41']])->assertSessionHasErrors("numbers.{$first->id}");
+        $this->actingAs($owner)->post('/admin/memberships/numbers', ['numbers' => [$first->id => '100', $second->id => '100']])->assertSessionHasErrors();
+        $this->assertNull($first->fresh()->number);
 
-        $this->assertSame(['42', '43', '44', '45', '46'], [$sameDayFirst->fresh()->number, $sameDayLater->fresh()->number, $suspended->fresh()->number, $late->fresh()->number, $unknown->fresh()->number]);
-        $this->assertNull($left->fresh()->number);
+        // Only the numbers typed are given; a numbered member is not changed here.
+        $this->actingAs($owner)->post('/admin/memberships/numbers', ['numbers' => [$first->id => ' 100 ', $late->id => 'P-7', $second->id => '', $numbered->id => '999']])
+            ->assertSessionHas('success-status', '2 üyeye numara verildi.');
+        $this->assertSame(['100', null, 'P-7', null, '41'], [$first->fresh()->number, $second->fresh()->number, $late->fresh()->number, $unknown->fresh()->number, $numbered->fresh()->number]);
         $this->assertSame('number_changed', $late->events()->value('type'));
-
-        $this->actingAs($owner)->post('/admin/memberships/numbers', ['left' => '1'])->assertSessionHas('success-status', '1 üyeye numara verildi.');
-        $this->assertSame('47', $left->fresh()->number);
-        $this->actingAs($owner)->get('/admin/memberships/numbers')->assertSee('Numarasız üye yok.');
+        $this->assertNull($left->fresh()->number);
     }
 }
