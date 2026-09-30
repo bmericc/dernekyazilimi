@@ -199,6 +199,6 @@ function openModal(url) {
 
 </script>
 
-<script src="{{ asset('js/phone-registration.js') }}" defer></script>
+<script src="{{ asset('js/phone-registration.js') }}?v={{ filemtime(public_path('js/phone-registration.js')) }}" defer></script>
 
 @endsection
