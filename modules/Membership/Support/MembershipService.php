@@ -5,6 +5,7 @@ namespace Modules\Membership\Support;
 use App\Models\AffiliationType;
 use App\Models\Contact;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Modules\Membership\Models\Membership;
@@ -27,6 +28,44 @@ class MembershipService
             ->max();
 
         return (string) (($max ?? 0) + 1);
+    }
+
+    /**
+     * Members without a number and the number each would get: by joining
+     * date, then board decision date (unknown dates last), from the next
+     * free number on.
+     *
+     * @return Collection<int, array{membership: Membership, number: string}>
+     */
+    public function numberingPlan(bool $includeLeft = false): Collection
+    {
+        $statuses = $includeLeft ? [Membership::ACTIVE, Membership::SUSPENDED, Membership::LEFT] : [Membership::ACTIVE, Membership::SUSPENDED];
+        $next = (int) $this->nextNumber();
+
+        return Membership::with('contact')
+            ->whereIn('status', $statuses)
+            ->where(fn ($query) => $query->whereNull('number')->orWhere('number', ''))
+            ->orderByRaw('joined_at is null')->orderBy('joined_at')
+            ->orderByRaw('decision_date is null')->orderBy('decision_date')
+            ->orderBy('id')
+            ->get()
+            ->map(function (Membership $membership) use (&$next) {
+                return ['membership' => $membership, 'number' => (string) $next++];
+            });
+    }
+
+    /**
+     * Give the members of numberingPlan() their numbers; each change goes
+     * into the membership history.
+     */
+    public function assignNumbers(bool $includeLeft = false): int
+    {
+        return DB::transaction(function () use ($includeLeft) {
+            $plan = $this->numberingPlan($includeLeft);
+            $plan->each(fn (array $row) => $this->changeNumber($row['membership'], $row['number']));
+
+            return $plan->count();
+        });
     }
 
     /**

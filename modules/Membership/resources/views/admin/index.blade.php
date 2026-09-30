@@ -8,7 +8,10 @@
             <div class="text-secondary mt-1">Üyelik kayıtları. Bir kişiyi üye yapmak veya üyeliğini değiştirmek için kişi sayfasındaki "Üyelik" bölümünü kullanın.</div>
         </div>
         @if (Auth::user()->hasPermission('memberships.manage'))
-            <a href="{{ route('admin.memberships.import') }}" class="btn btn-outline-primary">DERBİS'ten aktar</a>
+            <div class="btn-list">
+                <a href="{{ route('admin.memberships.numbers') }}" class="btn btn-outline-primary">Üye numarası ver</a>
+                <a href="{{ route('admin.memberships.import') }}" class="btn btn-outline-primary">DERBİS'ten aktar</a>
+            </div>
         @endif
     </div>
 
