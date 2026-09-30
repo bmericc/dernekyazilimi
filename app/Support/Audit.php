@@ -63,7 +63,10 @@ class Audit
             $log->process_type = $type;
             $log->process = mb_substr($description, 0, 255);
             $log->subject_type = $subject->getMorphClass();
-            $log->subject_id = $subject->getKey();
+            // subject_id is numeric; records keyed by text (settings) are
+            // named in the description instead.
+            $key = $subject->getKey();
+            $log->subject_id = is_int($key) || ctype_digit((string) $key) ? $key : null;
             $log->changes = $changes ?: null;
             $log->process_by = Auth::id();
             $log->request_ip = request()->ip();

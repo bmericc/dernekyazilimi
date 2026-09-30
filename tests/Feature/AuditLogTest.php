@@ -53,7 +53,12 @@ class AuditLogTest extends TestCase
 
         $this->assertSame(1, ProcessLogs::where('process', 'Rol yetkileri değişti: Editör')->count());
         $this->assertSame(['', 'admin.access'], ProcessLogs::where('process', 'Rol yetkileri değişti: Editör')->sole()->changes['permissions']);
-        $this->assertTrue(ProcessLogs::where('process', 'Kurum ayarı eklendi: short_name')->exists());
+        // A setting is keyed by text: MySQL rejects it in the numeric
+        // subject_id, so it is named in the description only.
+        $setting = ProcessLogs::where('process', 'Kurum ayarı eklendi: short_name')->sole();
+        $this->assertSame(\App\Models\Setting::class, $setting->subject_type);
+        $this->assertNull($setting->subject_id);
+        $this->assertSame($role->id, (int) ProcessLogs::where('process', 'like', 'Rol eklendi%')->value('subject_id'));
     }
 
     public function test_owners_filter_the_log(): void
