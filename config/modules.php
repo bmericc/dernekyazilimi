@@ -101,6 +101,12 @@ return [
             'requires' => ['membership'],
         ],
 
+        'fonzip-import' => [
+            'enabled' => env('MODULE_FONZIP_IMPORT', false),
+            'provider' => \Modules\FonzipImport\FonzipImportServiceProvider::class,
+            'requires' => ['membership', 'dues', 'donation', 'mail-forwarding'],
+        ],
+
     ],
 
 ];
