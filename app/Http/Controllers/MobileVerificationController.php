@@ -33,10 +33,16 @@ class MobileVerificationController extends Controller
         $contactPermission = PhoneVerification::where("value_type", "phone_number")->where("value", $phone_number)->first();
         if($contactPermission==null) $contactPermission = new PhoneVerification();
 
-        Notification::send(
-            new PhoneVerificationRecipient($phone_number, $verification_code),
-            new MobileVerification()
-        );
+        try {
+            Notification::send(
+                new PhoneVerificationRecipient($phone_number, $verification_code),
+                new MobileVerification()
+            );
+        } catch (\Throwable $e) {
+            report($e);
+
+            return $this->output('json', ['status' => false, 'message' => 'Doğrulama kodu gönderilemedi, lütfen daha sonra tekrar deneyin.']);
+        }
 
         $contactPermission->value = $phone_number;
         $contactPermission->value_type = "phone_number";

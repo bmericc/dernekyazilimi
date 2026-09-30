@@ -2,12 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Contracts\Messaging\SmsSender;
 use App\Models\PhoneVerification;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
+use RuntimeException;
 use Tests\TestCase;
 
 class PhoneVerificationTest extends TestCase
@@ -26,6 +28,23 @@ class PhoneVerificationTest extends TestCase
         $this->assertStringStartsWith('$2y$', $verification->verification_code);
         $this->assertTrue($verification->verification_code_expires_at->isFuture());
         $this->assertFalse($verification->verified);
+    }
+
+    public function test_a_failed_sms_is_reported_instead_of_claiming_the_code_was_sent(): void
+    {
+        $this->app->instance(SmsSender::class, new class implements SmsSender
+        {
+            public function send(string $phone, string $text): void
+            {
+                throw new RuntimeException('NetGSM SMS gönderilemedi (30)');
+            }
+        });
+
+        $this->postJson('/phone-number-verification-request', [
+            'phone_number' => '905551112233',
+        ])->assertOk()->assertJson(['status' => false]);
+
+        $this->assertDatabaseMissing('phone_verifications', ['value' => '905551112233']);
     }
 
     public function test_phone_verification_marks_a_valid_unexpired_code_as_verified(): void
