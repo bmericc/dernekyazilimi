@@ -1,10 +1,13 @@
-document.addEventListener('DOMContentLoaded', function () {
+// jQuery ready callbacks run in order, so this runs after app.js has bound its handlers.
+jQuery(function () {
     var phoneInput = $('#phone_number');
     var requestButton = $('#phone_number_request');
 
     if (!phoneInput.length || !requestButton.length) return;
 
     phoneInput.off('change');
+    // app.js binds its own request handler; two handlers send two codes and the second overwrites the first.
+    requestButton.off('click');
     if (phoneInput.inputmask) phoneInput.inputmask('remove');
 
     requestButton.on('click', function () {
