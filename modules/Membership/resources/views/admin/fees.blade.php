@@ -3,7 +3,7 @@
 @section('content')
 <div class="container-xl">
     <div class="page-header mb-3">
-        <h2 class="page-title">Aidatlar</h2>
+        <h2 class="page-title">Aidat tutarları</h2>
         <div class="text-secondary mt-1">Her yılın @if ($entryFee) giriş ve @endif yıllık üyelik aidatı. Geçmiş yıllar da girilebilir. Tanımı olmayan bir yılda son tanımlı yılın tutarları geçerlidir. Başvuru formundaki <code>{giris_aidati}</code> ve <code>{yillik_aidat}</code> başvuru yılının tutarlarıyla doldurulur. Giriş aidatı alınıp alınmayacağı <a href="{{ route('admin.memberships.settings') }}">başvuru ayarlarındadır</a>.</div>
     </div>
 

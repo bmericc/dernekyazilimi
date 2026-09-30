@@ -33,6 +33,7 @@
     <server name="MODULE_ID_CARD" value="true"/>
     <server name="MODULE_MEMBERSHIP" value="true"/>
         <server name="MODULE_DONATION" value="true"/>
+        <server name="MODULE_DUES" value="true"/>
   </php>
   <source>
     <include>
