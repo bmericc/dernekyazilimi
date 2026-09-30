@@ -3,6 +3,7 @@
 namespace Modules\Donation\Tests\Feature;
 
 use App\Events\ContactAnonymized;
+use App\Models\Agreement;
 use App\Models\BankAccount;
 use App\Models\Contact;
 use App\Models\Payment;
@@ -51,11 +52,15 @@ class DonationTest extends TestCase
     {
         $account = $this->account();
         $cause = DonationCause::create(['name' => 'Linux Yaz Kampı']);
+        $agreement = Agreement::create(['key' => Agreement::PRIVACY, 'title' => 'Gizlilik Politikası']);
+        $agreement->versions()->create(['version' => 1, 'content' => '<p>Metin</p>'])->forceFill(['published_at' => now()])->save();
 
-        $this->get('/donate')->assertOk()->assertSee('Havale / EFT')->assertDontSee('Kredi / banka kartı')->assertSee('Linux Yaz Kampı');
+        // The privacy policy in force opens in the modal the checkbox brings.
+        $this->get('/donate')->assertOk()->assertSee('Havale / EFT')->assertDontSee('Kredi / banka kartı')->assertSee('Linux Yaz Kampı')
+            ->assertSee('Gizlilik Politikası')->assertSee('function openModal(', false)->assertSee('id="modal-iframe"', false);
         $this->post('/donate', $this->form(['amount' => '5']))->assertSessionHasErrors('amount');
 
-        $response = $this->post('/donate', $this->form(['cause_id' => $cause->id, 'hide_name' => '1', 'message' => 'Başarılar']));
+        $response = $this->post('/donate', $this->form(['agreement' => 'true', 'cause_id' => $cause->id, 'hide_name' => '1', 'message' => 'Başarılar']));
         $payment = Payment::sole();
         $response->assertRedirect(route('donations.show', $payment->uuid));
 
@@ -70,7 +75,7 @@ class DonationTest extends TestCase
         $this->get(route('donations.show', $payment->uuid))->assertOk()->assertSee($payment->reference)->assertSee('TR33 0006 1005 1978 6457 8413 26');
 
         // The same guest donating again is the same contact.
-        $this->post('/donate', $this->form());
+        $this->post('/donate', $this->form(['agreement' => 'true']));
         $this->assertSame(1, Contact::where('email', 'ada@example.org')->count());
 
         $owner = User::factory()->create(['role' => 1]);

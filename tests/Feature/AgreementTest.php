@@ -59,6 +59,11 @@ class AgreementTest extends TestCase
         $agreement = $this->publish(Agreement::PRIVACY, '<p>Metin</p>');
 
         $this->get('/register')->assertOk()->assertSee('Gizlilik Politikası')->assertSee('/agreements/kvkk', false);
+
+        // The checkbox brings the modal that shows the text, once per page.
+        $html = $this->get('/register')->getContent();
+        $this->assertSame(1, substr_count($html, 'function openModal('));
+        $this->assertSame(1, substr_count($html, 'id="modal-iframe"'));
         $this->register()->assertSessionHasErrors('agreement');
 
         $this->register(['agreement' => 'true'])->assertRedirect('/home');
