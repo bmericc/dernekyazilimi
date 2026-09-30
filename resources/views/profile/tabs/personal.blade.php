@@ -104,6 +104,19 @@
             </div>
 
             <div class="row mb-3">
+                <label for="gender" class="col-md-4 col-form-label text-md-end">Cinsiyet</label>
+                <div class="col-md-6">
+                    <select id="gender" name="gender" class="form-control form-select @error('gender') is-invalid @enderror">
+                        <option value="">{{ trans("auth.please_select") }}</option>
+                        @foreach (\App\Models\Contact::GENDERS as $key => $label)
+                            <option value="{{ $key }}" @selected(old('gender', $user->contact?->gender) === $key)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                    @error('gender')<span class="invalid-feedback" role="alert"><strong>{{ $message }}</strong></span>@enderror
+                </div>
+            </div>
+
+            <div class="row mb-3">
                 <label for="city" class="col-md-4 col-form-label text-md-end">
                     {{ trans("auth.city") }}
                 </label>

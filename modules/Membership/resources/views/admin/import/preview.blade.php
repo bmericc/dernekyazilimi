@@ -61,7 +61,7 @@
                             <td data-order="{{ array_search($item['action'], array_keys($actions)) }}"><span class="badge bg-{{ $actions[$item['action']][1] }}-lt">{{ $actions[$item['action']][0] }}</span></td>
                             <td class="small">
                                 @foreach ($item['changes'] + $item['membership_changes'] as $field => [$old, $new])
-                                    <div>{{ $labels[$field] ?? $field }}: <span class="text-secondary">{{ $field === 'identity_number' ? $mask($old) : $show($old) }}</span> → {{ $field === 'identity_number' ? $mask($new) : $show($new) }}</div>
+                                    <div>{{ $labels[$field] ?? $field }}: <span class="text-secondary">{{ $field === 'identity_number' ? $mask($old) : ($field === 'gender' ? (\App\Models\Contact::GENDERS[$old] ?? '—') : $show($old)) }}</span> → {{ $field === 'identity_number' ? $mask($new) : ($field === 'gender' ? \App\Models\Contact::GENDERS[$new] : $show($new)) }}</div>
                                 @endforeach
                             </td>
                             <td class="small">

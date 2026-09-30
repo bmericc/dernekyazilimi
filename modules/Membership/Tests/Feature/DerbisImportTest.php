@@ -78,10 +78,10 @@ class DerbisImportTest extends TestCase
         $leaving->affiliate('member', ['started_at' => '2015-01-01']);
         $notListed = Contact::create(['first_name' => 'Liste', 'last_name' => 'Dışı']);
         Membership::create(['contact_id' => $notListed->id, 'number' => '9']);
-        $gender = CustomField::create(['key' => 'cinsiyet', 'label' => 'Cinsiyet', 'type' => 'select', 'options' => ['Kadın', 'Erkek'], 'group' => 'personal']);
+        $profession = CustomField::create(['key' => 'meslek', 'label' => 'Meslek', 'type' => 'text', 'group' => 'personal']);
 
         $file = $this->csv([
-            $this->row(['Ad Soyad / Temsilci Bilgileri' => 'ADA LOVELACE', 'T.C. Kimlik No' => $this->identity('123456789'), 'Telefon No' => '05321234567', 'Kayıt Tarihi' => '02.07.2018', 'Doğum Tarihi' => '10.12.1985', 'Cinsiyet' => 'KADIN']),
+            $this->row(['Ad Soyad / Temsilci Bilgileri' => 'ADA LOVELACE', 'T.C. Kimlik No' => $this->identity('123456789'), 'Telefon No' => '05321234567', 'Kayıt Tarihi' => '02.07.2018', 'Doğum Tarihi' => '10.12.1985', 'Cinsiyet' => 'KADIN', 'Meslek' => 'BİLGİSAYAR MÜHENDİSİ']),
             $this->row(['Ad Soyad / Temsilci Bilgileri' => 'GRACE BREWSTER HOPPER', 'T.C. Kimlik No' => $this->identity('323456789'), 'E-Posta' => 'Grace@Ornek.test']),
             $this->row(['Ad Soyad / Temsilci Bilgileri' => 'İSMAİL IŞIK', 'T.C. Kimlik No' => $this->identity('423456789'), 'E-Posta' => 'ismail@ornek.test', 'Kayıt Tarihi' => '2020-05-04', 'Cinsiyet' => 'ERKEK']),
             $this->row(['Ad Soyad / Temsilci Bilgileri' => 'ALAN TURING', 'T.C. Kimlik No' => $this->identity('223456789'), 'Durum' => 'Pasif', 'Pasif Olma Tarihi' => '01.03.2024', 'Pasif Olma Nedeni' => 'İstifa']),
@@ -89,7 +89,7 @@ class DerbisImportTest extends TestCase
         ]);
 
         $contacts = Contact::count();
-        $this->actingAs($manager)->post('/admin/memberships/import', ['file' => $file, 'fields' => ['gender' => $gender->id]])
+        $this->actingAs($manager)->post('/admin/memberships/import', ['file' => $file, 'fields' => ['profession' => $profession->id]])
             ->assertRedirect('/admin/memberships/import/preview');
 
         $this->actingAs($manager)->get('/admin/memberships/import/preview')->assertOk()
@@ -97,7 +97,8 @@ class DerbisImportTest extends TestCase
             ->assertSee('Yeni kişi ve üyelik')
             ->assertSee('T.C. kimlik no geçersiz')
             ->assertSee('Listede olmayan aktif üyeler')
-            ->assertSee('Liste Dışı');
+            ->assertSee('Liste Dışı')
+            ->assertSee('Cinsiyet: <span class="text-secondary">—</span> → Kadın', false);
         $this->assertSame($contacts, Contact::count(), 'The preview writes nothing.');
 
         $this->actingAs($manager)->post('/admin/memberships/import/apply')->assertRedirect('/admin/memberships')
@@ -112,7 +113,9 @@ class DerbisImportTest extends TestCase
         $this->assertNull($membership->number);
         $this->assertSame('2018-07-02', $membership->joined_at->toDateString());
         $this->assertTrue($existing->hasAffiliation('member'));
-        $this->assertSame('Kadın', $existing->customFieldValues()->where('custom_field_id', $gender->id)->value('value'));
+        $this->assertSame('female', $existing->gender);
+        $this->assertSame('Bilgisayar Mühendisi', $existing->customFieldValues()->where('custom_field_id', $profession->id)->value('value'));
+        $this->assertSame('male', Contact::where('email', 'ismail@ornek.test')->value('gender'));
 
         // Matched by e-mail; the name already there is kept.
         $byEmail->refresh();

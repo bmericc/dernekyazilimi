@@ -41,6 +41,7 @@ class ModulesServiceProvider extends ServiceProvider
             $fields = new ContactFields();
             $fields->register('first_name', 'Ad', fn (Contact $contact) => $contact->first_name, 1);
             $fields->register('last_name', 'Soyad', fn (Contact $contact) => $contact->last_name, 2);
+            $fields->register('gender', 'Cinsiyet', fn (Contact $contact) => $contact->genderLabel(), 3);
             $fields->register('email', 'E-posta', fn (Contact $contact) => $contact->email, 10);
             $fields->register('phone', 'Telefon', fn (Contact $contact) => $contact->phone, 11);
             $fields->register('city', 'İl', fn (Contact $contact) => $contact->city_id ? Cities::where('city_plate_no', $contact->city_id)->value('city_name') : null, 12);

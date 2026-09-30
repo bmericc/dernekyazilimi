@@ -98,6 +98,7 @@ class ContactController extends Controller
             'email' => ['nullable', 'email', 'max:100'],
             'phone' => ['nullable', 'string', 'max:30'],
             'birthday' => ['nullable', 'date', 'before:today'],
+            'gender' => ['nullable', Rule::in(array_keys(Contact::GENDERS))],
         ], [], [
             'first_name' => 'Ad',
             'last_name' => 'Soyad',
@@ -106,11 +107,12 @@ class ContactController extends Controller
             'email' => 'E-posta',
             'phone' => 'Telefon',
             'birthday' => 'Doğum tarihi',
+            'gender' => 'Cinsiyet',
         ]);
 
         // Only the fields of the chosen type are kept.
         if ($organization) {
-            $data['first_name'] = $data['last_name'] = $data['birthday'] = null;
+            $data['first_name'] = $data['last_name'] = $data['birthday'] = $data['gender'] = null;
         } else {
             $data['organization_name'] = null;
         }
