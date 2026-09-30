@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Modules\Membership\Events\ApplicationApproved;
 use Modules\Membership\Mail\ApplicationDecided;
 use Modules\Membership\Mail\ApplicationReady;
 use Modules\Membership\Mail\ReferenceDeclined;
@@ -218,6 +219,8 @@ class ApplicationService
 
             $application->forceFill(['status' => MembershipApplication::APPROVED, 'decided_at' => now(), 'decided_by' => Auth::id()])->save();
             $this->closeReferences($application);
+
+            event(new ApplicationApproved($application));
         });
 
         $this->notifyApplicant($application->fresh(), true);
