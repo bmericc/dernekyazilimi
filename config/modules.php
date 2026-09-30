@@ -95,6 +95,12 @@ return [
             'provider' => \Modules\Donation\DonationServiceProvider::class,
         ],
 
+        'dues' => [
+            'enabled' => env('MODULE_DUES', false),
+            'provider' => \Modules\Dues\DuesServiceProvider::class,
+            'requires' => ['membership'],
+        ],
+
     ],
 
 ];
