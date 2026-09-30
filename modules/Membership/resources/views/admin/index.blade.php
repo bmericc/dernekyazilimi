@@ -2,9 +2,14 @@
 
 @section('content')
 <div class="container-xl">
-    <div class="page-header mb-3">
-        <h2 class="page-title">Üyeler</h2>
-        <div class="text-secondary mt-1">Üyelik kayıtları. Bir kişiyi üye yapmak veya üyeliğini değiştirmek için kişi sayfasındaki "Üyelik" bölümünü kullanın.</div>
+    <div class="page-header mb-3 d-flex flex-wrap justify-content-between align-items-start gap-2">
+        <div>
+            <h2 class="page-title">Üyeler</h2>
+            <div class="text-secondary mt-1">Üyelik kayıtları. Bir kişiyi üye yapmak veya üyeliğini değiştirmek için kişi sayfasındaki "Üyelik" bölümünü kullanın.</div>
+        </div>
+        @if (Auth::user()->hasPermission('memberships.manage'))
+            <a href="{{ route('admin.memberships.import') }}" class="btn btn-outline-primary">DERBİS'ten aktar</a>
+        @endif
     </div>
 
     @include('admin::partials.status')
