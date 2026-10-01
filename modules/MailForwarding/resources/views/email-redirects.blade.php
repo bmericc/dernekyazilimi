@@ -102,10 +102,10 @@
                             <label for="birthday" class="col-md-4 col-form-label text-md-end">{{ trans("auth.birthday") }}</label>
 
                             <div class="col-md-6">
-                                @if( ($first_redirect) || ($user->birthday=="") )
-                                    <input id="birthday" type="text" class="form-control @error('birthday') is-invalid @enderror" name="birthday" value="{{ date("d-m-Y", strtotime($user->birthday)) }}" required autocomplete="birthday" autofocus>
+                                @if( ($first_redirect) || (! $user->birthday) )
+                                    <input id="birthday" type="text" class="form-control @error('birthday') is-invalid @enderror" name="birthday" value="{{ old('birthday', $user->birthday?->format('d-m-Y')) }}" required autocomplete="bday" placeholder="GG-AA-YYYY" autofocus>
                                 @else
-                                    <span class="form-control @error('birthday') is-invalid @enderror">{{ date("d-m-Y", strtotime($user->birthday)) }}</span>
+                                    <span class="form-control @error('birthday') is-invalid @enderror">{{ $user->birthday->format('d-m-Y') }}</span>
                                     <input type="hidden" name="birthday" value="notchange" />
                                 @endif
 

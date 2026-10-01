@@ -16,7 +16,7 @@ use Modules\MailForwarding\Mail\ForwardingWelcome;
 use App\Models\User;
 use Modules\MailForwarding\Models\EmailRedirects;
 
-use BahriCanli\TcKimlik;
+use App\Support\IdentityCheck;
 use Carbon\Carbon;
 
 use Modules\MailForwarding\Support\ForwardingPolicy;
@@ -82,8 +82,6 @@ class EmailRedirectsController extends Controller
             $first_redirect = true;
         }
 
-        $user->birthday = date("d-m-Y", strtotime($user->birthday));
-
         return view('mail-forwarding::email-redirects', [
             "domain" => $domain,
             "domains" => app(ForwardingPolicy::class)->domainsFor($user),
@@ -96,11 +94,15 @@ class EmailRedirectsController extends Controller
 
     public function postValidation(Request $request)
     {
+        // Once an address is active the form sends "notchange" placeholders for
+        // the identity fields; the stored birthday is used then.
+        $keepBirthday = $request->input('birthday') === 'notchange' && Auth::user()->birthday;
+
         $validator = $request->validate([
             'name' => ['required', 'string', 'max:255', 'min:3'],
             'surname' => ['required', 'string', 'max:255', 'min:2'],
             'national_id' => ['required', 'string', 'max:11', 'tckimlik'],
-            'birthday' => ['required', 'date'],
+            'birthday' => ['required', $keepBirthday ? 'string' : 'date'],
             'agreement' => app(\App\Support\Agreements::class)->rules(\App\Models\Agreement::PRIVACY),
         ]);
         app(\App\Support\Agreements::class)->accept(Auth::user(), 'email-forwarding', \App\Models\Agreement::PRIVACY);
@@ -112,18 +114,11 @@ class EmailRedirectsController extends Controller
         $name = $request->get("name") == "notchange" ? $user->name : $request->get("name");
         $surname = $request->get("surname") == "notchange" ? $user->surname : $request->get("surname");
         $national_id = $request->get("national_id") == "10000000146" ? $user->national_id : $request->get("national_id");
-        $birthday = $request->get("birthday") == "notchange" ? $user->birthday : $request->get("birthday");
+        $birthday = $keepBirthday ? $user->birthday : $request->get("birthday");
 
-        $birty_year = date("Y", strtotime($birthday));
+        $birty_year = Carbon::parse($birthday)->year;
 
-        $data = [
-            'tcno'          => $national_id,
-            'isim'          => $name,
-            'soyisim'       => $surname,
-            'dogumyili'     => $birty_year,
-        ];
-
-        if (!TcKimlik::validate($data)) {
+        if (! app(IdentityCheck::class)->verify((string) $national_id, $name, $surname, $birty_year)) {
             return back()->withErrors(["national_id" => "TC Kimlik Numarası vermiş olduğunuz kimlik bilgilerinizle eşleşmiyor"])->withInput();
         }
 

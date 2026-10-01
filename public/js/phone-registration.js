@@ -25,7 +25,6 @@ jQuery(function () {
         }
 
         $('#hidden_phone_number').val(phoneNumber);
-        $('#phone_number_validation_block').show();
         requestButton.prop('disabled', true);
 
         $.post('/phone-number-verification-request', {
@@ -33,6 +32,8 @@ jQuery(function () {
             _token: _globalToken._token
         }).done(function (data) {
             if (data.status) {
+                // The code field appears only once a code is on its way.
+                $('#phone_number_validation_block').show();
                 phoneInput.prop('readonly', true);
                 requestButton.hide();
                 $('#label_phone_number').show();
