@@ -15,9 +15,21 @@ use Illuminate\Support\Facades\Log;
  */
 class MobileVerification extends Notification
 {
-    public function via($notifiable): array
+    /**
+     * @param  string|null  $channel  send over this channel only; all of them when null
+     */
+    public function __construct(private ?string $channel = null)
+    {
+    }
+
+    public static function channels(): array
     {
         return app(WhatsAppSender::class)->available() ? [SmsChannel::class, WhatsAppChannel::class] : [SmsChannel::class];
+    }
+
+    public function via($notifiable): array
+    {
+        return $this->channel ? [$this->channel] : self::channels();
     }
 
     public function toSms($notifiable): string

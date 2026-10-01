@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Contracts\Messaging\SmsSender;
+use App\Contracts\Messaging\WhatsAppSender;
 use App\Models\PhoneVerification;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -47,6 +48,37 @@ class PhoneVerificationTest extends TestCase
         $this->assertDatabaseMissing('phone_verifications', ['value' => '905551112233']);
     }
 
+    public function test_the_code_stays_valid_when_whatsapp_fails_after_the_sms_went_out(): void
+    {
+        $this->app->instance(WhatsAppSender::class, new class implements WhatsAppSender
+        {
+            public function available(): bool
+            {
+                return true;
+            }
+
+            public function send(string $phone, string $text): void
+            {
+                throw new RuntimeException('WhatsApp bridge unreachable');
+            }
+        });
+
+        $this->postJson('/phone-number-verification-request', [
+            'phone_number' => '905551112233',
+        ])->assertOk()->assertJson(['status' => true]);
+
+        $this->assertCount(1, app(SmsSender::class)->sent);
+        $this->assertDatabaseHas('phone_verifications', ['value' => '905551112233', 'verified' => false]);
+    }
+
+    public function test_a_code_for_a_number_that_never_asked_is_refused_with_a_readable_message(): void
+    {
+        $this->postJson('/phone-number-verification', [
+            'phone_number' => '905551112233',
+            'validation' => '123456',
+        ])->assertOk()->assertJson(['status' => false, 'message' => 'Bu numaraya gönderilmiş bir doğrulama kodu yok. Lütfen yeniden kod isteyin.']);
+    }
+
     public function test_phone_verification_marks_a_valid_unexpired_code_as_verified(): void
     {
         $verification = PhoneVerification::create([
@@ -84,7 +116,7 @@ class PhoneVerificationTest extends TestCase
         $this->postJson('/phone-number-verification', [
             'phone_number' => '905551112233',
             'validation' => '123456',
-        ])->assertOk()->assertJson(['status' => false, 'message' => 'Code expired']);
+        ])->assertOk()->assertJson(['status' => false, 'message' => 'Doğrulama kodunun süresi doldu. Lütfen yeniden kod isteyin.']);
 
         $this->assertDatabaseHas('phone_verifications', [
             'value' => '905551112233',
