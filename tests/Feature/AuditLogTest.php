@@ -74,4 +74,19 @@ class AuditLogTest extends TestCase
         $this->get('/admin/process-logs?type=delete')->assertOk()->assertDontSee('Grace Murray');
         $this->actingAs(User::factory()->create(['role' => 2]))->get('/admin/process-logs')->assertForbidden();
     }
+
+    public function test_a_setting_change_is_listed_without_a_record_number(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 1]));
+        app(Organization::class)->save(['contact_email' => 'bilgi@example.org']);
+
+        $log = ProcessLogs::where('subject_type', \App\Models\Setting::class)->where('process', 'Kurum ayarı eklendi: contact_email')->sole();
+        $this->assertNull($log->getRawOriginal('subject_id'));
+        $this->assertSame([null, 'bilgi@example.org'], $log->changes['value']);
+
+        $this->get('/admin/process-logs?subject='.urlencode(\App\Models\Setting::class))->assertOk()
+            ->assertSee('Kurum ayarı eklendi: contact_email')
+            ->assertSee('bilgi@example.org')
+            ->assertDontSee('Kurum ayarı #');
+    }
 }
