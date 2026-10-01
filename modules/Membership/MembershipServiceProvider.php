@@ -4,9 +4,11 @@ namespace Modules\Membership;
 
 use App\Events\ContactAnonymized;
 use App\Models\Contact;
+use App\Modules\Dashboard;
 use App\Modules\Menu;
 use App\Modules\ModuleServiceProvider;
 use App\Modules\Slots;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Event;
 use Modules\Membership\Models\Membership;
 use Modules\Membership\Models\MembershipApplication;
@@ -54,6 +56,8 @@ class MembershipServiceProvider extends ModuleServiceProvider
         $this->contactFields()->register('member_number', 'Üye no', fn (Contact $contact) => Membership::where('contact_id', $contact->id)->value('number'), 20);
 
         $this->dashboard()->stat('Aktif üye', 'id', fn () => Membership::active()->count(), 'admin.memberships', ['memberships.view'], 9);
+        $this->dashboard()->chart('Toplam üye', fn () => $this->memberTotals(), 'line', ['memberships.view'], 8, 'Son 12 ayın sonundaki üye sayısı (askıdakiler dahil)');
+        $this->dashboard()->chart('Aylık yeni üye', fn () => Dashboard::monthly($this->joined(), column: 'joined_at'), 'bar', ['memberships.view'], 9, 'Son 12 ayda her ay katılan üye sayısı');
 
         // KVKK deletion: the membership record stays (the association must
         // keep its member register) but ends; the contact is anonymized by the core.
@@ -64,5 +68,27 @@ class MembershipServiceProvider extends ModuleServiceProvider
                 'notes' => null,
             ])->saveQuietly());
         });
+    }
+
+    /**
+     * Memberships that started: everyone who is or once was a member.
+     */
+    private function joined(): Builder
+    {
+        return Membership::whereIn('status', [Membership::ACTIVE, Membership::SUSPENDED, Membership::LEFT])->whereNotNull('joined_at');
+    }
+
+    /**
+     * Members at the end of each of the last 12 months: those who had joined
+     * minus those who had left. Members without a joining date count in
+     * every month.
+     */
+    private function memberTotals(): array
+    {
+        $joined = Dashboard::monthly($this->joined(), cumulative: true, column: 'joined_at');
+        $left = Dashboard::monthly($this->joined()->where('status', Membership::LEFT)->whereNotNull('left_at'), cumulative: true, column: 'left_at');
+        $undated = Membership::whereIn('status', [Membership::ACTIVE, Membership::SUSPENDED])->whereNull('joined_at')->count();
+
+        return array_combine(array_keys($joined), array_map(fn (int $count, int $gone) => $count - $gone + $undated, $joined, $left));
     }
 }
