@@ -78,7 +78,7 @@
                             </td>
                             <td class="text-nowrap">
                                 @if ($log->subject_type)
-                                    <a href="{{ route('admin.process-logs', ['subject' => $log->subject_type, 'subject_id' => $log->subject_id]) }}" class="text-reset">{{ \App\Support\Audit::subjectLabel($log->subject_type) }} #{{ $log->subject_id }}</a>
+                                    <a href="{{ route('admin.process-logs', ['subject' => $log->subject_type, 'subject_id' => $log->subject_id]) }}" class="text-reset">{{ \App\Support\Audit::subjectLabel($log->subject_type) }}@if ($log->subject_id !== null) #{{ $log->subject_id }}@endif</a>
                                 @else
                                     <span class="text-secondary">—</span>
                                 @endif
