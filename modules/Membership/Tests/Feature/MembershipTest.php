@@ -142,4 +142,29 @@ class MembershipTest extends TestCase
         $this->assertSame('number_changed', $late->events()->value('type'));
         $this->assertNull($left->fresh()->number);
     }
+
+    public function test_the_panel_charts_members_by_joining_and_leaving_month(): void
+    {
+        $this->travelTo(now()->setDate(2026, 9, 15));
+        $owner = User::factory()->create(['role' => 1]);
+        $member = fn (array $attributes) => Membership::create(['contact_id' => Contact::create(['first_name' => 'A', 'last_name' => 'B'])->id] + $attributes);
+
+        $member(['joined_at' => '2019-05-01']);
+        $member(['joined_at' => '2026-07-10', 'status' => Membership::SUSPENDED]);
+        $member(['joined_at' => '2026-09-02']);
+        $member(['joined_at' => '2020-01-01', 'left_at' => '2026-08-20', 'status' => Membership::LEFT]);
+        $member(['joined_at' => null]);
+        $member(['applied_at' => '2026-09-01', 'status' => Membership::APPLICANT]);
+
+        $charts = collect($this->actingAs($owner)->get('/admin')->assertOk()->assertSee('Toplam üye')->viewData('charts'))->keyBy('title');
+
+        $this->assertSame([3, 4, 3, 4], array_slice(array_values($charts['Toplam üye']['data']), -4));
+        $this->assertSame([0, 1, 0, 1], array_slice(array_values($charts['Aylık yeni üye']['data']), -4));
+        $this->assertCount(12, $charts['Toplam üye']['data']);
+
+        // Without the permission the member charts are not shown.
+        $manager = User::factory()->create(['role' => 2]);
+        $titles = array_column($this->actingAs($manager)->get('/admin')->assertOk()->viewData('charts'), 'title');
+        $this->assertNotContains('Toplam üye', $titles);
+    }
 }
