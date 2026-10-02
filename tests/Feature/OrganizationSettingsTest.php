@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Agreement;
 use App\Models\Role;
 use App\Models\User;
 use App\Support\Organization;
@@ -98,6 +99,22 @@ class OrganizationSettingsTest extends TestCase
         $this->assertStringContainsString('gtag/js?id=G-ABC123XYZ', $html);
         $this->assertStringContainsString('"GTM-ABC123"', $html);
         $this->assertStringContainsString('ns.html?id=GTM-ABC123', $html);
+    }
+
+    public function test_google_tags_are_added_to_the_agreement_iframe_and_the_admin_panel(): void
+    {
+        app(Organization::class)->save(['ga_measurement_id' => 'G-ABC123XYZ', 'gtm_container_id' => 'GTM-ABC123']);
+        $agreement = Agreement::create(['key' => 'kvkk', 'title' => 'Gizlilik Politikası']);
+        $agreement->versions()->create(['version' => 1, 'content' => '<p>Metin</p>'])->forceFill(['published_at' => now()])->save();
+
+        $html = $this->get('/agreements/kvkk?iframe=1')->assertOk()->getContent();
+
+        $this->assertStringContainsString('gtag/js?id=G-ABC123XYZ', $html);
+        $this->assertStringContainsString('"GTM-ABC123"', $html);
+        $this->assertStringContainsString('ns.html?id=GTM-ABC123', $html);
+
+        $this->actingAs($this->settingsManager())->get('/admin/settings/organization')
+            ->assertOk()->assertSee('ns.html?id=GTM-ABC123', false);
     }
 
     public function test_the_home_editor_starts_from_the_default_home_page(): void
