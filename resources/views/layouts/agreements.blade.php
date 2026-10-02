@@ -7,8 +7,12 @@
 	<link href="https://fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,600,600i,700,700i,800,800i&display=swap&subset=latin-ext" rel="stylesheet">
 	<!-- Vendor CSS -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+
+    @include('layouts.partials.google-tags')
 </head>
 <body>
+    @include('layouts.partials.google-tags-noscript')
+
     <div class="body">
         <div role="main" class="main">
             <div class="row" style="margin-top:100px; margin-bottom:100px; margin-left:10px; margin-right:10px;">

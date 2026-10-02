@@ -4,6 +4,8 @@
     @include('layouts.partials.head')
 </head>
 <body>
+    @include('layouts.partials.google-tags-noscript')
+
     <div class="page" id="app">
         <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
             <div class="container-fluid">
