@@ -14,8 +14,12 @@
         body { margin: 0; }
         main .container { width: 100%; max-width: none; padding-right: 12px; padding-left: 12px; }
     </style>
+
+    @include('layouts.partials.google-tags')
 </head>
 <body>
+    @include('layouts.partials.google-tags-noscript')
+
     <main class="py-4" style="background-color: #f8f8f8; min-height: 100vh;">
         @yield('content')
     </main>

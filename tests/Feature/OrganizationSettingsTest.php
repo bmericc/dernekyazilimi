@@ -89,6 +89,17 @@ class OrganizationSettingsTest extends TestCase
         $this->get($organization->logoUrl())->assertOk();
     }
 
+    public function test_google_tags_are_added_to_iframe_pages(): void
+    {
+        app(Organization::class)->save(['ga_measurement_id' => 'G-ABC123XYZ', 'gtm_container_id' => 'GTM-ABC123']);
+
+        $html = $this->get('/login?in-iframe=1')->assertOk()->getContent();
+
+        $this->assertStringContainsString('gtag/js?id=G-ABC123XYZ', $html);
+        $this->assertStringContainsString('"GTM-ABC123"', $html);
+        $this->assertStringContainsString('ns.html?id=GTM-ABC123', $html);
+    }
+
     public function test_the_home_editor_starts_from_the_default_home_page(): void
     {
         app(Organization::class)->save(['name' => 'Örnek Derneği']);

@@ -4,12 +4,7 @@
     @include('layouts.partials.head')
 </head>
 <body>
-    @if ($gtmId = $organization->get('gtm_container_id'))
-        <!-- Google Tag Manager (noscript) -->
-        <noscript><iframe src="https://www.googletagmanager.com/ns.html?id={{ $gtmId }}"
-        height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-        <!-- End Google Tag Manager (noscript) -->
-    @endif
+    @include('layouts.partials.google-tags-noscript')
 
     <div class="page" id="app">
         <header class="navbar navbar-expand-md d-print-none">
