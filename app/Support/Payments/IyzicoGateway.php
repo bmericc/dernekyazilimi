@@ -6,6 +6,7 @@ use App\Contracts\Payments\CardGateway;
 use App\Models\Payment;
 use App\Models\PaymentGateway;
 use Illuminate\Http\Request;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -116,7 +117,10 @@ class IyzicoGateway implements CardGateway
 
         return Http::withHeaders(['Authorization' => 'IYZWSv2 '.$authorization, 'x-iyzi-rnd' => $random, 'Accept' => 'application/json'])
             ->withBody($json, 'application/json')
+            ->connectTimeout(5)
             ->timeout(20)
+            // A connection that never opens has not reached iyzico; trying again is safe.
+            ->retry(3, 500, fn ($exception) => $exception instanceof ConnectionException, throw: false)
             ->post($this->baseUrl().$path)
             ->json() ?? [];
     }

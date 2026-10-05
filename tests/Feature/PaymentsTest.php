@@ -96,6 +96,30 @@ class PaymentsTest extends TestCase
         Event::assertDispatched(PaymentSucceeded::class, 1);
     }
 
+    public function test_a_connection_that_fails_to_open_is_tried_again(): void
+    {
+        $gateway = PaymentGateway::create(['driver' => 'iyzico', 'name' => 'iyzico', 'credentials' => ['api_key' => 'k', 'secret_key' => 's'], 'test_mode' => true]);
+        $payments = app(Payments::class);
+        $payment = $payments->create('donation', null, 150, Payment::CARD, ['name' => 'Ada Lovelace', 'email' => 'ada@example.org']);
+
+        $attempts = 0;
+        Http::fake(function () use (&$attempts) {
+            if (++$attempts < 3) {
+                throw new \Illuminate\Http\Client\ConnectionException('cURL error 28: Connection timed out');
+            }
+
+            return Http::response(['status' => 'success', 'token' => 'tok-9', 'paymentPageUrl' => 'https://sandbox.iyzico/pay/tok-9']);
+        });
+
+        $this->assertSame('https://sandbox.iyzico/pay/tok-9', $payments->startCard($payment, $gateway, 'https://portal.test/donate/x'));
+        $this->assertSame(3, $attempts);
+
+        // After three failed attempts the error reaches the caller as before.
+        $attempts = -10;
+        $this->expectException(\Illuminate\Http\Client\ConnectionException::class);
+        $payments->startCard($payment, $gateway, 'https://portal.test/donate/x');
+    }
+
     public function test_a_gateway_answer_with_another_amount_fails_the_payment(): void
     {
         $gateway = PaymentGateway::create(['driver' => 'iyzico', 'name' => 'iyzico', 'credentials' => ['api_key' => 'k', 'secret_key' => 's'], 'test_mode' => true]);
