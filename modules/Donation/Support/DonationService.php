@@ -2,21 +2,47 @@
 
 namespace Modules\Donation\Support;
 
+use App\Models\Agreement;
 use App\Models\BankAccount;
 use App\Models\Contact;
 use App\Models\Payment;
 use App\Models\PaymentGateway;
 use App\Models\User;
+use App\Support\Agreements;
 use App\Support\Payments\Payments;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Modules\Donation\Models\Donation;
 
 class DonationService
 {
-    public function __construct(private Payments $payments)
+    /** Names of the donation form's fields in validation messages. */
+    public const ATTRIBUTES = ['amount' => 'Tutar', 'cause_id' => 'Bağış amacı', 'name' => 'Ad soyad', 'email' => 'E-posta', 'phone' => 'Telefon', 'message' => 'Mesaj', 'method' => 'Ödeme yöntemi'];
+
+    public function __construct(private Payments $payments, private DonationSettings $settings, private Agreements $agreements)
     {
+    }
+
+    /**
+     * Rules of the donation form.
+     *
+     * @param  array<string, string>  $methods  see methods()
+     */
+    public function rules(array $methods): array
+    {
+        return [
+            'amount' => ['required', 'numeric', 'min:'.$this->settings->minimum(), 'max:1000000', 'decimal:0,2'],
+            'cause_id' => ['nullable', Rule::exists('donation_causes', 'id')->where('is_active', true)],
+            'name' => ['required', 'string', 'max:150'],
+            'email' => ['required', 'email', 'max:150'],
+            'phone' => ['nullable', 'string', 'max:30', 'regex:/^[0-9+() .-]+$/'],
+            'hide_name' => ['nullable', 'boolean'],
+            'message' => ['nullable', 'string', 'max:1000'],
+            'method' => ['required', Rule::in(array_keys($methods))],
+            'agreement' => $this->agreements->rules(Agreement::PRIVACY),
+        ];
     }
 
     /**

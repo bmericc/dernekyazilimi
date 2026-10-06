@@ -34,6 +34,11 @@ interface CardGateway
     public function start(Payment $payment, array $buyer, string $callbackUrl): string;
 
     /**
+     * The payment page's address for showing it inside a frame.
+     */
+    public static function frameUrl(string $paymentUrl): string;
+
+    /**
      * The provider's token in the callback request, to find the payment.
      */
     public static function tokenFrom(Request $request): ?string;

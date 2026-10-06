@@ -14,6 +14,8 @@ use Illuminate\Support\ServiceProvider;
  *   routes/web.php           loaded inside the "web" middleware group
  *   routes/admin.php         admin panel pages: /admin prefix, "admin." route names,
  *                            accounts with the admin.access permission
+ *   routes/api.php           endpoints for the association's web site: /api/site prefix,
+ *                            "site-api." route names, API key (App\Support\SiteApi)
  *   resources/views          available as "<name>::view.name"
  *   database/migrations      loaded by ModulesServiceProvider for every module
  *
@@ -55,6 +57,10 @@ abstract class ModuleServiceProvider extends ServiceProvider
 
             if (is_file($routes = $this->modulePath('routes/admin.php'))) {
                 Route::middleware(['web', 'auth', 'permission:admin.access'])->prefix('admin')->name('admin.')->group($routes);
+            }
+
+            if (is_file($routes = $this->modulePath('routes/api.php'))) {
+                Route::middleware('site-api')->prefix('api/site')->name('site-api.')->group($routes);
             }
         }
 
@@ -99,6 +105,22 @@ abstract class ModuleServiceProvider extends ServiceProvider
     protected function dashboard(): Dashboard
     {
         return $this->app->make(Dashboard::class);
+    }
+
+    /**
+     * The API of the association's web site: describe the module's form.
+     */
+    protected function siteApi(): \App\Support\SiteApi
+    {
+        return $this->app->make(\App\Support\SiteApi::class);
+    }
+
+    /**
+     * Pages the web site may continue on inside a frame.
+     */
+    protected function embed(): \App\Support\Embed
+    {
+        return $this->app->make(\App\Support\Embed::class);
     }
 
     protected function modulePath(string $path = ''): string

@@ -46,6 +46,9 @@ class VolunteerServiceProvider extends ModuleServiceProvider
         $this->dashboard()->chart('Toplam gönüllü', fn () => Dashboard::monthly($volunteers(), cumulative: true), 'line', [1, 2], 10, 'Son 12 ayın sonundaki gönüllü sayısı');
         $this->dashboard()->chart('Aylık yeni gönüllü', fn () => Dashboard::monthly($volunteers()), 'bar', [1, 2], 11, 'Son 12 ayda her ay kaydolan gönüllü sayısı');
 
+        // People who register (also from the web site's form) become volunteers.
+        $this->siteApi()->describe('volunteer', fn () => ['open' => true]);
+
         Event::listen(Registered::class, MarkAsVolunteer::class);
         Event::listen(DashboardVisited::class, SubscribeToVolunteerList::class);
     }

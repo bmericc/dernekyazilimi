@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
 use Modules\Donation\Mail\DonationThanks;
 use Modules\Donation\Models\Donation;
+use Modules\Donation\Models\DonationCause;
+use Modules\Donation\Support\DonationService;
+use Modules\Donation\Support\DonationSettings;
 use Throwable;
 
 /**
@@ -33,6 +36,22 @@ class DonationServiceProvider extends ModuleServiceProvider
         $this->permissions()->register('donations.manage', 'Bağış kaydedebilsin, bağış amaçlarını ve ayarlarını düzenleyebilsin', 'donations', 56);
 
         app(Payments::class)->registerPurpose('donation', 'Bağış');
+
+        // The donation form of the association's web site.
+        $this->siteApi()->describe('donation', function () {
+            $settings = app(DonationSettings::class);
+            $methods = $settings->open() ? app(DonationService::class)->methods() : [];
+
+            return [
+                'open' => (bool) $methods,
+                'currency' => config('payments.currency', 'TRY'),
+                'amounts' => $settings->amounts(),
+                'minimum' => $settings->minimum(),
+                'intro' => $settings->intro(),
+                'causes' => DonationCause::active()->get()->map(fn (DonationCause $cause) => ['id' => $cause->id, 'name' => $cause->name])->all(),
+                'methods' => collect($methods)->map(fn ($label, $key) => ['key' => $key, 'label' => $label])->values()->all(),
+            ];
+        });
 
         $menu->label('admin', 'donations', 'Bağışlar', 'heart-handshake');
         $menu->add('admin', 'donations', 'Bağışlar', 'admin.donations', ['donations.view'], 55);

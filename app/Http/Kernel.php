@@ -30,6 +30,7 @@ class Kernel extends HttpKernel
      */
     protected $middlewareGroups = [
         'web' => [
+            \App\Http\Middleware\EmbedMode::class,
             \App\Http\Middleware\EncryptCookies::class,
             \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
             \Illuminate\Session\Middleware\StartSession::class,
@@ -42,6 +43,13 @@ class Kernel extends HttpKernel
         'api' => [
             // \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
             'throttle:api',
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
+        ],
+
+        // The association's web site, server to server (App\Support\SiteApi).
+        'site-api' => [
+            'throttle:site-api',
+            \App\Http\Middleware\AuthenticateSite::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],
     ];

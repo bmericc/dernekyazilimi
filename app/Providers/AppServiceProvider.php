@@ -28,6 +28,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(Organization::class);
         $this->app->singleton(\App\Support\Payments\Payments::class);
         $this->app->singleton(\App\Support\Agreements::class);
+        $this->app->singleton(\App\Support\Embed::class);
+        $this->app->singleton(\App\Support\SiteApi::class);
 
         // Messaging channels behind interfaces; "log" writes instead of sending.
         $this->app->singleton(\App\Contracts\Messaging\SmsSender::class, fn () => config('messaging.sms') === 'log'

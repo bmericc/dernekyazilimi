@@ -86,6 +86,11 @@ class IyzicoGateway implements CardGateway
         return $response['paymentPageUrl'];
     }
 
+    public static function frameUrl(string $paymentUrl): string
+    {
+        return $paymentUrl.(str_contains($paymentUrl, '?') ? '&' : '?').'iframe=true';
+    }
+
     public static function tokenFrom(Request $request): ?string
     {
         return $request->input('token');

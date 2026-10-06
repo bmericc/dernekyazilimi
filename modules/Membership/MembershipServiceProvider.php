@@ -45,6 +45,11 @@ class MembershipServiceProvider extends ModuleServiceProvider
         $menu->add('user', 'membership', 'Üyelik başvurusu', 'membership.apply', [], 30, fn ($user) => $user && app(ApplicationService::class)->blocker($user) === null);
         $menu->add('user', 'membership', 'Üyelik başvurum', 'membership.application', [], 31, fn ($user) => $user && MembershipApplication::where('contact_id', $user->contact_id)->exists());
 
+        // The web site's membership form opens the account, then the
+        // application continues on this page inside a frame.
+        $this->embed()->page('membership', 'membership.apply');
+        $this->siteApi()->describe('membership', fn () => ['open' => app(\Modules\Membership\Support\MembershipSettings::class)->applicationsOpen()]);
+
         $this->dashboard()->stat('Karar bekleyen başvuru', 'file-certificate', fn () => MembershipApplication::where('status', MembershipApplication::READY)->count(), 'admin.membership-applications', ['memberships.view'], 8);
 
         $slots->push('admin.contacts.show', 'membership::partials.contact-card', 10);

@@ -27,10 +27,10 @@
                 @endforeach
             @elseif ($payment->isPending())
                 <div class="alert alert-info">Ödemeniz henüz tamamlanmadı.</div>
-                <a href="{{ route('donations.create') }}" class="btn btn-primary">Yeniden dene</a>
+                @include('donation::partials.retry')
             @else
                 <div class="alert alert-danger">Ödeme tamamlanamadı{{ $payment->note ? ': '.$payment->note : '.' }}</div>
-                <a href="{{ route('donations.create') }}" class="btn btn-primary">Yeniden dene</a>
+                @include('donation::partials.retry')
             @endif
         </div>
     </div>
