@@ -144,4 +144,49 @@ class DonationTest extends TestCase
         event(new ContactAnonymized($member->contact, $member->id));
         $this->assertNull($payment->payable->fresh()->donor_email);
     }
+
+    public function test_the_web_site_starts_a_donation_and_shows_the_rest_in_a_frame(): void
+    {
+        app(\App\Support\Organization::class)->save(['frame_ancestors' => 'https://www.ornek.org.tr']);
+        $headers = ['X-Api-Key' => app(\App\Support\SiteApi::class)->generateKey(), 'X-Site-Url' => 'https://www.ornek.org.tr', 'X-Client-Ip' => '203.0.113.7'];
+
+        $this->withHeaders($headers)->postJson('/api/site/donations', $this->form())->assertUnprocessable()->assertJsonPath('message', 'Şu anda çevrim içi bağış alınmıyor.');
+
+        $this->account();
+        $gateway = $this->gateway();
+        $cause = DonationCause::create(['name' => 'Linux Yaz Kampı']);
+        Http::fake([
+            '*/checkoutform/initialize/*' => Http::response(['status' => 'success', 'token' => 'tok', 'paymentPageUrl' => 'https://sandbox.iyzico/pay?token=tok']),
+            '*/checkoutform/auth/ecom/detail' => fn ($request) => Http::response(['status' => 'success', 'paymentStatus' => 'SUCCESS', 'paymentId' => '1', 'price' => '100.0', 'conversationId' => $request['conversationId']]),
+        ]);
+
+        $this->withHeaders($headers)->getJson('/api/site/config')->assertOk()
+            ->assertJsonPath('donation.open', true)
+            ->assertJsonPath('donation.minimum', 10)
+            ->assertJsonPath('donation.causes.0', ['id' => $cause->id, 'name' => 'Linux Yaz Kampı'])
+            ->assertJsonPath('donation.methods.0.key', 'gateway:'.$gateway->id)
+            ->assertJsonPath('donation.methods.1.key', 'transfer');
+
+        $this->withHeaders($headers)->postJson('/api/site/donations', $this->form(['amount' => '1']))->assertUnprocessable()->assertJsonValidationErrors('amount');
+
+        // Transfer: the frame shows the bank accounts and the reference code.
+        $transfer = $this->withHeaders($headers)->postJson('/api/site/donations', $this->form(['cause_id' => $cause->id]))->assertCreated()->assertJsonPath('method', 'transfer');
+        $payment = Payment::sole();
+        $this->assertSame('203.0.113.7', $payment->ip);
+        $this->assertSame($cause->id, $payment->payable->cause_id);
+        $this->assertSame(route('donations.show', ['uuid' => $payment->uuid, 'in-iframe' => 1]), $transfer->json('frame_url'));
+
+        // Card: the frame shows the gateway's payment page, which returns to the framed result.
+        $card = $this->withHeaders($headers)->postJson('/api/site/donations', $this->form(['amount' => '100', 'method' => 'gateway:'.$gateway->id]))->assertCreated()
+            ->assertJsonPath('frame_url', 'https://sandbox.iyzico/pay?token=tok&iframe=true');
+        $paid = Payment::where('uuid', $card->json('uuid'))->sole();
+
+        $this->flushHeaders();
+        $this->post(route('payments.callback', $gateway), ['token' => 'tok'])->assertRedirect(route('donations.show', ['uuid' => $paid->uuid, 'in-iframe' => 1]));
+        $this->assertTrue($paid->fresh()->isPaid());
+        $this->get(route('donations.show', ['uuid' => $paid->uuid, 'in-iframe' => 1]))->assertOk()
+            ->assertHeader('Content-Security-Policy', "frame-ancestors 'self' https://www.ornek.org.tr")
+            ->assertSee('bağışınız alındı')->assertDontSee('navbar-brand');
+        $this->get(route('donations.show', ['uuid' => $payment->uuid, 'in-iframe' => 1]))->assertOk()->assertSee($payment->reference)->assertSee('Örnek Bankası');
+    }
 }

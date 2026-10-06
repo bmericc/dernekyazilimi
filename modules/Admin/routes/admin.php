@@ -45,6 +45,8 @@ Route::middleware('permission:contacts.view')->group(function () {
 Route::middleware('permission:settings.manage')->group(function () {
     Route::get('/settings/organization', [OrganizationSettingsController::class, 'edit'])->name('settings.organization');
     Route::put('/settings/organization', [OrganizationSettingsController::class, 'update'])->name('settings.organization.update');
+    Route::post('/settings/organization/site-api-key', [OrganizationSettingsController::class, 'generateSiteApiKey'])->name('settings.organization.site-api-key');
+    Route::delete('/settings/organization/site-api-key', [OrganizationSettingsController::class, 'revokeSiteApiKey'])->name('settings.organization.site-api-key.revoke');
     Route::post('/settings/organization/images', [OrganizationSettingsController::class, 'uploadImage'])->middleware('throttle:30,1')->name('settings.organization.images');
 });
 

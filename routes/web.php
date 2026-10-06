@@ -46,6 +46,8 @@ Route::put('/change-password', [App\Http\Controllers\PasswordChangeController::c
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'home'])->name('home');
 Route::post('/home', [App\Http\Controllers\HomeController::class, 'postHome']);
 
+// A framed page's one-time sign-in for an account opened from the web site.
+Route::get('/embed/{page}', [App\Http\Controllers\EmbedController::class, 'enter'])->where('page', '[a-z0-9-]+')->middleware('signed')->name('embed.enter');
 Route::get('/agreements/{key}', [App\Http\Controllers\AgreementController::class, 'show'])->where('key', '[a-z0-9-]+')->name('agreements.show');
 Route::get('/user-agreement', [App\Http\Controllers\AgreementController::class, 'userAgreement']);
 Route::get('/email-agreement', [App\Http\Controllers\AgreementController::class, 'emailAgreement']);

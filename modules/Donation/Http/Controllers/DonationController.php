@@ -12,7 +12,6 @@ use App\Support\Payments\Payments;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Donation\Models\Donation;
 use Modules\Donation\Models\DonationCause;
@@ -42,17 +41,7 @@ class DonationController extends Controller
         $methods = $service->methods();
         abort_unless($settings->open() && $methods, 404);
 
-        $data = $request->validate([
-            'amount' => ['required', 'numeric', 'min:'.$settings->minimum(), 'max:1000000', 'decimal:0,2'],
-            'cause_id' => ['nullable', Rule::exists('donation_causes', 'id')->where('is_active', true)],
-            'name' => ['required', 'string', 'max:150'],
-            'email' => ['required', 'email', 'max:150'],
-            'phone' => ['nullable', 'string', 'max:30', 'regex:/^[0-9+() .-]+$/'],
-            'hide_name' => ['nullable', 'boolean'],
-            'message' => ['nullable', 'string', 'max:1000'],
-            'method' => ['required', Rule::in(array_keys($methods))],
-            'agreement' => $agreements->rules(Agreement::PRIVACY),
-        ], [], ['amount' => 'Tutar', 'cause_id' => 'Bağış amacı', 'name' => 'Ad soyad', 'email' => 'E-posta', 'phone' => 'Telefon', 'message' => 'Mesaj', 'method' => 'Ödeme yöntemi']);
+        $data = $request->validate($service->rules($methods), [], DonationService::ATTRIBUTES);
 
         $payment = $service->submit($data, Auth::user());
         if (Auth::check()) {

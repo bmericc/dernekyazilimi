@@ -5,6 +5,7 @@ namespace Modules\Admin\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Support\HtmlSanitizer;
 use App\Support\Organization;
+use App\Support\SiteApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -32,9 +33,28 @@ class OrganizationSettingsController extends Controller
         'gtm_container_id' => ['nullable', 'regex:/^GTM-[A-Z0-9]{4,20}$/'],
     ];
 
-    public function edit(Organization $organization): View
+    public function edit(Organization $organization, SiteApi $siteApi): View
     {
-        return view('admin::settings.organization', ['organization' => $organization]);
+        return view('admin::settings.organization', ['organization' => $organization, 'siteApi' => $siteApi]);
+    }
+
+    /**
+     * New key for the association's web site; shown once, the old one stops working.
+     */
+    public function generateSiteApiKey(SiteApi $siteApi): RedirectResponse
+    {
+        $key = $siteApi->generateKey();
+        $this->set_log('change', 'Web sitesi API anahtarı üretildi.');
+
+        return redirect()->to(route('admin.settings.organization').'#site-api')->with('site-api-key', $key);
+    }
+
+    public function revokeSiteApiKey(SiteApi $siteApi): RedirectResponse
+    {
+        $siteApi->revokeKey();
+        $this->set_log('change', 'Web sitesi API anahtarı silindi.');
+
+        return redirect()->to(route('admin.settings.organization').'#site-api')->with('success-status', 'Web sitesi API anahtarı silindi.');
     }
 
     public function update(Request $request, Organization $organization, HtmlSanitizer $sanitizer): RedirectResponse

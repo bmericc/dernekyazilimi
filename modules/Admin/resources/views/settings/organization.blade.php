@@ -121,7 +121,7 @@
                             <label for="frame_ancestors" class="form-label">Gömülebilecek siteler</label>
                             <textarea id="frame_ancestors" name="frame_ancestors" rows="3" class="form-control @error('frame_ancestors') is-invalid @enderror" placeholder="https://www.ornek.org.tr">{{ $value('frame_ancestors') }}</textarea>
                             @error('frame_ancestors')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                            <div class="form-hint">Giriş, kayıt ve seminer sayfalarını <code>?in-iframe=1</code> ile iframe içinde gösterebilecek siteler; her satıra bir https adresi.</div>
+                            <div class="form-hint">Portal sayfalarını iframe içinde gösterebilecek ve site API'sini kullanabilecek siteler (ör. WordPress eklentisinin kurulu olduğu site); her satıra bir https adresi.</div>
                         </div>
                         {{ $input('ga_measurement_id', 'Google Analytics ölçüm kimliği', 'text', 'Boşsa Google Analytics yüklenmez.', 'G-XXXXXXXXXX') }}
                         {{ $input('gtm_container_id', 'Google Tag Manager kimliği', 'text', 'Boşsa Tag Manager yüklenmez.', 'GTM-XXXXXXX') }}
@@ -151,6 +151,33 @@
             <button type="submit" class="btn btn-primary">Kaydet</button>
         </div>
     </form>
+
+    <div class="card mt-3" id="site-api">
+        <div class="card-header"><h3 class="card-title">Web sitesi bağlantısı (API anahtarı)</h3></div>
+        <div class="card-body">
+            <p class="text-secondary">Derneğin web sitesindeki bağış, gönüllü ve üyelik formları (WordPress eklentisi) portala bu anahtarla bağlanır. Anahtar yalnız yukarıdaki “Gömülebilecek siteler” listesindeki sitelerden kabul edilir.</p>
+            @if (session('site-api-key'))
+                <div class="alert alert-success">
+                    <div>Yeni anahtar; yalnız şimdi gösterilir, eklenti ayarlarına yapıştırın:</div>
+                    <code class="fs-3 user-select-all">{{ session('site-api-key') }}</code>
+                </div>
+            @endif
+            <p>Durum: @if ($siteApi->hasKey())<span class="badge bg-green-lt">Anahtar tanımlı</span>@else<span class="badge bg-secondary-lt">Anahtar yok</span>@endif</p>
+            <div class="btn-list">
+                <form method="POST" action="{{ route('admin.settings.organization.site-api-key') }}" @if ($siteApi->hasKey()) onsubmit="return confirm('Eski anahtar geçersiz olacak; sitedeki eklentiye yenisini yazmanız gerekir. Devam edilsin mi?')" @endif>
+                    @csrf
+                    <button type="submit" class="btn btn-primary">{{ $siteApi->hasKey() ? 'Anahtarı yenile' : 'Anahtar üret' }}</button>
+                </form>
+                @if ($siteApi->hasKey())
+                    <form method="POST" action="{{ route('admin.settings.organization.site-api-key.revoke') }}" onsubmit="return confirm('Anahtar silinsin mi? Sitedeki formlar çalışmaz olur.')">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="btn btn-outline-danger">Anahtarı sil</button>
+                    </form>
+                @endif
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>

@@ -43,6 +43,11 @@ class RouteServiceProvider extends ServiceProvider
                 ->namespace($this->namespace)
                 ->group(base_path('routes/api.php'));
 
+            Route::prefix('api/site')
+                ->middleware('site-api')
+                ->name('site-api.')
+                ->group(base_path('routes/site-api.php'));
+
             Route::middleware('web')
                 ->namespace($this->namespace)
                 ->group(base_path('routes/web.php'));
@@ -59,5 +64,10 @@ class RouteServiceProvider extends ServiceProvider
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)->by(optional($request->user())->id ?: $request->ip());
         });
+
+        // The whole web site shares one address; its visitors are told apart
+        // by the address the site forwards (AuthenticateSite).
+        RateLimiter::for('site-api', fn (Request $request) => Limit::perMinute(600)->by('site-api:'.$request->ip()));
+        RateLimiter::for('site-visitor', fn (Request $request) => Limit::perMinute(10)->by('site-visitor:'.$request->ip()));
     }
 }
