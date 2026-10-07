@@ -28,6 +28,7 @@ class DonationSettingsController extends Controller
         $settings->save([
             'donation_open' => $request->boolean('open') ? '1' : '0',
             'donation_amounts' => preg_replace('/\s+/', '', $data['amounts'] ?? '') ?: null,
+            'donation_fixed_only' => $request->boolean('fixed_only') ? '1' : '0',
             'donation_minimum' => (string) $data['minimum'],
             'donation_intro' => trim($sanitizer->sanitizePage($data['intro'] ?? '')) ?: null,
             'donation_thanks' => trim($sanitizer->sanitizePage($data['thanks'] ?? '')) ?: null,

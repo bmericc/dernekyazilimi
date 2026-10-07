@@ -46,6 +46,7 @@ class DonationServiceProvider extends ModuleServiceProvider
                 'open' => (bool) $methods,
                 'currency' => config('payments.currency', 'TRY'),
                 'amounts' => $settings->amounts(),
+                'fixed_only' => $settings->fixedOnly(),
                 'minimum' => $settings->minimum(),
                 'intro' => $settings->intro(),
                 'causes' => DonationCause::active()->get()->map(fn (DonationCause $cause) => ['id' => $cause->id, 'name' => $cause->name])->all(),
