@@ -145,6 +145,20 @@ class DonationTest extends TestCase
         $this->assertNull($payment->payable->fresh()->donor_email);
     }
 
+    public function test_only_the_listed_amounts_can_be_donated_when_free_amounts_are_off(): void
+    {
+        $this->account();
+        app(\App\Support\Organization::class)->save(['donation_amounts' => '100,250', 'donation_fixed_only' => '1']);
+
+        $this->get('/donate')->assertOk()->assertSee('type="radio" name="amount" value="250"', false)->assertDontSee('id="amount"', false);
+        $this->post('/donate', $this->form(['amount' => '300']))->assertSessionHasErrors('amount');
+        $this->post('/donate', $this->form(['amount' => '250']))->assertSessionHasNoErrors();
+        $this->assertSame('250.00', Payment::sole()->amount);
+
+        app(\App\Support\Organization::class)->save(['donation_fixed_only' => '0']);
+        $this->post('/donate', $this->form(['amount' => '300']))->assertSessionHasNoErrors();
+    }
+
     public function test_the_web_site_starts_a_donation_and_shows_the_rest_in_a_frame(): void
     {
         app(\App\Support\Organization::class)->save(['frame_ancestors' => 'https://www.ornek.org.tr']);

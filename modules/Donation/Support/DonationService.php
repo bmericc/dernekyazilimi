@@ -33,7 +33,9 @@ class DonationService
     public function rules(array $methods): array
     {
         return [
-            'amount' => ['required', 'numeric', 'min:'.$this->settings->minimum(), 'max:1000000', 'decimal:0,2'],
+            'amount' => $this->settings->fixedOnly()
+                ? ['required', 'numeric', Rule::in($this->settings->amounts())]
+                : ['required', 'numeric', 'min:'.$this->settings->minimum(), 'max:1000000', 'decimal:0,2'],
             'cause_id' => ['nullable', Rule::exists('donation_causes', 'id')->where('is_active', true)],
             'name' => ['required', 'string', 'max:150'],
             'email' => ['required', 'email', 'max:150'],

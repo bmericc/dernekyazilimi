@@ -20,6 +20,14 @@
             <div class="card-body">
                 <div class="mb-3">
                     <label class="form-label required" for="amount">Tutar (TL)</label>
+                    @if ($settings->fixedOnly())
+                        <div class="form-selectgroup">
+                            @foreach ($settings->amounts() as $amount)
+                                <label class="form-selectgroup-item"><input type="radio" name="amount" value="{{ $amount }}" class="form-selectgroup-input" @checked((string) old('amount') === (string) $amount) required><span class="form-selectgroup-label">{{ number_format($amount, 0, ',', '.') }} TL</span></label>
+                            @endforeach
+                        </div>
+                        @error('amount')<div class="text-danger small">{{ $message }}</div>@enderror
+                    @else
                     @if ($settings->amounts())
                         <div class="btn-list mb-2">
                             @foreach ($settings->amounts() as $amount)
@@ -29,6 +37,7 @@
                     @endif
                     <input id="amount" type="number" name="amount" min="{{ $settings->minimum() }}" step="0.01" class="form-control @error('amount') is-invalid @enderror" value="{{ old('amount') }}" required>
                     @error('amount')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    @endif
                 </div>
 
                 @if ($causes->isNotEmpty())

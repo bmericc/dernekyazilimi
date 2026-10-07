@@ -39,6 +39,15 @@ class DonationSettings
             ->map(fn ($value) => (int) trim($value))->filter(fn ($value) => $value > 0)->values()->all();
     }
 
+    /**
+     * Whether the donor may only pick one of the amounts; card providers
+     * can require this.
+     */
+    public function fixedOnly(): bool
+    {
+        return $this->organization->get('donation_fixed_only', '0') === '1' && $this->amounts();
+    }
+
     public function minimum(): int
     {
         return max(1, (int) $this->organization->get('donation_minimum', '10'));
