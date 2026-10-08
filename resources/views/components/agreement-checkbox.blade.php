@@ -10,7 +10,7 @@
     <div class="row">
         <label class="col-md-8 offset-md-4 mb-3" for="{{ $name }}-{{ $key }}">
             <input name="{{ $name }}" id="{{ $name }}-{{ $key }}" value="true" type="checkbox" required>
-            &nbsp; <a href="{{ route('agreements.show', $key, false) }}" target="_blank" onclick="return openModal(this.href)">{{ $version->agreement->title }}</a> koşullarını kabul ediyorum
+            &nbsp; <a href="{{ route('agreements.show', $key, false) }}" target="_blank" onclick="return openModal(this.href)">{{ $version->agreement->title }}</a> metnini okudum, kabul ediyorum
         </label>
     </div>
 

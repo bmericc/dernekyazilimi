@@ -29,7 +29,7 @@
                 @if ($version = app(\App\Support\Agreements::class)->current(\App\Models\Agreement::PRIVACY))
                     <label class="form-check mb-3">
                         <input type="checkbox" class="form-check-input @error('agreement') is-invalid @enderror" name="agreement" value="true" required>
-                        <span class="form-check-label"><a href="{{ route('agreements.show', $version->agreement->key) }}" target="_blank" rel="noopener">{{ $version->agreement->title }}</a> koşullarını kabul ediyorum</span>
+                        <span class="form-check-label"><a href="{{ route('agreements.show', $version->agreement->key) }}" target="_blank" rel="noopener">{{ $version->agreement->title }}</a> metnini okudum, kabul ediyorum</span>
                     </label>
                 @endif
 

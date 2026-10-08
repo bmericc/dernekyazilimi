@@ -7,6 +7,7 @@ use App\Models\Agreement;
 use App\Models\AgreementAcceptance;
 use App\Models\PhoneVerification;
 use App\Models\User;
+use App\Support\Agreements;
 use App\Support\Consents;
 use App\Support\Embed;
 use App\Support\Organization;
@@ -98,6 +99,29 @@ class SiteApiTest extends TestCase
         $this->site()->postJson('/api/site/phone-verifications/verify', ['phone_number' => '905551112233', 'code' => '000000'])->assertUnprocessable()->assertJsonPath('message', 'Doğrulama kodu hatalı.');
         $this->site()->postJson('/api/site/phone-verifications/verify', ['phone_number' => '905551112233', 'code' => '123456'])->assertOk();
         $this->assertTrue($verification->fresh()->verified);
+    }
+
+    public function test_the_site_reads_the_payment_terms_kept_in_the_portal(): void
+    {
+        $this->site()->getJson('/api/site/config')->assertOk()->assertJsonPath('payment.terms', null)->assertJsonPath('payment.logos', []);
+        $this->site()->getJson('/api/site/agreements/'.Agreement::PAYMENT_TERMS)->assertNotFound();
+
+        $agreement = Agreement::create(['key' => Agreement::PAYMENT_TERMS, 'title' => 'Ödeme, İptal ve İade Koşulları']);
+        $draft = $agreement->versions()->create(['version' => 1, 'content' => '<h2>Kapsam</h2><p>Metin</p>']);
+
+        // A draft is not in force.
+        $this->site()->getJson('/api/site/agreements/'.Agreement::PAYMENT_TERMS)->assertNotFound();
+
+        $draft->forceFill(['published_at' => now()])->save();
+        app(Agreements::class)->forget();
+
+        $this->site()->getJson('/api/site/config')
+            ->assertJsonPath('payment.terms.title', 'Ödeme, İptal ve İade Koşulları')
+            ->assertJsonPath('payment.terms.url', route('agreements.show', Agreement::PAYMENT_TERMS));
+        $this->site()->getJson('/api/site/agreements/'.Agreement::PAYMENT_TERMS)->assertOk()
+            ->assertJsonPath('title', 'Ödeme, İptal ve İade Koşulları')
+            ->assertJsonPath('version', 1)
+            ->assertJsonPath('content', '<h2>Kapsam</h2><p>Metin</p>');
     }
 
     public function test_the_site_opens_an_account_without_a_password(): void

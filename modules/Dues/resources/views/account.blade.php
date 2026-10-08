@@ -46,6 +46,7 @@
                             @error('method')<div class="text-danger small">{{ $message }}</div>@enderror
                         </div>
                     </div>
+                    @include('payments.terms', ['purpose' => 'dues'])
                 </div>
                 <div class="card-footer text-end"><button type="submit" class="btn btn-primary">Öde</button></div>
             </form>

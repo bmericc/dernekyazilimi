@@ -22,6 +22,9 @@ class Agreement extends Model
     /** Terms of the association email address (forwarding). */
     public const EMAIL_USAGE = 'email-usage';
 
+    /** Payment, cancellation and refund terms, accepted where a payment is started. */
+    public const PAYMENT_TERMS = 'payment-terms';
+
     protected $fillable = ['key', 'title', 'description'];
 
     public function versions(): HasMany

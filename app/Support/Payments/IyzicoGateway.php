@@ -30,6 +30,11 @@ class IyzicoGateway implements CardGateway
         return 'iyzico';
     }
 
+    public static function logo(): ?string
+    {
+        return 'images/payments/iyzico.svg';
+    }
+
     public static function credentialFields(): array
     {
         return [

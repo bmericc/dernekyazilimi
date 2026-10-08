@@ -56,6 +56,29 @@ class Payments
     }
 
     /**
+     * Logos of the active card providers, for the purpose or for all of
+     * them: the providers ask for these to be shown where payments are made.
+     *
+     * @return array<int, array{label: string, url: string}>
+     */
+    public function logos(?string $purpose = null): array
+    {
+        try {
+            $gateways = $purpose === null
+                ? PaymentGateway::active()->get()->filter(fn (PaymentGateway $gateway) => $gateway->driverClass())
+                : PaymentGateway::for($purpose);
+        } catch (Throwable) {
+            // Before the payment tables exist (fresh install, migrations).
+            return [];
+        }
+
+        return $gateways->map(fn (PaymentGateway $gateway) => $gateway->driverClass())->unique()
+            ->filter(fn (string $driver) => $driver::logo() && is_file(public_path($driver::logo())))
+            ->map(fn (string $driver) => ['label' => $driver::label(), 'url' => asset($driver::logo())])
+            ->values()->all();
+    }
+
+    /**
      * A pending payment for the payable.
      *
      * @param  array{name?: ?string, email?: ?string, phone?: ?string}  $payer

@@ -3,10 +3,12 @@
 namespace Modules\Dues\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\Agreement;
 use App\Models\BankAccount;
 use App\Models\Contact;
 use App\Models\Payment;
 use App\Models\PaymentGateway;
+use App\Support\Agreements;
 use App\Support\Payments\Payments;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -101,6 +103,7 @@ class DuesController extends Controller
 
     private function startPayment(Request $request, Contact $contact, DuesService $service, Payments $payments, string $back): RedirectResponse
     {
+        $agreements = app(Agreements::class);
         $methods = $service->methods();
         $balance = $service->account($contact)->balance();
         abort_unless($methods && $balance > 0, 404);
@@ -108,7 +111,11 @@ class DuesController extends Controller
         $data = $request->validate([
             'amount' => ['required', 'numeric', 'min:1', 'max:'.$balance, 'decimal:0,2'],
             'method' => ['required', Rule::in(array_keys($methods))],
-        ], ['amount.max' => 'Borcunuzdan (:max TL) fazla ödeme yapılamaz.'], ['amount' => 'Tutar', 'method' => 'Ödeme yöntemi']);
+            'payment_terms' => $agreements->rules(Agreement::PAYMENT_TERMS),
+        ], ['amount.max' => 'Borcunuzdan (:max TL) fazla ödeme yapılamaz.'], ['amount' => 'Tutar', 'method' => 'Ödeme yöntemi', 'payment_terms' => 'Ödeme koşulları']);
+        if (Auth::check()) {
+            $agreements->accept(Auth::user(), 'dues', Agreement::PAYMENT_TERMS);
+        }
 
         $payment = $service->pay($contact, $data['amount'], $data['method']);
         $result = route('dues.show', $payment->uuid);
