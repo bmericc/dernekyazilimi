@@ -24,6 +24,10 @@ class OrganizationSettingsController extends Controller
         'contact_email' => ['nullable', 'email', 'max:150'],
         'phone' => ['nullable', 'string', 'max:30'],
         'address' => ['nullable', 'string', 'max:255'],
+        'registry_no' => ['nullable', 'string', 'max:30'],
+        'tax_office' => ['nullable', 'string', 'max:100'],
+        'tax_number' => ['nullable', 'regex:/^\d{10,11}$/'],
+        'mersis_no' => ['nullable', 'regex:/^\d{16}$/'],
         'notification_email' => ['nullable', 'email', 'max:150'],
         'sender_email' => ['nullable', 'email', 'max:150'],
         'sender_name' => ['nullable', 'string', 'max:150'],
@@ -114,6 +118,7 @@ class OrganizationSettingsController extends Controller
         return [
             'name' => 'Kurum adı', 'short_name' => 'Kısa ad', 'website_url' => 'Web sitesi', 'primary_color' => 'Ana renk',
             'contact_email' => 'İletişim e-postası', 'phone' => 'Telefon', 'address' => 'Adres',
+            'registry_no' => 'Dernek kütük numarası', 'tax_office' => 'Vergi dairesi', 'tax_number' => 'Vergi numarası', 'mersis_no' => 'MERSİS numarası',
             'notification_email' => 'Bildirim adresi', 'sender_email' => 'Gönderici adresi', 'sender_name' => 'Gönderici adı',
             'source_url' => 'Kaynak kodu adresi', 'home_title' => 'Ana sayfa başlığı', 'home_content' => 'Ana sayfa içeriği',
             'ga_measurement_id' => 'Google Analytics ölçüm kimliği', 'gtm_container_id' => 'Google Tag Manager kimliği',

@@ -4,7 +4,7 @@
 <div class="container-xl">
     <div class="page-header mb-3">
         <h2 class="page-title">Yazışma ayarları</h2>
-        <div class="text-secondary mt-1">Antetteki ad, logo, adres ve iletişim bilgileri <a href="{{ route('admin.settings.organization') }}">kurum ayarlarından</a> gelir.</div>
+        <div class="text-secondary mt-1">Antetteki ad, logo, adres ve iletişim bilgileri ile dernek kütük ve MERSİS numaraları <a href="{{ route('admin.settings.organization') }}">kurum ayarlarından</a> gelir.</div>
     </div>
 
     @include('admin::partials.status')
@@ -26,20 +26,12 @@
                     <span class="form-hint">Henüz yazı yazılmamış bir yılın ilk sayısı. Sıra her yıl baştan başlar.</span>
                 </div>
             </div>
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label" for="registry_no">Dernek kütük numarası</label>
-                    <input id="registry_no" name="registry_no" class="form-control @error('registry_no') is-invalid @enderror" value="{{ old('registry_no', $settings->registryNumber()) }}" maxlength="30" placeholder="ör. 06-061-115">
-                    @error('registry_no')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                    <span class="form-hint">Sayı biçiminde <code>{kutuk}</code> yerine yazılır; ör. <code>{kutuk}-{yil}-{sira}</code>.</span>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label" for="identifier">MERSİS numarası</label>
-                    <input id="identifier" name="identifier" class="form-control @error('identifier') is-invalid @enderror" value="{{ old('identifier', $settings->identifier()) }}" maxlength="30">
-                    @error('identifier')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                    <span class="form-hint">e-Yazışma paketinde yazıyı oluşturan tüzel kişinin kimliği olarak yazılır; paket oluşturmak için gereklidir.</span>
-                </div>
-            </div>
+            <dl class="row mb-0">
+                <dt class="col-sm-3">Dernek kütük numarası</dt>
+                <dd class="col-sm-9">{{ $settings->registryNumber() ?? '—' }}</dd>
+                <dt class="col-sm-3">MERSİS numarası</dt>
+                <dd class="col-sm-9">{{ $settings->identifier() ?? '—' }} <span class="text-secondary small">e-Yazışma paketi oluşturmak için gereklidir.</span></dd>
+            </dl>
         </div>
         <div class="card-footer text-end"><button type="submit" class="btn btn-primary">Kaydet</button></div>
     </form>
