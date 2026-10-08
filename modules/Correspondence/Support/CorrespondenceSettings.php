@@ -16,8 +16,9 @@ class CorrespondenceSettings
     }
 
     /**
-     * Template of the document number: {yil} year, {sira} sequence number
-     * ({sira:4} zero-padded to four digits), {kod} file plan code.
+     * Template of the document number: {kutuk} the association's registry
+     * number, {yil} year, {sira} sequence number ({sira:4} zero-padded to
+     * four digits), {kod} file plan code.
      */
     public function numberFormat(): string
     {
@@ -28,6 +29,12 @@ class CorrespondenceSettings
     public function startNumber(): int
     {
         return max(1, (int) $this->organization->get('correspondence_start_number', '1'));
+    }
+
+    /** The association's registry number ("kütük no", e.g. 06-061-115), usually the start of its document numbers. */
+    public function registryNumber(): ?string
+    {
+        return $this->organization->get('correspondence_registry_no');
     }
 
     /** Identifier of the organization in e-Yazışma packages (MERSİS number). */

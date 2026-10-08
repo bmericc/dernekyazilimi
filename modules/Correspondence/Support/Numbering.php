@@ -30,7 +30,7 @@ class Numbering
                 'status' => Letter::NUMBERED,
                 'number_year' => $year,
                 'number' => $sequence->last_number,
-                'document_no' => self::format($this->settings->numberFormat(), $year, $sequence->last_number, $letter->file_code),
+                'document_no' => self::format($this->settings->numberFormat(), $year, $sequence->last_number, $letter->file_code, $this->settings->registryNumber()),
                 'document_date' => today(),
                 'approved_by' => $approver->id,
                 'approved_at' => now(),
@@ -40,7 +40,7 @@ class Numbering
         });
     }
 
-    public static function format(string $format, int $year, int $number, ?string $fileCode = null): string
+    public static function format(string $format, int $year, int $number, ?string $fileCode = null, ?string $registryNumber = null): string
     {
         $text = preg_replace_callback(
             '/\{sira(?::(\d))?\}/',
@@ -48,6 +48,6 @@ class Numbering
             $format
         );
 
-        return trim(strtr($text, ['{yil}' => (string) $year, '{kod}' => (string) $fileCode]));
+        return trim(strtr($text, ['{yil}' => (string) $year, '{kod}' => (string) $fileCode, '{kutuk}' => (string) $registryNumber]));
     }
 }
