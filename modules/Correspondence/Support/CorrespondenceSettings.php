@@ -3,6 +3,8 @@
 namespace Modules\Correspondence\Support;
 
 use App\Support\Organization;
+use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Support\Facades\Crypt;
 
 /**
  * Correspondence settings, kept with the organization settings.
@@ -46,6 +48,47 @@ class CorrespondenceSettings
     public function identifierScheme(): string
     {
         return $this->organization->get('correspondence_identifier_scheme') ?: 'MERSIS';
+    }
+
+    /**
+     * Time-stamp service the signing application uses to make signatures
+     * long-lived; null when none is set.
+     *
+     * @return array{url: string, user: ?string, password: ?string}|null
+     */
+    public function timestampService(): ?array
+    {
+        $url = $this->organization->get('correspondence_tsa_url');
+
+        if (! $url) {
+            return null;
+        }
+
+        $password = $this->organization->get('correspondence_tsa_password');
+
+        try {
+            $password = $password ? Crypt::decryptString($password) : null;
+        } catch (DecryptException) {
+            $password = null;
+        }
+
+        return ['url' => $url, 'user' => $this->organization->get('correspondence_tsa_user'), 'password' => $password];
+    }
+
+    /**
+     * The password is stored encrypted; null keeps the one already stored.
+     */
+    public function saveTimestampService(?string $url, ?string $user, ?string $password): void
+    {
+        $values = ['correspondence_tsa_url' => $url, 'correspondence_tsa_user' => $url ? $user : null];
+
+        if (! $url || ! $user) {
+            $values['correspondence_tsa_password'] = null;
+        } elseif ($password !== null && $password !== '') {
+            $values['correspondence_tsa_password'] = Crypt::encryptString($password);
+        }
+
+        $this->organization->save($values);
     }
 
     public function save(array $values): void

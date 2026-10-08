@@ -32,6 +32,25 @@
                 <dt class="col-sm-3">MERSİS numarası</dt>
                 <dd class="col-sm-9">{{ $settings->identifier() ?? '—' }} <span class="text-secondary small">e-Yazışma paketi oluşturmak için gereklidir.</span></dd>
             </dl>
+
+            <h3 class="card-title mt-4">Zaman damgası</h3>
+            <p class="text-secondary small">İmza uygulaması, imzayı uzun süre doğrulanabilir kılmak için zaman damgası alır. Hesap bilgisi burada saklanır ve yalnız imza sırasında, tek kullanımlık imza bağlantısıyla uygulamaya iletilir. Boş bırakılırsa imza zaman damgasız atılır.</p>
+            @php $timestamp = $settings->timestampService(); @endphp
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label" for="tsa_url">Zaman damgası adresi</label>
+                    <input id="tsa_url" type="url" name="tsa_url" class="form-control @error('tsa_url') is-invalid @enderror" value="{{ old('tsa_url', $timestamp['url'] ?? '') }}" maxlength="255" placeholder="http://...">
+                    @error('tsa_url')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label" for="tsa_user">Kullanıcı / müşteri no</label>
+                    <input id="tsa_user" name="tsa_user" class="form-control" value="{{ old('tsa_user', $timestamp['user'] ?? '') }}" maxlength="100" autocomplete="off">
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label" for="tsa_password">Parola</label>
+                    <input id="tsa_password" type="password" name="tsa_password" class="form-control" maxlength="200" autocomplete="new-password" placeholder="{{ ($timestamp['password'] ?? null) ? 'Kayıtlı; değiştirmek için yazın' : '' }}">
+                </div>
+            </div>
         </div>
         <div class="card-footer text-end"><button type="submit" class="btn btn-primary">Kaydet</button></div>
     </form>

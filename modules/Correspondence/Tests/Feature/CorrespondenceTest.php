@@ -13,6 +13,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Modules\Correspondence\Models\Letter;
 use Modules\Correspondence\Models\LetterSequence;
+use Modules\Correspondence\Models\SigningSession;
 use Modules\Correspondence\Support\Numbering;
 use Tests\TestCase;
 
@@ -327,6 +328,63 @@ class CorrespondenceTest extends TestCase
         Storage::disk('local')->assertMissing($path);
         $this->assertNull($letter->fresh()->package_path);
         $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}/package")->assertNotFound();
+    }
+
+    public function test_the_signing_application_signs_and_seals_through_single_use_links(): void
+    {
+        $owner = $this->owner();
+        app(Organization::class)->save(['mersis_no' => '0123456789012345']);
+        $letter = $this->numbered($owner);
+
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package/signing-link")->assertForbidden();
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package");
+        $this->actingAs($this->userWith(['correspondence.view']))->post("/admin/correspondence/{$letter->id}/package/signing-link")->assertForbidden();
+
+        $this->actingAs($owner)->put('/admin/correspondence/settings', ['number_format' => '{yil}/{sira}', 'start_number' => 1, 'tsa_url' => 'http://zd.example.org', 'tsa_user' => '1234', 'tsa_password' => 'gizli'])->assertSessionHasNoErrors();
+        $this->assertNotSame('gizli', app(Organization::class)->get('correspondence_tsa_password'));
+        $this->actingAs($owner)->get('/admin/correspondence/settings')->assertOk()->assertSee('http://zd.example.org')->assertDontSee('gizli');
+        // An empty password keeps the stored one.
+        $this->actingAs($owner)->put('/admin/correspondence/settings', ['number_format' => '{yil}/{sira}', 'start_number' => 1, 'tsa_url' => 'http://zd.example.org', 'tsa_user' => '1234'])->assertSessionHasNoErrors();
+
+        $first = $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package/signing-link")->assertSessionHas('signing-link')->getSession()->get('signing-link');
+        $link = $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package/signing-link")->getSession()->get('signing-link');
+        $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}")->assertOk()->assertSee('İmza uygulamasıyla imzala');
+        $this->actingAs($owner)->withSession(['signing-link' => $link])->get("/admin/correspondence/{$letter->id}")
+            ->assertSee('http://127.0.0.1:51515/?link='.rawurlencode($link), false)->assertSee('İmza uygulamasında aç');
+        auth()->logout();
+
+        // A newer link replaces the older one.
+        $this->getJson($first)->assertNotFound()->assertJsonPath('message', 'İmza bağlantısı geçersiz ya da süresi dolmuş.');
+        $this->getJson(preg_replace('/.$/', 'x', $link))->assertNotFound();
+
+        $session = $this->getJson($link)->assertOk()->assertHeader('Cache-Control', 'no-store, private')
+            ->assertJsonPath('step', 'signature')->assertJsonPath('profile', 'XL')->assertJsonPath('filename', 'PaketOzeti.xml')
+            ->assertJsonPath('document_no', $letter->document_no)->assertJsonPath('subject', 'Şenlik daveti')
+            ->assertJsonPath('timestamp', ['url' => 'http://zd.example.org', 'user' => '1234', 'password' => 'gizli'])->json();
+        $digest = base64_decode($session['content']);
+        $this->assertStringContainsString('<PaketOzeti', $digest);
+
+        $this->postJson($link, ['signature' => '***'])->assertStatus(422);
+        $this->postJson($link, [])->assertStatus(422);
+        $this->postJson($link, ['signature' => base64_encode("\x30\x82".$digest)])->assertOk()->assertJsonPath('complete', false);
+
+        // The link is spent; the seal needs a new one.
+        $this->getJson($link)->assertNotFound();
+        $this->postJson($link, ['signature' => base64_encode('x')])->assertNotFound();
+
+        $link = $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package/signing-link")->getSession()->get('signing-link');
+        auth()->logout();
+
+        $session = $this->getJson($link)->assertOk()->assertJsonPath('step', 'seal')->assertJsonPath('profile', 'A')->assertJsonPath('filename', 'NihaiOzet.xml')->json();
+        $this->travel(SigningSession::LIFETIME + 1)->minutes();
+        $this->getJson($link)->assertNotFound();
+        $this->travelBack();
+        $this->postJson($link, ['signature' => base64_encode("\x30\x82".base64_decode($session['content']))])->assertOk()->assertJsonPath('complete', true);
+
+        $package = Paket::icerikten(Storage::disk('local')->get($letter->fresh()->package_path));
+        $this->assertSame(PaketAsamasi::Tamamlandi, $package->asama());
+        $this->assertTrue($package->dogrula()->gecerli());
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package/signing-link")->assertForbidden();
     }
 
     public function test_anyone_can_verify_a_letter_by_its_code(): void
