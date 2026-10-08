@@ -35,6 +35,7 @@
         <server name="MODULE_DONATION" value="true"/>
         <server name="MODULE_DUES" value="true"/>
         <server name="MODULE_FONZIP_IMPORT" value="true"/>
+        <server name="MODULE_CORRESPONDENCE" value="true"/>
   </php>
   <source>
     <include>

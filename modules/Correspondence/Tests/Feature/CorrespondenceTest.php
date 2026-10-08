@@ -1,0 +1,331 @@
+<?php
+
+namespace Modules\Correspondence\Tests\Feature;
+
+use App\Models\Role;
+use App\Models\User;
+use App\Support\Organization;
+use BahriCanli\EYazisma\Enums\PaketAsamasi;
+use BahriCanli\EYazisma\Model\TuzelSahis;
+use BahriCanli\EYazisma\Paket;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Modules\Correspondence\Models\Letter;
+use Modules\Correspondence\Models\LetterSequence;
+use Modules\Correspondence\Support\Numbering;
+use Tests\TestCase;
+
+class CorrespondenceTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Storage::fake('local');
+    }
+
+    private function owner(): User
+    {
+        return User::factory()->create(['role' => 1]);
+    }
+
+    private function userWith(array $permissions): User
+    {
+        $role = Role::create(['key' => 'role-'.uniqid(), 'name' => 'Rol']);
+        $role->syncPermissions(array_merge(['admin.access'], $permissions));
+        $user = User::factory()->create();
+        $user->roles()->attach($role);
+
+        return $user;
+    }
+
+    private function form(array $overrides = []): array
+    {
+        return array_replace([
+            'subject' => 'Şenlik daveti',
+            'body' => '<p>Şenliğimize bekleriz.</p><script>alert(1)</script>',
+            'references' => "12.03.2026 tarihli ve 2026/12 sayılı yazımız.\n\nİkinci ilgi.",
+            'file_code' => '010.06',
+            'file_name' => 'Davetler',
+            'recipients' => [
+                ['kind' => 'institution', 'name' => 'Adalet Bakanlığı', 'identifier' => '24301050', 'address' => 'Ankara', 'delivery' => 'GRG'],
+                ['kind' => 'person', 'name' => 'Ali Rıza Kaya', 'identifier' => '', 'address' => '', 'delivery' => 'BLG'],
+                ['kind' => 'institution', 'name' => '', 'identifier' => '', 'address' => '', 'delivery' => 'GRG'],
+            ],
+            'signers' => [
+                ['first_name' => 'Ayşe', 'last_name' => 'Yılmaz', 'title' => 'Yönetim Kurulu Başkanı'],
+                ['first_name' => '', 'last_name' => '', 'title' => ''],
+            ],
+        ], $overrides);
+    }
+
+    private function letter(User $user, array $overrides = []): Letter
+    {
+        $this->actingAs($user)->post('/admin/correspondence', $this->form($overrides))->assertSessionHasNoErrors();
+
+        return Letter::latest('id')->first();
+    }
+
+    private function numbered(User $user, array $overrides = []): Letter
+    {
+        $letter = $this->letter($user, $overrides);
+        $this->actingAs($user)->post("/admin/correspondence/{$letter->id}/approve")->assertSessionHasNoErrors();
+
+        return $letter->fresh();
+    }
+
+    public function test_a_draft_is_written_and_edited(): void
+    {
+        $owner = $this->owner();
+        $this->actingAs($owner)->get('/admin/correspondence/create')->assertOk()->assertSee('Alıcı ekle');
+        $letter = $this->letter($owner);
+
+        $this->assertSame(Letter::DRAFT, $letter->status);
+        $this->assertNull($letter->document_no);
+        $this->assertMatchesRegularExpression('/^[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12}$/', $letter->document_id);
+        $this->assertStringNotContainsString('<script', $letter->body);
+        $this->assertSame(['12.03.2026 tarihli ve 2026/12 sayılı yazımız.', 'İkinci ilgi.'], $letter->references);
+        $this->assertSame([['first_name' => 'Ayşe', 'last_name' => 'Yılmaz', 'title' => 'Yönetim Kurulu Başkanı']], $letter->signers);
+        $this->assertSame(['Adalet Bakanlığı', 'Ali Rıza Kaya'], $letter->recipients->pluck('name')->all());
+        $this->assertSame($owner->id, $letter->created_by);
+
+        $this->actingAs($owner)->get('/admin/correspondence')->assertOk()->assertSee('Şenlik daveti')->assertSee('Taslak');
+        $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}")->assertOk()->assertSee('Adalet Bakanlığı')->assertSee('Onayla ve sayı ver');
+        $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}/edit")->assertOk()->assertSee('Ali Rıza Kaya');
+
+        $this->actingAs($owner)->put("/admin/correspondence/{$letter->id}", $this->form(['subject' => 'Yeni konu', 'recipients' => [['kind' => 'legal', 'name' => 'Örnek A.Ş.', 'delivery' => 'GRG']]]))->assertSessionHasNoErrors();
+        $this->assertSame('Yeni konu', $letter->fresh()->subject);
+        $this->assertSame(['Örnek A.Ş.'], $letter->fresh()->recipients->pluck('name')->all());
+
+        $this->actingAs($owner)->post('/admin/correspondence', $this->form(['recipients' => [], 'signers' => []]))->assertSessionHasErrors(['recipients', 'signers']);
+    }
+
+    public function test_approval_gives_the_next_number_of_the_year_and_fixes_the_content(): void
+    {
+        $owner = $this->owner();
+        app(Organization::class)->save(['correspondence_number_format' => 'E-{kod}-{sira:4}/{yil}', 'correspondence_start_number' => '41']);
+
+        $first = $this->numbered($owner);
+        $second = $this->numbered($owner, ['file_code' => '']);
+        $year = now()->year;
+
+        $this->assertSame(Letter::NUMBERED, $first->status);
+        $this->assertSame("E-010.06-0041/{$year}", $first->document_no);
+        $this->assertSame("E--0042/{$year}", $second->document_no);
+        $this->assertSame([41, 42], [$first->number, $second->number]);
+        $this->assertTrue($first->document_date->isToday());
+        $this->assertSame($owner->id, $first->approved_by);
+        $this->assertSame(42, LetterSequence::find($year)->last_number);
+
+        $this->actingAs($owner)->put("/admin/correspondence/{$first->id}", $this->form(['subject' => 'Değişti']))->assertForbidden();
+        $this->actingAs($owner)->get("/admin/correspondence/{$first->id}/edit")->assertForbidden();
+        $this->actingAs($owner)->delete("/admin/correspondence/{$first->id}")->assertForbidden();
+        $this->actingAs($owner)->post("/admin/correspondence/{$first->id}/approve")->assertForbidden();
+        $this->assertSame('Şenlik daveti', $first->fresh()->subject);
+
+        // A cancelled letter keeps its number; the next letter gets a new one.
+        $this->actingAs($owner)->post("/admin/correspondence/{$first->id}/cancel", [])->assertSessionHasErrors('cancel_reason');
+        $this->actingAs($owner)->post("/admin/correspondence/{$first->id}/cancel", ['cancel_reason' => 'Yanlış alıcı'])->assertSessionHasNoErrors();
+        $this->assertSame(Letter::CANCELLED, $first->fresh()->status);
+        $this->assertSame(43, $this->numbered($owner)->number);
+    }
+
+    public function test_number_formats(): void
+    {
+        $this->assertSame('2026/7', Numbering::format('{yil}/{sira}', 2026, 7));
+        $this->assertSame('2026-00007', Numbering::format('{yil}-{sira:5}', 2026, 7));
+        $this->assertSame('E-804.01-12', Numbering::format('E-{kod}-{sira}', 2026, 12, '804.01'));
+    }
+
+    public function test_writing_and_approving_are_separate_permissions(): void
+    {
+        $writer = $this->userWith(['correspondence.view', 'correspondence.manage']);
+        $approver = $this->userWith(['correspondence.view', 'correspondence.approve']);
+        $reader = $this->userWith(['correspondence.view']);
+
+        $letter = $this->letter($writer);
+
+        $this->actingAs($reader)->get("/admin/correspondence/{$letter->id}")->assertOk()->assertDontSee('Onayla ve sayı ver');
+        $this->actingAs($reader)->get('/admin/correspondence/create')->assertForbidden();
+        $this->actingAs($reader)->get('/admin/correspondence/settings')->assertForbidden();
+        $this->actingAs($writer)->post("/admin/correspondence/{$letter->id}/approve")->assertForbidden();
+        $this->actingAs($approver)->post('/admin/correspondence', $this->form())->assertForbidden();
+
+        $this->actingAs($writer)->get("/admin/correspondence/{$letter->id}")->assertSee('Onaya gönder');
+        $this->actingAs($writer)->post("/admin/correspondence/{$letter->id}/submit")->assertSessionHasNoErrors();
+        $this->assertSame(Letter::PENDING, $letter->fresh()->status);
+        $this->actingAs($writer)->put("/admin/correspondence/{$letter->id}", $this->form())->assertForbidden();
+
+        $this->actingAs($approver)->post("/admin/correspondence/{$letter->id}/return");
+        $this->assertSame(Letter::DRAFT, $letter->fresh()->status);
+
+        $this->actingAs($writer)->post("/admin/correspondence/{$letter->id}/submit");
+        $this->actingAs($approver)->post("/admin/correspondence/{$letter->id}/approve");
+        $this->assertSame(Letter::NUMBERED, $letter->fresh()->status);
+        $this->assertSame($approver->id, $letter->fresh()->approved_by);
+
+        $this->get("/admin/correspondence/{$letter->id}")->assertOk();
+        auth()->logout();
+        $this->get('/admin/correspondence')->assertRedirect();
+    }
+
+    public function test_attachments_are_kept_privately_and_only_on_drafts(): void
+    {
+        $owner = $this->owner();
+        $letter = $this->letter($owner);
+
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/attachments", ['name' => 'Rapor', 'file' => UploadedFile::fake()->createWithContent('Çalışma Raporu.pdf', '%PDF-1.4 rapor')])->assertSessionHasNoErrors();
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/attachments", ['name' => 'İki adet CD'])->assertSessionHasNoErrors();
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/attachments", ['name' => 'Betik', 'file' => UploadedFile::fake()->createWithContent('a.php', '<?php')])->assertSessionHasErrors('file');
+
+        [$file, $physical] = $letter->attachments()->get()->all();
+
+        $this->assertTrue($file->hasFile());
+        $this->assertFalse($physical->hasFile());
+        Storage::disk('local')->assertExists($file->path);
+        $this->assertStringStartsWith("correspondence/{$letter->id}/ekler/", $file->path);
+
+        $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}/attachments/{$file->id}")->assertOk()->assertStreamedContent('%PDF-1.4 rapor');
+        $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}/attachments/{$physical->id}")->assertNotFound();
+
+        $this->actingAs($owner)->delete("/admin/correspondence/{$letter->id}/attachments/{$physical->id}")->assertSessionHasNoErrors();
+        $this->assertSame(1, $letter->attachments()->count());
+
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/approve");
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/attachments", ['name' => 'Geç kalan ek'])->assertForbidden();
+        $this->actingAs($owner)->delete("/admin/correspondence/{$letter->id}/attachments/{$file->id}")->assertForbidden();
+
+        $draft = $this->letter($owner);
+        $this->actingAs($owner)->post("/admin/correspondence/{$draft->id}/attachments", ['name' => 'Ek', 'file' => UploadedFile::fake()->createWithContent('ek.pdf', '%PDF-1.4')]);
+        $path = $draft->attachments()->first()->path;
+        $this->actingAs($owner)->delete("/admin/correspondence/{$draft->id}")->assertRedirect('/admin/correspondence');
+        Storage::disk('local')->assertMissing($path);
+        $this->assertNull(Letter::find($draft->id));
+    }
+
+    public function test_the_letter_is_printed_as_a_pdf(): void
+    {
+        $owner = $this->owner();
+        $letter = $this->letter($owner);
+
+        $draft = $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}/pdf")->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF-', $draft->getContent());
+
+        $html = view('correspondence::pdf.letter', ['letter' => $letter->load(['recipients', 'attachments']), 'logo' => null])->render();
+        $this->assertStringContainsString('TASLAK', $html);
+        $this->assertStringContainsString('DAĞITIM YERLERİNE', $html);
+        $this->assertStringContainsString('Yönetim Kurulu Başkanı', $html);
+
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/approve");
+        $html = view('correspondence::pdf.letter', ['letter' => $letter->fresh()->load(['recipients', 'attachments']), 'logo' => null])->render();
+        $this->assertStringNotContainsString('TASLAK', $html);
+        $this->assertStringContainsString($letter->fresh()->document_no, $html);
+        $this->assertStringContainsString($letter->document_id, $html);
+    }
+
+    public function test_the_package_is_built_signed_and_sealed(): void
+    {
+        $owner = $this->owner();
+        $draft = $this->letter($owner);
+
+        $this->actingAs($owner)->post("/admin/correspondence/{$draft->id}/package")->assertSessionHas('danger-status');
+        $this->assertNull($draft->fresh()->package_path);
+
+        $this->actingAs($owner)->post("/admin/correspondence/{$draft->id}/attachments", ['name' => 'Rapor', 'file' => UploadedFile::fake()->createWithContent('Çalışma Raporu.pdf', '%PDF-1.4 rapor')]);
+        $this->actingAs($owner)->post("/admin/correspondence/{$draft->id}/attachments", ['name' => 'İki adet CD']);
+        $this->actingAs($owner)->post("/admin/correspondence/{$draft->id}/approve");
+        $letter = $draft->fresh();
+
+        // The organization's identifier is needed first.
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package")->assertSessionHas('danger-status');
+        $this->actingAs($owner)->put('/admin/correspondence/settings', ['number_format' => '{yil}', 'start_number' => 1])->assertSessionHasErrors('number_format');
+        $this->actingAs($owner)->put('/admin/correspondence/settings', ['number_format' => '{yil}/{sira}', 'start_number' => 1, 'identifier' => '0123456789012345'])->assertSessionHasNoErrors();
+        $this->actingAs($owner)->get('/admin/correspondence/settings')->assertOk()->assertSee('0123456789012345');
+
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package")->assertSessionHas('success-status');
+        $letter->refresh();
+        $this->assertSame("correspondence/{$letter->id}/{$letter->document_id}.eyp", $letter->package_path);
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package")->assertForbidden();
+
+        $package = Paket::icerikten(Storage::disk('local')->get($letter->package_path));
+        $metadata = $package->ustveri();
+
+        $this->assertSame(PaketAsamasi::ImzaBekliyor, $package->asama());
+        $this->assertSame($letter->document_id, $package->belgeId());
+        $this->assertSame('Şenlik daveti', $metadata->konu);
+        $this->assertInstanceOf(TuzelSahis::class, $metadata->olusturan);
+        $this->assertSame('0123456789012345', $metadata->olusturan->kimlik());
+        $this->assertSame(['Adalet Bakanlığı', 'Ali Rıza Kaya'], array_map(fn ($dagitim) => $dagitim->taraf->gorunenAd(), $metadata->dagitimlar));
+        $this->assertSame(['GRG', 'BLG'], array_map(fn ($dagitim) => $dagitim->dagitimTuru->value, $metadata->dagitimlar));
+        $this->assertSame(['a', 'b'], array_map(fn ($ilgi) => $ilgi->etiket, $metadata->ilgiler));
+        $this->assertSame(['DED', 'FZK'], array_map(fn ($ek) => $ek->tur->value, $metadata->ekler));
+        $this->assertSame('010.06', $metadata->sdpBilgisi->anaSdp->kod);
+        $this->assertStringEndsWith('/belge-dogrula', $metadata->dogrulamaAdresi);
+        $this->assertStringStartsWith('%PDF-', $package->ustYazi()->icerik);
+        $this->assertSame('%PDF-1.4 rapor', array_values($package->ekDosyalari())[0]->icerik);
+
+        $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}")->assertOk()->assertSee('PaketOzeti.xml')->assertDontSee('NihaiOzet.xml');
+        $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}/package/final-digest")->assertNotFound();
+        $digest = $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}/package/digest")->assertOk()->assertDownload('PaketOzeti.xml')->getContent();
+        $this->assertSame($package->paketOzeti(), $digest);
+
+        // The seal cannot come before the signature.
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package/seal", ['file' => UploadedFile::fake()->createWithContent('muhur.imz', "\x30\x82muhur")])->assertSessionHas('danger-status');
+
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package/signature", ['file' => UploadedFile::fake()->createWithContent('imza.imz', "\x30\x82".$digest)])->assertSessionHas('success-status');
+        $finalDigest = $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}/package/final-digest")->assertOk()->getContent();
+        $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}")->assertSee('NihaiOzet.xml');
+
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package/seal", ['file' => UploadedFile::fake()->createWithContent('muhur.imz', "\x30\x82".$finalDigest)])->assertSessionHas('success-status');
+
+        $content = $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}/package")->assertOk()->assertDownload($letter->document_id.'.eyp')->getContent();
+        $package = Paket::icerikten($content);
+
+        $this->assertSame(PaketAsamasi::Tamamlandi, $package->asama());
+        $this->assertSame([], array_map('strval', $package->dogrula()->bulgular));
+        $this->assertSame($letter->document_no, $package->nihaiUstveri()->belgeNo);
+        $this->assertSame('Ayşe Yılmaz', $package->nihaiUstveri()->imzalar[0]->imzalayan->gorunenAd());
+        $this->assertSame('Yönetim Kurulu Başkanı', $package->nihaiUstveri()->imzalar[0]->imzalayan->gorev);
+
+        $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}")->assertSee('Paket yapısı ve özet değerleri geçerli')->assertDontSee('Paketi sil');
+        $this->actingAs($owner)->delete("/admin/correspondence/{$letter->id}/package")->assertForbidden();
+        Storage::disk('local')->assertExists($letter->package_path);
+    }
+
+    public function test_an_unfinished_package_can_be_discarded_and_needs_recipient_identifiers(): void
+    {
+        $owner = $this->owner();
+        app(Organization::class)->save(['correspondence_identifier' => '0123456789012345']);
+
+        $letter = $this->numbered($owner, ['recipients' => [['kind' => 'institution', 'name' => 'Numarasız Kurum', 'delivery' => 'GRG']]]);
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package")->assertSessionHas('danger-status', 'Paket için alıcının DETSİS no değeri gerekir: Numarasız Kurum');
+
+        $letter = $this->numbered($owner);
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package")->assertSessionHas('success-status');
+        $path = $letter->fresh()->package_path;
+
+        $this->actingAs($this->userWith(['correspondence.view']))->delete("/admin/correspondence/{$letter->id}/package")->assertForbidden();
+        $this->actingAs($owner)->delete("/admin/correspondence/{$letter->id}/package")->assertSessionHas('success-status');
+        Storage::disk('local')->assertMissing($path);
+        $this->assertNull($letter->fresh()->package_path);
+        $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}/package")->assertNotFound();
+    }
+
+    public function test_anyone_can_verify_a_letter_by_its_code(): void
+    {
+        $owner = $this->owner();
+        $draft = $this->letter($owner);
+        $letter = $this->numbered($owner, ['subject' => 'Doğrulanacak yazı']);
+        auth()->logout();
+
+        $this->get('/belge-dogrula')->assertOk()->assertSee('Belge doğrulama kodu');
+        $this->get('/belge-dogrula?kod='.strtolower($letter->document_id))->assertOk()->assertSee('Belge doğrulandı')->assertSee($letter->document_no)->assertSee('Doğrulanacak yazı')->assertDontSee('Şenliğimize bekleriz');
+        $this->get('/belge-dogrula?kod='.$draft->document_id)->assertNotFound()->assertSee('bulunamadı');
+        $this->get('/belge-dogrula?kod=yok')->assertNotFound();
+
+        $letter->forceFill(['status' => Letter::CANCELLED, 'cancelled_at' => now(), 'cancel_reason' => 'Neden'])->save();
+        $this->get('/belge-dogrula?kod='.$letter->document_id)->assertOk()->assertSee('İptal edilmiş belge');
+    }
+}
