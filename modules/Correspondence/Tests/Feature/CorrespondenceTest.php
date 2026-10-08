@@ -145,8 +145,9 @@ class CorrespondenceTest extends TestCase
         $owner = $this->owner();
         $settings = ['number_format' => '{kutuk}-{yil}-{sira}', 'start_number' => 22];
 
-        $this->actingAs($owner)->put('/admin/correspondence/settings', $settings)->assertSessionHasErrors('registry_no');
-        $this->actingAs($owner)->put('/admin/correspondence/settings', $settings + ['registry_no' => '06-061-115'])->assertSessionHasNoErrors();
+        $this->actingAs($owner)->put('/admin/correspondence/settings', $settings)->assertSessionHasErrors('number_format');
+        $this->actingAs($owner)->put('/admin/settings/organization', ['name' => 'Örnek Derneği', 'registry_no' => '06-061-115'])->assertSessionHasNoErrors();
+        $this->actingAs($owner)->put('/admin/correspondence/settings', $settings)->assertSessionHasNoErrors();
         $this->actingAs($owner)->get('/admin/correspondence/settings')->assertOk()->assertSee('06-061-115-'.now()->year.'-41');
 
         $this->assertSame('06-061-115-'.now()->year.'-22', $this->numbered($owner)->document_no);
@@ -255,7 +256,8 @@ class CorrespondenceTest extends TestCase
         // The organization's identifier is needed first.
         $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package")->assertSessionHas('danger-status');
         $this->actingAs($owner)->put('/admin/correspondence/settings', ['number_format' => '{yil}', 'start_number' => 1])->assertSessionHasErrors('number_format');
-        $this->actingAs($owner)->put('/admin/correspondence/settings', ['number_format' => '{yil}/{sira}', 'start_number' => 1, 'identifier' => '0123456789012345'])->assertSessionHasNoErrors();
+        $this->actingAs($owner)->put('/admin/correspondence/settings', ['number_format' => '{yil}/{sira}', 'start_number' => 1])->assertSessionHasNoErrors();
+        $this->actingAs($owner)->put('/admin/settings/organization', ['name' => 'Örnek Derneği', 'mersis_no' => '0123456789012345'])->assertSessionHasNoErrors();
         $this->actingAs($owner)->get('/admin/correspondence/settings')->assertOk()->assertSee('0123456789012345');
 
         $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package")->assertSessionHas('success-status');
@@ -311,7 +313,7 @@ class CorrespondenceTest extends TestCase
     public function test_an_unfinished_package_can_be_discarded_and_needs_recipient_identifiers(): void
     {
         $owner = $this->owner();
-        app(Organization::class)->save(['correspondence_identifier' => '0123456789012345']);
+        app(Organization::class)->save(['mersis_no' => '0123456789012345']);
 
         $letter = $this->numbered($owner, ['recipients' => [['kind' => 'institution', 'name' => 'Numarasız Kurum', 'delivery' => 'GRG']]]);
         $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package")->assertSessionHas('danger-status', 'Paket için alıcının DETSİS no değeri gerekir: Numarasız Kurum');

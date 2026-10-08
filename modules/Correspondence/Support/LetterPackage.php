@@ -47,7 +47,7 @@ class LetterPackage
         }
 
         if (! $this->settings->identifier()) {
-            throw new PackageException('Paket için yazışma ayarlarında kurumun MERSİS numarası tanımlanmalıdır.');
+            throw new PackageException('Paket için kurum ayarlarında MERSİS numarası tanımlanmalıdır.');
         }
 
         $letter->loadMissing(['recipients', 'attachments']);

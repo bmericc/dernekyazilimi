@@ -91,6 +91,20 @@
 
             <div class="col-lg-6">
                 <div class="card h-100">
+                    <div class="card-header"><h3 class="card-title">Resmî bilgiler</h3></div>
+                    <div class="card-body">
+                        {{ $input('registry_no', 'Dernek kütük numarası', 'text', 'Resmî yazıların sayısında kullanılabilir.', '06-000-000') }}
+                        <div class="row">
+                            <div class="col-sm-6">{{ $input('tax_office', 'Vergi dairesi', 'text') }}</div>
+                            <div class="col-sm-6">{{ $input('tax_number', 'Vergi numarası', 'text', '10 hane.') }}</div>
+                        </div>
+                        {{ $input('mersis_no', 'MERSİS numarası', 'text', '16 hane. e-Yazışma paketlerinde kurumun kimliği olarak yazılır.') }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card h-100">
                     <div class="card-header"><h3 class="card-title">Sosyal medya</h3></div>
                     <div class="card-body">
                         <div class="row">

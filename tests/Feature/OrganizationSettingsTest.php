@@ -58,6 +58,31 @@ class OrganizationSettingsTest extends TestCase
         $this->actingAs($this->settingsManager())->get('/admin/settings/organization')->assertOk()->assertSee('Kurum ayarları');
     }
 
+    public function test_official_details_of_the_association_are_kept(): void
+    {
+        $manager = $this->settingsManager();
+
+        $this->actingAs($manager)->put('/admin/settings/organization', $this->valid(['tax_number' => '12345678901', 'mersis_no' => '123']))
+            ->assertSessionHasErrors(['tax_number', 'mersis_no']);
+
+        $this->actingAs($manager)->put('/admin/settings/organization', $this->valid([
+            'address' => 'PK 50, 06430 Yenişehir / Ankara',
+            'registry_no' => '06-061-115',
+            'tax_office' => 'Çankaya',
+            'tax_number' => '1234567890',
+            'mersis_no' => '0123456789012345',
+        ]))->assertSessionHasNoErrors();
+
+        $organization = app(Organization::class);
+        $this->assertSame('06-061-115', $organization->get('registry_no'));
+        $this->assertSame('Çankaya', $organization->get('tax_office'));
+        $this->assertSame('1234567890', $organization->get('tax_number'));
+        $this->assertSame('0123456789012345', $organization->get('mersis_no'));
+
+        $this->actingAs($manager)->get('/admin/settings/organization')->assertOk()
+            ->assertSee('Dernek kütük numarası')->assertSee('06-061-115')->assertSee('Vergi dairesi')->assertSee('0123456789012345');
+    }
+
     public function test_saved_settings_appear_on_the_site(): void
     {
         $this->actingAs($this->settingsManager())->put('/admin/settings/organization', $this->valid([

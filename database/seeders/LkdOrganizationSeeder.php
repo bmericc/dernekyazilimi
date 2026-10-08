@@ -45,7 +45,7 @@ class LkdOrganizationSeeder extends Seeder
             'mail_forwarding_domains' => json_encode(['volunteer' => 'penguen.org.tr', 'member' => 'penguen.org.tr']),
             'mail_forwarding_label' => 'Gönüllü e-posta adresi',
             // Document numbers start with the association's registry number: 06-061-115-2026-22.
-            'correspondence_registry_no' => '06-061-115',
+            'registry_no' => '06-061-115',
             'correspondence_number_format' => '{kutuk}-{yil}-{sira}',
             // Membership application form (LKD_Yeni_Uye_Formu_v4.2): two member
             // references, at most five in total and one per calendar year per
