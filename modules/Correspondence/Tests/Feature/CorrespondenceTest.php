@@ -465,7 +465,8 @@ class CorrespondenceTest extends TestCase
         $link = $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package/signing-link")->getSession()->get('signing-link');
         $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}")->assertOk()->assertSee('İmza uygulamasıyla imzala');
         $this->actingAs($owner)->withSession(['signing-link' => $link])->get("/admin/correspondence/{$letter->id}")
-            ->assertSee('http://127.0.0.1:51515/?link='.rawurlencode($link), false)->assertSee('İmza uygulamasında aç');
+            ->assertSee('http://127.0.0.1:51515/?link='.rawurlencode($link), false)->assertSee('İmza uygulamasında aç')
+            ->assertSee('https:\/\/127.0.0.1:51516\/', false);
         auth()->logout();
 
         // A newer link replaces the older one.
