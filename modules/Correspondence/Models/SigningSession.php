@@ -28,6 +28,13 @@ class SigningSession extends Model
     /** Where the signing application listens on the signer's computer. */
     public const APPLICATION = 'http://127.0.0.1:51515/';
 
+    /**
+     * Its HTTPS address, there once the application has made and registered
+     * a certificate for the computer; some browsers let an HTTPS page reach
+     * only this one.
+     */
+    public const APPLICATION_SECURE = 'https://127.0.0.1:51516/';
+
     protected $table = 'correspondence_signing_sessions';
 
     protected $casts = [

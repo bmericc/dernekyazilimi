@@ -153,12 +153,12 @@
                                 </form>
                             @endif
                         @else
-                            <div id="signing-app" class="small text-secondary mb-3" data-status-url="{{ SigningSession::APPLICATION }}status" hidden></div>
+                            <div id="signing-app" class="small text-secondary mb-3" data-addresses='@json([SigningSession::APPLICATION_SECURE, SigningSession::APPLICATION])' hidden></div>
 
                             @if (session('signing-link'))
                                 <div class="alert alert-info" role="alert">
                                     <div class="mb-1"><strong>İmza bağlantısı</strong> ({{ SigningSession::LIFETIME }} dakika geçerli, tek kullanımlık)</div>
-                                    <a href="{{ SigningSession::applicationUrl(session('signing-link')) }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary w-100 mb-2"><i class="ti ti-external-link me-1"></i>İmza uygulamasında aç</a>
+                                    <a href="{{ SigningSession::applicationUrl(session('signing-link')) }}" data-signing-link="{{ session('signing-link') }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary w-100 mb-2"><i class="ti ti-external-link me-1"></i>İmza uygulamasında aç</a>
                                     <input class="form-control form-control-sm font-monospace" value="{{ session('signing-link') }}" readonly onclick="this.select()">
                                     <div class="small mt-1">İmza uygulaması bu bilgisayarda açık olmalıdır. Açılmazsa bağlantıyı kopyalayıp uygulamaya yapıştırın. Bağlantı yeniden gösterilmez.</div>
                                 </div>
@@ -250,15 +250,29 @@
 </div>
 
 <script>
-    // Tells whether the signing application is running on this computer.
+    // Tells whether the signing application is running on this computer, asking
+    // its HTTPS address first and its plain one next, and points the button at
+    // the one that answered.
     (function () {
         var box = document.getElementById('signing-app');
         if (!box || !window.fetch) { return; }
-        fetch(box.dataset.statusUrl).then(function (response) { return response.json(); }).then(function (status) {
-            box.textContent = 'İmza uygulaması bu bilgisayarda çalışıyor (sürüm ' + status.version + ').';
-        }).catch(function () {
-            box.textContent = 'İmza uygulaması bu bilgisayarda çalışmıyor ya da tarayıcı ona ulaşamıyor; imzalamadan önce uygulamayı başlatın.';
-        }).then(function () { box.hidden = false; });
+        var addresses = JSON.parse(box.dataset.addresses);
+
+        function ask(index) {
+            if (index >= addresses.length) {
+                box.textContent = 'İmza uygulaması bu bilgisayarda çalışmıyor ya da tarayıcı ona ulaşamıyor; imzalamadan önce uygulamayı başlatın.';
+                box.hidden = false;
+                return;
+            }
+            fetch(addresses[index] + 'status').then(function (response) { return response.json(); }).then(function (status) {
+                box.textContent = 'İmza uygulaması bu bilgisayarda çalışıyor (sürüm ' + status.version + ').';
+                box.hidden = false;
+                var button = document.querySelector('[data-signing-link]');
+                if (button) { button.href = addresses[index] + '?link=' + encodeURIComponent(button.dataset.signingLink); }
+            }).catch(function () { ask(index + 1); });
+        }
+
+        ask(0);
     })();
 </script>
 @endsection
