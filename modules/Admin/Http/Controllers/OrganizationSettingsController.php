@@ -26,7 +26,7 @@ class OrganizationSettingsController extends Controller
         'address' => ['nullable', 'string', 'max:255'],
         'registry_no' => ['nullable', 'string', 'max:30'],
         'tax_office' => ['nullable', 'string', 'max:100'],
-        'tax_number' => ['nullable', 'regex:/^\d{10,11}$/'],
+        'tax_number' => ['nullable', 'regex:/^\d{10}$/'],
         'mersis_no' => ['nullable', 'regex:/^\d{16}$/'],
         'notification_email' => ['nullable', 'email', 'max:150'],
         'sender_email' => ['nullable', 'email', 'max:150'],

@@ -96,7 +96,7 @@
                         {{ $input('registry_no', 'Dernek kütük numarası', 'text', 'Resmî yazıların sayısında kullanılabilir.', '06-000-000') }}
                         <div class="row">
                             <div class="col-sm-6">{{ $input('tax_office', 'Vergi dairesi', 'text') }}</div>
-                            <div class="col-sm-6">{{ $input('tax_number', 'Vergi numarası', 'text', '10 ya da 11 hane.') }}</div>
+                            <div class="col-sm-6">{{ $input('tax_number', 'Vergi numarası', 'text', '10 hane.') }}</div>
                         </div>
                         {{ $input('mersis_no', 'MERSİS numarası', 'text', '16 hane. e-Yazışma paketlerinde kurumun kimliği olarak yazılır.') }}
                     </div>

@@ -62,7 +62,7 @@ class OrganizationSettingsTest extends TestCase
     {
         $manager = $this->settingsManager();
 
-        $this->actingAs($manager)->put('/admin/settings/organization', $this->valid(['tax_number' => '12345', 'mersis_no' => '123']))
+        $this->actingAs($manager)->put('/admin/settings/organization', $this->valid(['tax_number' => '12345678901', 'mersis_no' => '123']))
             ->assertSessionHasErrors(['tax_number', 'mersis_no']);
 
         $this->actingAs($manager)->put('/admin/settings/organization', $this->valid([
