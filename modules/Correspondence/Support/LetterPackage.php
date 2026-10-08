@@ -209,7 +209,7 @@ class LetterPackage
             'telefon' => $this->organization->get('phone'),
             'ePosta' => $this->organization->get('contact_email'),
             'webAdresi' => $this->organization->get('website_url'),
-            'adres' => $this->organization->get('address'),
+            'adres' => $this->organization->officialAddress(),
         ]);
 
         return new TuzelSahis(

@@ -84,7 +84,7 @@
                     <div class="card-body">
                         {{ $input('contact_email', 'İletişim e-postası', 'email', 'Alt bilgide "Soru, şikâyet ve önerileriniz için" adresi.') }}
                         {{ $input('phone', 'Telefon', 'text', null, '+90 ...') }}
-                        {{ $input('address', 'Adres', 'text', 'E-postaların alt bilgisinde gösterilir.') }}
+                        {{ $input('address', 'Adres', 'text', 'Herkese açık adres; e-postaların alt bilgisinde gösterilir.') }}
                     </div>
                 </div>
             </div>
@@ -98,6 +98,7 @@
                             <div class="col-sm-6">{{ $input('tax_office', 'Vergi dairesi', 'text') }}</div>
                             <div class="col-sm-6">{{ $input('tax_number', 'Vergi numarası', 'text', '10 hane.') }}</div>
                         </div>
+                        {{ $input('official_address', 'Resmî adres', 'text', 'Tescilli adres; yalnız resmî yazıların antetinde ve e-Yazışma paketlerinde yazılır. Boşsa yukarıdaki adres kullanılır.') }}
                         {{ $input('mersis_no', 'MERSİS numarası', 'text', '16 hane. e-Yazışma paketlerinde kurumun kimliği olarak yazılır.') }}
                     </div>
                 </div>
