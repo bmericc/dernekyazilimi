@@ -28,12 +28,19 @@ class SettingsController extends Controller
                 }
             }],
             'start_number' => ['required', 'integer', 'between:1,1000000'],
-        ], ['number_format.regex' => 'Sayı biçiminde {sira} bulunmalıdır.'], ['number_format' => 'Sayı biçimi', 'start_number' => 'Başlangıç numarası']);
+            'tsa_url' => ['nullable', 'url:http,https', 'max:255'],
+            'tsa_user' => ['nullable', 'string', 'max:100'],
+            'tsa_password' => ['nullable', 'string', 'max:200'],
+        ], ['number_format.regex' => 'Sayı biçiminde {sira} bulunmalıdır.'], [
+            'number_format' => 'Sayı biçimi', 'start_number' => 'Başlangıç numarası',
+            'tsa_url' => 'Zaman damgası adresi', 'tsa_user' => 'Zaman damgası kullanıcısı', 'tsa_password' => 'Zaman damgası parolası',
+        ]);
 
         $settings->save([
             'correspondence_number_format' => $data['number_format'],
             'correspondence_start_number' => (string) $data['start_number'],
         ]);
+        $settings->saveTimestampService($data['tsa_url'] ?? null, $data['tsa_user'] ?? null, $data['tsa_password'] ?? null);
         $this->set_log('change', 'Yazışma ayarları güncellendi');
 
         return back()->with('success-status', 'Yazışma ayarları kaydedildi.');

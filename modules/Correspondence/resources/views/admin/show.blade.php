@@ -134,6 +134,18 @@
                                 <form method="POST" action="{{ route('admin.correspondence.package.store', $letter) }}">@csrf<button type="submit" class="btn btn-primary w-100">Paketi oluştur</button></form>
                             @endif
                         @else
+                            @if (session('signing-link'))
+                                <div class="alert alert-info" role="alert">
+                                    <div class="mb-1"><strong>İmza bağlantısı</strong> ({{ \Modules\Correspondence\Models\SigningSession::LIFETIME }} dakika geçerli, tek kullanımlık)</div>
+                                    <a href="{{ \Modules\Correspondence\Models\SigningSession::applicationUrl(session('signing-link')) }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary w-100 mb-2"><i class="ti ti-external-link me-1"></i>İmza uygulamasında aç</a>
+                                    <input class="form-control form-control-sm font-monospace" value="{{ session('signing-link') }}" readonly onclick="this.select()">
+                                    <div class="small mt-1">İmza uygulaması bu bilgisayarda açık olmalıdır. Açılmazsa bağlantıyı kopyalayıp uygulamaya yapıştırın. Bağlantı yeniden gösterilmez.</div>
+                                </div>
+                            @endif
+                            @if ($canManage && $stage !== PaketAsamasi::Tamamlandi)
+                                <form method="POST" action="{{ route('admin.correspondence.package.signing-link', $letter) }}" class="mb-3">@csrf<button type="submit" class="btn btn-primary w-100"><i class="ti ti-writing-sign me-1"></i>İmza uygulamasıyla {{ $stage === PaketAsamasi::ImzaBekliyor ? 'imzala' : 'mühürle' }}</button></form>
+                                <div class="hr-text my-3">ya da elle</div>
+                            @endif
                             <ol class="mb-3 ps-3">
                                 <li class="mb-3">
                                     <strong>Elektronik imza</strong>

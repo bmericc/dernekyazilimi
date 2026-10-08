@@ -5,6 +5,7 @@ use Modules\Correspondence\Http\Controllers\Admin\AttachmentController;
 use Modules\Correspondence\Http\Controllers\Admin\LetterController;
 use Modules\Correspondence\Http\Controllers\Admin\PackageController;
 use Modules\Correspondence\Http\Controllers\Admin\SettingsController;
+use Modules\Correspondence\Http\Controllers\Admin\SigningLinkController;
 
 Route::middleware('permission:correspondence.settings')->group(function () {
     Route::get('/correspondence/settings', [SettingsController::class, 'edit'])->name('correspondence.settings');
@@ -24,6 +25,7 @@ Route::middleware('permission:correspondence.manage')->group(function () {
     Route::delete('/correspondence/{letter}/package', [PackageController::class, 'destroy'])->name('correspondence.package.destroy');
     Route::post('/correspondence/{letter}/package/signature', [PackageController::class, 'sign'])->name('correspondence.package.sign');
     Route::post('/correspondence/{letter}/package/seal', [PackageController::class, 'seal'])->name('correspondence.package.seal');
+    Route::post('/correspondence/{letter}/package/signing-link', [SigningLinkController::class, 'store'])->name('correspondence.package.signing-link');
 });
 
 Route::middleware('permission:correspondence.approve')->group(function () {
