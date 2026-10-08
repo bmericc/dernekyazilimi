@@ -137,6 +137,20 @@ class CorrespondenceTest extends TestCase
         $this->assertSame('2026/7', Numbering::format('{yil}/{sira}', 2026, 7));
         $this->assertSame('2026-00007', Numbering::format('{yil}-{sira:5}', 2026, 7));
         $this->assertSame('E-804.01-12', Numbering::format('E-{kod}-{sira}', 2026, 12, '804.01'));
+        $this->assertSame('06-061-115-2026-22', Numbering::format('{kutuk}-{yil}-{sira}', 2026, 22, null, '06-061-115'));
+    }
+
+    public function test_the_number_can_start_with_the_registry_number_of_the_association(): void
+    {
+        $owner = $this->owner();
+        $settings = ['number_format' => '{kutuk}-{yil}-{sira}', 'start_number' => 22];
+
+        $this->actingAs($owner)->put('/admin/correspondence/settings', $settings)->assertSessionHasErrors('registry_no');
+        $this->actingAs($owner)->put('/admin/correspondence/settings', $settings + ['registry_no' => '06-061-115'])->assertSessionHasNoErrors();
+        $this->actingAs($owner)->get('/admin/correspondence/settings')->assertOk()->assertSee('06-061-115-'.now()->year.'-41');
+
+        $this->assertSame('06-061-115-'.now()->year.'-22', $this->numbered($owner)->document_no);
+        $this->assertSame('06-061-115-'.now()->year.'-23', $this->numbered($owner)->document_no);
     }
 
     public function test_writing_and_approving_are_separate_permissions(): void
