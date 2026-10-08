@@ -3,12 +3,13 @@
 namespace Modules\Correspondence\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use BahriCanli\EYazisma\Enums\PaketAsamasi;
 use BahriCanli\EYazisma\Paket;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Validation\Rule;
 use Modules\Correspondence\Models\Letter;
+use Modules\Correspondence\Support\CorrespondenceSettings;
 use Modules\Correspondence\Support\LetterPackage;
 use Modules\Correspondence\Support\PackageException;
 
@@ -19,19 +20,21 @@ use Modules\Correspondence\Support\PackageException;
  */
 class PackageController extends Controller
 {
-    public function store(Letter $letter, LetterPackage $packages): RedirectResponse
+    public function store(Request $request, Letter $letter, LetterPackage $packages, CorrespondenceSettings $settings): RedirectResponse
     {
         abort_if($letter->package_path, 403);
 
-        return $this->attempt(fn () => $packages->create($letter), 'Paket oluşturuldu. Paket özetini indirip elektronik imzayla imzalayın.', $letter);
+        $data = $request->validate(['generation' => ['nullable', Rule::in([LetterPackage::OLD, LetterPackage::CURRENT])]]);
+
+        return $this->attempt(fn () => $packages->create($letter, $data['generation'] ?? $settings->packageGeneration()), 'Paket oluşturuldu; şimdi elektronik imzayla imzalayın.', $letter);
     }
 
     /**
-     * A package not yet complete can be discarded and built again.
+     * A package without a seal can be discarded and built again; a sealed one stays.
      */
     public function destroy(Letter $letter, LetterPackage $packages): RedirectResponse
     {
-        abort_if($packages->open($letter)?->asama() === PaketAsamasi::Tamamlandi, 403);
+        abort_if($packages->open($letter)?->muhur() !== null, 403);
 
         $packages->delete($letter);
         $this->set_log('delete', "e-Yazışma paketi silindi ({$letter->document_no})");
@@ -65,14 +68,14 @@ class PackageController extends Controller
     {
         $signature = $this->upload($request, 'İmza dosyası');
 
-        return $this->attempt(fn () => $packages->sign($letter, $signature), 'İmza eklendi. Nihai özeti indirip elektronik mühürle mühürleyin.', $letter);
+        return $this->attempt(fn () => $packages->sign($letter, $signature), 'İmza eklendi.', $letter);
     }
 
     public function seal(Request $request, Letter $letter, LetterPackage $packages): RedirectResponse
     {
         $seal = $this->upload($request, 'Mühür dosyası');
 
-        return $this->attempt(fn () => $packages->seal($letter, $seal), 'Mühür eklendi; paket tamamlandı.', $letter);
+        return $this->attempt(fn () => $packages->seal($letter, $seal), 'Mühür eklendi.', $letter);
     }
 
     private function package(Letter $letter, LetterPackage $packages): Paket

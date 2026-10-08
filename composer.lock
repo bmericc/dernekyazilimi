@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "625eb6ae20e17ba597a6511268a91cd0",
+    "content-hash": "299a5651714b97bd3057cde2dc127eab",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -63,16 +63,16 @@
         },
         {
             "name": "bahricanli/eyazisma",
-            "version": "v0.1.0",
+            "version": "v0.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/bahricanli/eyazisma.git",
-                "reference": "863bf28cee4b588e8cb122e8835d6ab63b79f7e0"
+                "reference": "a447f17617293580b2ce237fa11dbfcd2a67a9c9"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/bahricanli/eyazisma/zipball/863bf28cee4b588e8cb122e8835d6ab63b79f7e0",
-                "reference": "863bf28cee4b588e8cb122e8835d6ab63b79f7e0",
+                "url": "https://api.github.com/repos/bahricanli/eyazisma/zipball/a447f17617293580b2ce237fa11dbfcd2a67a9c9",
+                "reference": "a447f17617293580b2ce237fa11dbfcd2a67a9c9",
                 "shasum": ""
             },
             "require": {
@@ -116,7 +116,7 @@
                     "role": "Developer"
                 }
             ],
-            "description": "e-Yazışma Paketi (EYP 2.x) oluşturma, okuma ve doğrulama; Laravel desteğiyle",
+            "description": "e-Yazışma Paketi (EYP 2.x ve 1.x) oluşturma, okuma ve doğrulama; Laravel desteğiyle",
             "homepage": "https://github.com/bahricanli/eyazisma",
             "keywords": [
                 "e-yazışma",
@@ -128,9 +128,9 @@
             ],
             "support": {
                 "issues": "https://github.com/bahricanli/eyazisma/issues",
-                "source": "https://github.com/bahricanli/eyazisma/tree/v0.1.0"
+                "source": "https://github.com/bahricanli/eyazisma/tree/v0.2.0"
             },
-            "time": "2026-10-08T15:32:18+00:00"
+            "time": "2026-10-08T21:00:10+00:00"
         },
         {
             "name": "bahricanli/netgsm",

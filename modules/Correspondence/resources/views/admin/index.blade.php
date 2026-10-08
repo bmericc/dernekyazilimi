@@ -8,7 +8,10 @@
             <div class="text-secondary mt-1">Yazı taslak olarak yazılır, onaylanınca sayısını alır ve içeriği değişmez.</div>
         </div>
         @if (Auth::user()->hasPermission('correspondence.manage'))
-            <a href="{{ route('admin.correspondence.create') }}" class="btn btn-primary"><i class="ti ti-plus me-1"></i>Yeni yazı</a>
+            <div class="btn-list">
+                <a href="{{ route('admin.correspondence.create', ['source' => 'pdf']) }}" class="btn btn-outline-primary"><i class="ti ti-file-upload me-1"></i>Hazır PDF ile yazı</a>
+                <a href="{{ route('admin.correspondence.create') }}" class="btn btn-primary"><i class="ti ti-plus me-1"></i>Yeni yazı</a>
+            </div>
         @endif
     </div>
 

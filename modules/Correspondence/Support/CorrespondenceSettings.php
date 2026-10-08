@@ -51,6 +51,16 @@ class CorrespondenceSettings
     }
 
     /**
+     * Generation of the e-Yazışma packages offered first: "1" for the layout
+     * before 2.0, complete with the signature and still widely exchanged, or
+     * "2" for the current one, which also needs the organization's seal.
+     */
+    public function packageGeneration(): string
+    {
+        return $this->organization->get('correspondence_package_generation') === LetterPackage::CURRENT ? LetterPackage::CURRENT : LetterPackage::OLD;
+    }
+
+    /**
      * Time-stamp service the signing application uses to make signatures
      * long-lived; null when none is set.
      *

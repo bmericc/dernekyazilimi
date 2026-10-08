@@ -40,6 +40,17 @@ class Numbering
         });
     }
 
+    /**
+     * A letter uploaded as a PDF keeps the number and date written on it; the
+     * sequence of the year is not touched.
+     */
+    public function confirm(Letter $letter, User $approver): Letter
+    {
+        $letter->forceFill(['status' => Letter::NUMBERED, 'approved_by' => $approver->id, 'approved_at' => now()])->save();
+
+        return $letter;
+    }
+
     public static function format(string $format, int $year, int $number, ?string $fileCode = null, ?string $registryNumber = null): string
     {
         $text = preg_replace_callback(
