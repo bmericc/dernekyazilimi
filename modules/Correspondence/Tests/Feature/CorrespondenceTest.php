@@ -247,6 +247,12 @@ class CorrespondenceTest extends TestCase
         $this->assertStringContainsString('Deneme Sok. No: 1 Çankaya', $html);
         $this->assertStringNotContainsString('PK 50 Yenişehir', $html);
         $this->assertStringContainsString('KEP: ornek@hs01.kep.tr', $html);
+
+        // The letterhead shows the logo or, without one, the name: never both.
+        $this->assertStringContainsString('<td class="name">Örnek Derneği</td>', $html);
+        $html = view('correspondence::pdf.letter', ['letter' => $letter->fresh()->load(['recipients', 'attachments']), 'logo' => 'data:image/png;base64,AAAA'])->render();
+        $this->assertStringContainsString('<td class="name"><img src="data:image/png;base64,AAAA"', $html);
+        $this->assertStringNotContainsString('<td class="name">Örnek Derneği', $html);
     }
 
     public function test_the_package_is_built_signed_and_sealed(): void

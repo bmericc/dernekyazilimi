@@ -17,10 +17,11 @@
                                 <td>
                                     <img src="{{ $organization->logoUrl(true) }}" alt="{{ $organization->name() }}" style="height: 50px;">
                                 </td>
+                            @else
+                                <td>
+                                    <span style="font-size: 20px;"> {{ $organization->name() }}</span>
+                                </td>
                             @endif
-                            <td>
-                                <span style="font-size: 20px;"> {{ $organization->name() }}</span>
-                            </td>
                         </tr>
                     </tbody>
                 </table>

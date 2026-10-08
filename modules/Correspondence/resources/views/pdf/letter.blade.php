@@ -41,9 +41,8 @@
 
     <table class="head">
         <tr>
-            <td style="width: 20%;">@if ($logo)<img src="{{ $logo }}" style="max-height: 50pt; max-width: 90pt;">@endif</td>
-            <td style="width: 60%;" class="name">{{ $organization->name() }}</td>
-            <td style="width: 20%;"></td>
+            {{-- The logo stands for the association; its name is written only when there is none. --}}
+            <td class="name">@if ($logo)<img src="{{ $logo }}" style="max-height: 60pt; max-width: 240pt;">@else{{ $organization->name() }}@endif</td>
         </tr>
     </table>
 
