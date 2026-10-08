@@ -1,14 +1,19 @@
 @extends('layouts.admin')
 
 @php
-    use BahriCanli\EYazisma\Enums\PaketAsamasi;
+    use BahriCanli\EYazisma\Enums\Surum;
     use Modules\Correspondence\Models\Letter;
     use Modules\Correspondence\Models\LetterRecipient;
+    use Modules\Correspondence\Models\SigningSession;
+    use Modules\Correspondence\Support\LetterPackage;
 
     $user = Auth::user();
     $canManage = $user->hasPermission('correspondence.manage');
     $canApprove = $user->hasPermission('correspondence.approve');
-    $stage = $package?->asama();
+    // What the package waits for (signature, then seal), and whether it needs anything more.
+    $step = $package ? LetterPackage::pendingStep($package) : null;
+    $complete = $package && LetterPackage::isComplete($package);
+    $old = $package?->surum() === Surum::V1;
 @endphp
 
 @section('content')
@@ -34,7 +39,7 @@
                 @if ($letter->status === Letter::PENDING)
                     <form method="POST" action="{{ route('admin.correspondence.return', $letter) }}">@csrf<button type="submit" class="btn btn-outline-secondary">Taslağa geri al</button></form>
                 @endif
-                <form method="POST" action="{{ route('admin.correspondence.approve', $letter) }}" onsubmit="return confirm('Yazı onaylanıp sayı verilecek; sonrasında içeriği değiştirilemez. Devam edilsin mi?')">@csrf<button type="submit" class="btn btn-success"><i class="ti ti-check me-1"></i>Onayla ve sayı ver</button></form>
+                <form method="POST" action="{{ route('admin.correspondence.approve', $letter) }}" onsubmit="return confirm('{{ $letter->isPdf() ? 'Yazı onaylanacak' : 'Yazı onaylanıp sayı verilecek' }}; sonrasında içeriği değiştirilemez. Devam edilsin mi?')">@csrf<button type="submit" class="btn btn-success"><i class="ti ti-check me-1"></i>{{ $letter->isPdf() ? 'Onayla' : 'Onayla ve sayı ver' }}</button></form>
             @endif
         </div>
     </div>
@@ -53,7 +58,11 @@
                     @if ($letter->references)
                         <p class="mb-2"><strong>İlgi:</strong> @foreach ($letter->references as $index => $reference)<span class="d-block">{{ chr(ord('a') + $index) }}) {{ $reference }}</span>@endforeach</p>
                     @endif
-                    <div class="markdown">{!! $letter->body !!}</div>
+                    @if ($letter->isPdf())
+                        <p class="mb-0"><i class="ti ti-file-type-pdf me-1"></i>Hazır PDF: <a href="{{ route('admin.correspondence.pdf', $letter) }}" target="_blank">{{ $letter->pdf_name }}</a> <span class="text-secondary small">Yazı portalın dışında hazırlandı; PDF olduğu gibi saklanıyor.</span></p>
+                    @else
+                        <div class="markdown">{!! $letter->body !!}</div>
+                    @endif
                 </div>
                 <div class="card-footer text-secondary small">
                     Belge doğrulama kodu: <code>{{ $letter->document_id }}</code>
@@ -126,48 +135,70 @@
 
             @if ($letter->isNumbered() || $package)
                 <div class="card mb-3">
-                    <div class="card-header"><h3 class="card-title">e-Yazışma paketi</h3></div>
+                    <div class="card-header"><h3 class="card-title">e-Yazışma paketi</h3>@if ($package)<div class="card-actions"><span class="badge bg-secondary-lt">{{ $old ? '2.0 öncesi' : '2.x' }}</span></div>@endif</div>
                     <div class="card-body">
                         @if (! $package)
-                            <p class="text-secondary small">Paket, yazının PDF'ini ve eklerini içerir. Oluşturulduktan sonra sırayla elektronik imza ve elektronik mühür eklenir; ikisi de portalın dışında atılır.</p>
+                            <p class="text-secondary small">Paket, yazının PDF'ini ve eklerini içerir. Oluşturulduktan sonra elektronik imza eklenir; imza portalın dışında, imzacının kartıyla atılır.</p>
                             @if ($canManage)
-                                <form method="POST" action="{{ route('admin.correspondence.package.store', $letter) }}">@csrf<button type="submit" class="btn btn-primary w-100">Paketi oluştur</button></form>
+                                <form method="POST" action="{{ route('admin.correspondence.package.store', $letter) }}">
+                                    @csrf
+                                    @foreach ([LetterPackage::OLD => ['2.0 öncesi: yalnız e-imza', 'İmzayla tamamlanır; kurumlar arasında hâlâ kullanılır.'], LetterPackage::CURRENT => ['2.x: e-imza ve e-mühür', 'Kurumun e-mührü de gerekir.']] as $value => [$label, $hint])
+                                        <label class="form-check">
+                                            <input type="radio" class="form-check-input" name="generation" value="{{ $value }}" @checked($generation === (string) $value)>
+                                            <span class="form-check-label">{{ $label }}</span>
+                                            <span class="form-check-description">{{ $hint }}</span>
+                                        </label>
+                                    @endforeach
+                                    <button type="submit" class="btn btn-primary w-100 mt-2">Paketi oluştur</button>
+                                </form>
                             @endif
                         @else
+                            <div id="signing-app" class="small text-secondary mb-3" data-status-url="{{ SigningSession::APPLICATION }}status" hidden></div>
+
                             @if (session('signing-link'))
                                 <div class="alert alert-info" role="alert">
-                                    <div class="mb-1"><strong>İmza bağlantısı</strong> ({{ \Modules\Correspondence\Models\SigningSession::LIFETIME }} dakika geçerli, tek kullanımlık)</div>
-                                    <a href="{{ \Modules\Correspondence\Models\SigningSession::applicationUrl(session('signing-link')) }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary w-100 mb-2"><i class="ti ti-external-link me-1"></i>İmza uygulamasında aç</a>
+                                    <div class="mb-1"><strong>İmza bağlantısı</strong> ({{ SigningSession::LIFETIME }} dakika geçerli, tek kullanımlık)</div>
+                                    <a href="{{ SigningSession::applicationUrl(session('signing-link')) }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary w-100 mb-2"><i class="ti ti-external-link me-1"></i>İmza uygulamasında aç</a>
                                     <input class="form-control form-control-sm font-monospace" value="{{ session('signing-link') }}" readonly onclick="this.select()">
                                     <div class="small mt-1">İmza uygulaması bu bilgisayarda açık olmalıdır. Açılmazsa bağlantıyı kopyalayıp uygulamaya yapıştırın. Bağlantı yeniden gösterilmez.</div>
                                 </div>
                             @endif
-                            @if ($canManage && $stage !== PaketAsamasi::Tamamlandi)
-                                <form method="POST" action="{{ route('admin.correspondence.package.signing-link', $letter) }}" class="mb-3">@csrf<button type="submit" class="btn btn-primary w-100"><i class="ti ti-writing-sign me-1"></i>İmza uygulamasıyla {{ $stage === PaketAsamasi::ImzaBekliyor ? 'imzala' : 'mühürle' }}</button></form>
-                                <div class="hr-text my-3">ya da elle</div>
-                            @endif
+
                             <ol class="mb-3 ps-3">
                                 <li class="mb-3">
                                     <strong>Elektronik imza</strong>
-                                    @if ($stage === PaketAsamasi::ImzaBekliyor)
-                                        <div class="small text-secondary mb-2">Paket özetini indirin, imzacının e-imzasıyla içeriği kendi içinde taşıyan (tümleşik) CAdES imza atın ve imza dosyasını yükleyin.</div>
-                                        <a href="{{ route('admin.correspondence.package.digest', $letter) }}" class="btn btn-sm btn-outline-primary mb-2"><i class="ti ti-download me-1"></i>PaketOzeti.xml</a>
+                                    @if ($step === SigningSession::SIGNATURE)
                                         @if ($canManage)
-                                            <form method="POST" action="{{ route('admin.correspondence.package.sign', $letter) }}" enctype="multipart/form-data" class="d-flex gap-2">@csrf<input type="file" name="file" class="form-control form-control-sm" required><button type="submit" class="btn btn-sm btn-primary">Yükle</button></form>
+                                            <form method="POST" action="{{ route('admin.correspondence.package.signing-link', $letter) }}" class="my-2">@csrf<button type="submit" class="btn btn-primary w-100"><i class="ti ti-writing-sign me-1"></i>İmza uygulamasıyla imzala</button></form>
                                         @endif
+                                        <details class="small">
+                                            <summary class="text-secondary">Elle: özeti indir, imzala, yükle</summary>
+                                            <div class="text-secondary my-2">Paket özetini imzacının e-imzasıyla, içeriği kendi içinde taşıyan (tümleşik) CAdES olarak imzalayın ve imza dosyasını yükleyin.</div>
+                                            <a href="{{ route('admin.correspondence.package.digest', $letter) }}" class="btn btn-sm btn-outline-primary mb-2"><i class="ti ti-download me-1"></i>PaketOzeti.xml</a>
+                                            @if ($canManage)
+                                                <form method="POST" action="{{ route('admin.correspondence.package.sign', $letter) }}" enctype="multipart/form-data" class="d-flex gap-2">@csrf<input type="file" name="file" class="form-control form-control-sm" required><button type="submit" class="btn btn-sm btn-primary">Yükle</button></form>
+                                            @endif
+                                        </details>
                                     @else
                                         <span class="badge bg-green-lt ms-1">eklendi</span>
                                     @endif
                                 </li>
                                 <li>
                                     <strong>Elektronik mühür</strong>
-                                    @if ($stage === PaketAsamasi::MuhurBekliyor)
-                                        <div class="small text-secondary mb-2">Nihai özeti indirin, kurumun e-mührüyle tümleşik CAdES imza atın ve mühür dosyasını yükleyin.</div>
-                                        <a href="{{ route('admin.correspondence.package.final-digest', $letter) }}" class="btn btn-sm btn-outline-primary mb-2"><i class="ti ti-download me-1"></i>NihaiOzet.xml</a>
+                                    @if ($old)<span class="text-secondary small ms-1">isteğe bağlı</span>@endif
+                                    @if ($step === SigningSession::SEAL)
                                         @if ($canManage)
-                                            <form method="POST" action="{{ route('admin.correspondence.package.seal', $letter) }}" enctype="multipart/form-data" class="d-flex gap-2">@csrf<input type="file" name="file" class="form-control form-control-sm" required><button type="submit" class="btn btn-sm btn-primary">Yükle</button></form>
+                                            <form method="POST" action="{{ route('admin.correspondence.package.signing-link', $letter) }}" class="my-2">@csrf<button type="submit" class="btn {{ $old ? 'btn-outline-primary' : 'btn-primary' }} w-100"><i class="ti ti-rubber-stamp me-1"></i>İmza uygulamasıyla mühürle</button></form>
                                         @endif
-                                    @elseif ($stage === PaketAsamasi::Tamamlandi)
+                                        <details class="small">
+                                            <summary class="text-secondary">Elle: özeti indir, mühürle, yükle</summary>
+                                            <div class="text-secondary my-2">Nihai özeti kurumun e-mührüyle tümleşik CAdES olarak imzalayın ve mühür dosyasını yükleyin.</div>
+                                            <a href="{{ route('admin.correspondence.package.final-digest', $letter) }}" class="btn btn-sm btn-outline-primary mb-2"><i class="ti ti-download me-1"></i>NihaiOzet.xml</a>
+                                            @if ($canManage)
+                                                <form method="POST" action="{{ route('admin.correspondence.package.seal', $letter) }}" enctype="multipart/form-data" class="d-flex gap-2">@csrf<input type="file" name="file" class="form-control form-control-sm" required><button type="submit" class="btn btn-sm btn-primary">Yükle</button></form>
+                                            @endif
+                                        </details>
+                                    @elseif ($step === null)
                                         <span class="badge bg-green-lt ms-1">eklendi</span>
                                     @else
                                         <span class="text-secondary small ms-1">imzadan sonra</span>
@@ -175,7 +206,7 @@
                                 </li>
                             </ol>
 
-                            @if ($stage === PaketAsamasi::Tamamlandi)
+                            @if ($complete)
                                 @foreach ($report->hatalar() as $finding)
                                     <div class="alert alert-danger py-2 small" role="alert">{{ $finding }}</div>
                                 @endforeach
@@ -183,13 +214,13 @@
                                     <div class="alert alert-warning py-2 small" role="alert">{{ $finding }}</div>
                                 @endforeach
                                 @if ($report->gecerli())
-                                    <div class="alert alert-success py-2 small" role="alert">Paket yapısı ve özet değerleri geçerli. İmza ve mührün kriptografik doğrulaması burada yapılmaz.</div>
+                                    <div class="alert alert-success py-2 small" role="alert">Paket tamamlandı: yapısı ve özet değerleri geçerli. İmzanın kriptografik doğrulaması burada yapılmaz.</div>
                                 @endif
                             @endif
 
                             <div class="btn-list">
-                                <a href="{{ route('admin.correspondence.package', $letter) }}" class="btn btn-outline-primary"><i class="ti ti-download me-1"></i>{{ $stage === PaketAsamasi::Tamamlandi ? '.eyp indir' : 'Tamamlanmamış paketi indir' }}</a>
-                                @if ($canManage && $stage !== PaketAsamasi::Tamamlandi)
+                                <a href="{{ route('admin.correspondence.package', $letter) }}" class="btn btn-outline-primary"><i class="ti ti-download me-1"></i>{{ $complete ? '.eyp indir' : 'Tamamlanmamış paketi indir' }}</a>
+                                @if ($canManage && $step !== null)
                                     <form method="POST" action="{{ route('admin.correspondence.package.destroy', $letter) }}" onsubmit="return confirm('Paket silinsin mi? Eklenen imza da silinir.')">@csrf @method('DELETE')<button type="submit" class="btn btn-outline-danger">Paketi sil</button></form>
                                 @endif
                             </div>
@@ -217,4 +248,17 @@
         </div>
     </div>
 </div>
+
+<script>
+    // Tells whether the signing application is running on this computer.
+    (function () {
+        var box = document.getElementById('signing-app');
+        if (!box || !window.fetch) { return; }
+        fetch(box.dataset.statusUrl).then(function (response) { return response.json(); }).then(function (status) {
+            box.textContent = 'İmza uygulaması bu bilgisayarda çalışıyor (sürüm ' + status.version + ').';
+        }).catch(function () {
+            box.textContent = 'İmza uygulaması bu bilgisayarda çalışmıyor ya da tarayıcı ona ulaşamıyor; imzalamadan önce uygulamayı başlatın.';
+        }).then(function () { box.hidden = false; });
+    })();
+</script>
 @endsection

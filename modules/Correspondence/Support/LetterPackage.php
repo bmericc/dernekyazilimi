@@ -5,6 +5,7 @@ namespace Modules\Correspondence\Support;
 use App\Support\Organization;
 use BahriCanli\EYazisma\Dosya;
 use BahriCanli\EYazisma\Enums\DagitimTuru;
+use BahriCanli\EYazisma\Enums\PaketAsamasi;
 use BahriCanli\EYazisma\Exceptions\EYazismaException;
 use BahriCanli\EYazisma\Guid;
 use BahriCanli\EYazisma\Model\GercekSahis;
@@ -23,16 +24,27 @@ use DateTimeImmutable;
 use Illuminate\Support\Facades\Storage;
 use Modules\Correspondence\Models\Letter;
 use Modules\Correspondence\Models\LetterRecipient;
+use Modules\Correspondence\Models\SigningSession;
 
 /**
  * The e-Yazışma package (.eyp) of a numbered letter, kept on the private disk.
  *
- * The package is built from the letter, then completed in two steps with
- * signatures made elsewhere: the electronic signature over the package digest
- * and the electronic seal over the final digest.
+ * The package is built from the letter in the 2.x layout or in the one before
+ * 2.0, then completed with signatures made elsewhere: the electronic signature
+ * over the package digest and the electronic seal over the final digest. The
+ * old layout is complete with the signature alone.
  */
 class LetterPackage
 {
+    /** The layout before 2.0: complete with the signature, a seal is optional. */
+    public const OLD = '1';
+
+    /** The 2.x layout: signature and seal. */
+    public const CURRENT = '2';
+
+    /** Guide version written into packages of the old layout; the one older tools write and recipients accept. */
+    private const OLD_VERSION = '1.0';
+
     public function __construct(
         private Organization $organization,
         private CorrespondenceSettings $settings,
@@ -40,25 +52,27 @@ class LetterPackage
     ) {
     }
 
-    public function create(Letter $letter): Paket
+    public function create(Letter $letter, string $generation = self::CURRENT): Paket
     {
         if (! $letter->isNumbered()) {
             throw new PackageException('Paket yalnız sayı verilmiş yazı için oluşturulabilir.');
         }
 
-        if (! $this->settings->identifier()) {
-            throw new PackageException('Paket için kurum ayarlarında MERSİS numarası tanımlanmalıdır.');
-        }
-
+        $old = $generation === self::OLD;
         $letter->loadMissing(['recipients', 'attachments']);
 
         $builder = Paket::yeni()
             ->belgeId($letter->document_id)
             ->konu($letter->subject)
             ->ozId((string) $letter->id, 'ID')
-            ->olusturan($this->creator())
-            ->dogrulamaAdresi(route('correspondence.verify'))
+            ->olusturan($this->creator($letter, $old))
             ->ustYazi(Dosya::icerikten($this->pdf->render($letter), $this->pdf->filename($letter), 'application/pdf'));
+
+        // Date and number are part of the signed metadata in the old layout;
+        // the verification address came with 2.0.
+        $old
+            ? $builder->surum(self::OLD_VERSION)->belge($letter->document_date, $letter->document_no)
+            : $builder->dogrulamaAdresi(route('correspondence.verify'));
 
         foreach ($letter->recipients as $recipient) {
             $builder->dagitim($this->party($recipient), DagitimTuru::from($recipient->delivery));
@@ -87,6 +101,25 @@ class LetterPackage
         $this->store($letter, $package);
 
         return $package;
+    }
+
+    /**
+     * What the package waits for: the signature, then the seal. A package of
+     * the old layout is complete without the seal, which may still be added.
+     */
+    public static function pendingStep(Paket $package): ?string
+    {
+        return match (true) {
+            $package->imza() === null => SigningSession::SIGNATURE,
+            $package->muhur() === null => SigningSession::SEAL,
+            default => null,
+        };
+    }
+
+    /** Whether nothing more is needed: signed, and sealed too in the 2.x layout. */
+    public static function isComplete(Paket $package): bool
+    {
+        return $package->asama() === PaketAsamasi::Tamamlandi;
     }
 
     public function open(Letter $letter): ?Paket
@@ -156,8 +189,22 @@ class LetterPackage
         $letter->forceFill(['package_path' => $path])->save();
     }
 
-    private function creator(): TuzelSahis
+    /**
+     * The organization, by its MERSİS number. Without one, a package of the
+     * old layout names the first signer instead, as older tools do.
+     */
+    private function creator(Letter $letter, bool $old): Taraf
     {
+        if (! $this->settings->identifier()) {
+            $signer = $letter->signers[0] ?? null;
+
+            if (! $old || $signer === null) {
+                throw new PackageException('Paket için kurum ayarlarında MERSİS numarası tanımlanmalıdır.');
+            }
+
+            return new GercekSahis(new Kisi($signer['first_name'], $signer['last_name']), gorev: $signer['title'] ?? null);
+        }
+
         $contact = array_filter([
             'telefon' => $this->organization->get('phone'),
             'ePosta' => $this->organization->get('contact_email'),

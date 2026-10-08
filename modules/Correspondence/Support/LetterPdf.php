@@ -10,8 +10,8 @@ use Illuminate\Support\Str;
 use Modules\Correspondence\Models\Letter;
 
 /**
- * The letter as a PDF in the layout of an official letter. A letter without
- * a number is marked as a draft.
+ * The letter as a PDF: printed in the layout of an official letter, marked as
+ * a draft until it has a number; or the PDF that was uploaded as the letter.
  */
 class LetterPdf
 {
@@ -21,6 +21,11 @@ class LetterPdf
 
     public function render(Letter $letter): string
     {
+        // An uploaded letter is its own PDF, kept byte for byte: it may carry a signature.
+        if ($letter->isPdf()) {
+            return Storage::disk('local')->get($letter->pdf_path) ?? throw new \RuntimeException('Yazının PDF dosyası bulunamadı.');
+        }
+
         $options = new Options();
         $options->set('defaultFont', 'DejaVu Serif');
         $options->set('isRemoteEnabled', false);
@@ -39,6 +44,10 @@ class LetterPdf
 
     public function filename(Letter $letter): string
     {
+        if ($letter->isPdf() && $letter->pdf_name) {
+            return $letter->pdf_name;
+        }
+
         return 'yazi-'.(Str::slug((string) $letter->document_no) ?: 'taslak-'.$letter->id).'.pdf';
     }
 

@@ -15,6 +15,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Correspondence\Models\Letter;
 use Modules\Correspondence\Models\LetterRecipient;
+use Modules\Correspondence\Support\CorrespondenceSettings;
 use Modules\Correspondence\Support\LetterPackage;
 use Modules\Correspondence\Support\LetterPdf;
 use Modules\Correspondence\Support\Numbering;
@@ -40,27 +41,34 @@ class LetterController extends Controller
         ]);
     }
 
-    public function create(): View
+    /**
+     * A letter to write here, or with ?source=pdf a finished letter to upload as a PDF.
+     */
+    public function create(Request $request): View
     {
-        return view('correspondence::admin.form', ['letter' => new Letter]);
+        $letter = new Letter;
+        $letter->source = $request->query('source') === Letter::PDF ? Letter::PDF : Letter::COMPOSED;
+
+        return view('correspondence::admin.form', ['letter' => $letter]);
     }
 
     public function store(Request $request, HtmlSanitizer $sanitizer): RedirectResponse
     {
-        $data = $this->validated($request);
+        $letter = new Letter;
+        $letter->source = $request->input('source') === Letter::PDF ? Letter::PDF : Letter::COMPOSED;
+        $data = $this->validated($request, $letter);
 
-        $letter = DB::transaction(function () use ($data, $sanitizer) {
-            $letter = new Letter($this->attributes($data, $sanitizer));
-            $letter->forceFill(['document_id' => Guid::uret(), 'created_by' => Auth::id()])->save();
+        DB::transaction(function () use ($letter, $data, $sanitizer, $request) {
+            $letter->fill($this->attributes($data, $sanitizer));
+            $letter->forceFill(['document_id' => Guid::uret(), 'created_by' => Auth::id()] + $this->documentDetails($letter, $data))->save();
+            $this->storePdf($letter, $request);
             $this->syncRecipients($letter, $data['recipients']);
-
-            return $letter;
         });
 
         return redirect()->route('admin.correspondence.show', $letter)->with('success-status', 'Yazı taslak olarak kaydedildi.');
     }
 
-    public function show(Letter $letter, LetterPackage $packages): View
+    public function show(Letter $letter, LetterPackage $packages, CorrespondenceSettings $settings): View
     {
         $package = $packages->open($letter);
 
@@ -68,6 +76,7 @@ class LetterController extends Controller
             'letter' => $letter->load(['recipients', 'attachments', 'creator', 'approver']),
             'package' => $package,
             'report' => $package?->dogrula(),
+            'generation' => $settings->packageGeneration(),
         ]);
     }
 
@@ -82,10 +91,11 @@ class LetterController extends Controller
     {
         abort_unless($letter->isEditable(), 403);
 
-        $data = $this->validated($request);
+        $data = $this->validated($request, $letter);
 
-        DB::transaction(function () use ($letter, $data, $sanitizer) {
-            $letter->update($this->attributes($data, $sanitizer));
+        DB::transaction(function () use ($letter, $data, $sanitizer, $request) {
+            $letter->fill($this->attributes($data, $sanitizer))->forceFill($this->documentDetails($letter, $data))->save();
+            $this->storePdf($letter, $request);
             $this->syncRecipients($letter, $data['recipients']);
         });
 
@@ -131,7 +141,8 @@ class LetterController extends Controller
     {
         abort_unless(in_array($letter->status, [Letter::DRAFT, Letter::PENDING], true), 403);
 
-        $numbering->assign($letter, Auth::user());
+        // An uploaded letter already carries its number.
+        $letter->isPdf() ? $numbering->confirm($letter, Auth::user()) : $numbering->assign($letter, Auth::user());
 
         return back()->with('success-status', "Yazı onaylandı; sayısı {$letter->document_no}.");
     }
@@ -158,8 +169,10 @@ class LetterController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function validated(Request $request): array
+    private function validated(Request $request, Letter $letter): array
     {
+        $pdf = $letter->isPdf();
+
         // Rows left empty in the form are not recipients or signers.
         $request->merge([
             'recipients' => array_values(array_filter((array) $request->input('recipients'), fn ($row) => filled($row['name'] ?? null))),
@@ -168,7 +181,11 @@ class LetterController extends Controller
 
         return $request->validate([
             'subject' => ['required', 'string', 'max:255'],
-            'body' => ['required', 'string', 'max:200000'],
+            'body' => [$pdf ? 'nullable' : 'required', 'string', 'max:200000'],
+            // An uploaded letter comes with its file, number and date.
+            'pdf' => [$pdf && ! $letter->pdf_path ? 'required' : 'nullable', 'file', 'mimes:pdf', 'max:20480'],
+            'document_no' => [$pdf ? 'required' : 'nullable', 'string', 'max:80', Rule::unique('correspondence_letters', 'document_no')->ignore($letter->id)],
+            'document_date' => [$pdf ? 'required' : 'nullable', 'date'],
             'references' => ['nullable', 'string', 'max:5000'],
             'file_code' => ['nullable', 'string', 'max:30'],
             'file_name' => ['nullable', 'string', 'max:150'],
@@ -186,7 +203,7 @@ class LetterController extends Controller
             'recipients.required' => 'En az bir alıcı yazın.',
             'signers.required' => 'En az bir imzacı yazın.',
         ], [
-            'subject' => 'Konu', 'body' => 'Metin', 'references' => 'İlgi', 'file_code' => 'Dosya planı kodu', 'file_name' => 'Dosya planı adı',
+            'subject' => 'Konu', 'body' => 'Metin', 'pdf' => 'PDF dosyası', 'document_no' => 'Sayı', 'document_date' => 'Tarih', 'references' => 'İlgi', 'file_code' => 'Dosya planı kodu', 'file_name' => 'Dosya planı adı',
             'recipients.*.name' => 'Alıcı adı', 'recipients.*.kind' => 'Alıcı türü', 'recipients.*.identifier' => 'Alıcı kimliği',
             'recipients.*.address' => 'Alıcı adresi', 'recipients.*.delivery' => 'Dağıtım türü',
             'signers.*.first_name' => 'İmzacı adı', 'signers.*.last_name' => 'İmzacı soyadı', 'signers.*.title' => 'İmzacı unvanı',
@@ -201,7 +218,7 @@ class LetterController extends Controller
     {
         return [
             'subject' => $data['subject'],
-            'body' => trim($sanitizer->sanitizePage($data['body'])),
+            'body' => trim($sanitizer->sanitizePage($data['body'] ?? '')) ?: null,
             'references' => array_values(array_filter(array_map('trim', preg_split('/\R/', (string) ($data['references'] ?? ''))))) ?: null,
             'signers' => array_map(fn (array $signer) => [
                 'first_name' => trim($signer['first_name']),
@@ -211,6 +228,32 @@ class LetterController extends Controller
             'file_code' => $data['file_code'] ?? null,
             'file_name' => $data['file_name'] ?? null,
         ];
+    }
+
+    /**
+     * Number and date of an uploaded letter, as written on it; a letter written here gets them on approval.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function documentDetails(Letter $letter, array $data): array
+    {
+        return $letter->isPdf() ? ['document_no' => trim($data['document_no']), 'document_date' => $data['document_date']] : [];
+    }
+
+    private function storePdf(Letter $letter, Request $request): void
+    {
+        if (! $letter->isPdf() || ! $request->hasFile('pdf')) {
+            return;
+        }
+
+        $letter->pdf_path && Storage::disk('local')->delete($letter->pdf_path);
+        $file = $request->file('pdf');
+
+        $letter->forceFill([
+            'pdf_path' => $file->store($letter->directory(), 'local'),
+            'pdf_name' => $file->getClientOriginalName(),
+        ])->save();
     }
 
     /**

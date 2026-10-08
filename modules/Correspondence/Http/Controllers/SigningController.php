@@ -5,7 +5,7 @@ namespace Modules\Correspondence\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\ProcessLogs;
 use App\Support\Organization;
-use BahriCanli\EYazisma\Enums\PaketAsamasi;
+use BahriCanli\EYazisma\Enums\Surum;
 use BahriCanli\EYazisma\Paket;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -37,8 +37,7 @@ class SigningController extends Controller
             'step_label' => SigningSession::STEPS[$session->step],
             'filename' => $seal ? 'NihaiOzet.xml' : 'PaketOzeti.xml',
             'content' => base64_encode($seal ? $package->nihaiOzet() : $package->paketOzeti()),
-            // Long-term profile the e-Yazışma guide asks for: CAdES-X Long for the signature, CAdES-A for the seal.
-            'profile' => $seal ? 'A' : 'XL',
+            'profile' => $this->profile($package, $seal, $settings),
             'timestamp' => $settings->timestampService(),
             'expires_at' => $session->expires_at->toIso8601String(),
         ])->header('Cache-Control', 'no-store');
@@ -77,8 +76,26 @@ class SigningController extends Controller
 
         return response()->json([
             'message' => SigningSession::STEPS[$session->step].' pakete eklendi.',
-            'complete' => $package->asama() === PaketAsamasi::Tamamlandi,
+            'complete' => LetterPackage::isComplete($package),
         ]);
+    }
+
+    /**
+     * Signature level asked of the application. The 2.x guide wants long-term
+     * levels: CAdES-X Long for the signature and CAdES-A for the seal. The
+     * layout before 2.0 is signed plainly, time-stamped when a service is set.
+     */
+    private function profile(Paket $package, bool $seal, CorrespondenceSettings $settings): string
+    {
+        if ($seal) {
+            return 'A';
+        }
+
+        if ($package->surum() === Surum::V2) {
+            return 'XL';
+        }
+
+        return $settings->timestampService() ? 'T' : 'BES';
     }
 
     /**
@@ -90,11 +107,7 @@ class SigningController extends Controller
         $package = $session?->letter->isNumbered() ? $packages->open($session->letter) : null;
 
         // The link is for the step the package was waiting for when it was made.
-        $expected = match ($package?->asama()) {
-            PaketAsamasi::ImzaBekliyor => SigningSession::SIGNATURE,
-            PaketAsamasi::MuhurBekliyor => SigningSession::SEAL,
-            default => null,
-        };
+        $expected = $package ? LetterPackage::pendingStep($package) : null;
 
         abort_if($session === null || $expected !== $session->step, response()->json(['message' => 'İmza bağlantısı geçersiz ya da süresi dolmuş.'], 404));
 

@@ -12,8 +12,8 @@
 @section('content')
 <div class="container-xl">
     <div class="page-header mb-3">
-        <h2 class="page-title">{{ $letter->exists ? 'Yazıyı düzenle' : 'Yeni yazı' }}</h2>
-        <div class="text-secondary mt-1">Sayı ve tarih, yazı onaylandığında verilir.</div>
+        <h2 class="page-title">{{ $letter->exists ? 'Yazıyı düzenle' : ($letter->isPdf() ? 'Hazır PDF ile yazı' : 'Yeni yazı') }}</h2>
+        <div class="text-secondary mt-1">{{ $letter->isPdf() ? 'Portalın dışında hazırlanmış, sayısı ve tarihi üzerinde olan yazı. PDF olduğu gibi saklanır ve e-Yazışma paketine konur.' : 'Sayı ve tarih, yazı onaylandığında verilir.' }}</div>
     </div>
 
     @include('admin::partials.status')
@@ -22,9 +22,10 @@
         <div class="alert alert-danger" role="alert"><ul class="mb-0">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
     @endif
 
-    <form method="POST" action="{{ $letter->exists ? route('admin.correspondence.update', $letter) : route('admin.correspondence.store') }}">
+    <form method="POST" action="{{ $letter->exists ? route('admin.correspondence.update', $letter) : route('admin.correspondence.store') }}" enctype="multipart/form-data">
         @csrf
         @if ($letter->exists) @method('PUT') @endif
+        <input type="hidden" name="source" value="{{ $letter->source }}">
 
         <div class="card mb-3">
             <div class="card-header"><h3 class="card-title">Alıcılar</h3></div>
@@ -42,8 +43,22 @@
             <div class="card-header"><h3 class="card-title">Yazı</h3></div>
             <div class="card-body">
                 <div class="mb-3"><label class="form-label required" for="subject">Konu</label><input id="subject" name="subject" class="form-control @error('subject') is-invalid @enderror" value="{{ old('subject', $letter->subject) }}" maxlength="255" required></div>
+                @if ($letter->isPdf())
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label @unless ($letter->pdf_path) required @endunless" for="pdf">PDF dosyası</label>
+                            <input id="pdf" type="file" name="pdf" accept="application/pdf,.pdf" class="form-control @error('pdf') is-invalid @enderror" @required(! $letter->pdf_path)>
+                            @error('pdf')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            @if ($letter->pdf_path)<span class="form-hint">Yüklü: {{ $letter->pdf_name }}. Değiştirmek için yeni dosya seçin.</span>@endif
+                        </div>
+                        <div class="col-md-3 mb-3"><label class="form-label required" for="document_no">Sayı</label><input id="document_no" name="document_no" class="form-control @error('document_no') is-invalid @enderror" value="{{ old('document_no', $letter->document_no) }}" maxlength="80" required>@error('document_no')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                        <div class="col-md-3 mb-3"><label class="form-label required" for="document_date">Tarih</label><input id="document_date" type="date" name="document_date" class="form-control @error('document_date') is-invalid @enderror" value="{{ old('document_date', $letter->document_date?->toDateString()) }}" required></div>
+                    </div>
+                @endif
                 <div class="mb-3"><label class="form-label" for="references">İlgi</label><textarea id="references" name="references" rows="2" class="form-control" placeholder="Her satıra bir ilgi; ör. 12.03.2026 tarihli ve 2026/12 sayılı yazımız.">{{ old('references', implode("\n", $letter->references ?? [])) }}</textarea></div>
-                <div class="mb-3"><label class="form-label required" for="body">Metin</label><textarea id="body" name="body" rows="14" class="form-control wysiwyg">{{ old('body', $letter->body) }}</textarea></div>
+                @unless ($letter->isPdf())
+                    <div class="mb-3"><label class="form-label required" for="body">Metin</label><textarea id="body" name="body" rows="14" class="form-control wysiwyg">{{ old('body', $letter->body) }}</textarea></div>
+                @endunless
                 <div class="row">
                     <div class="col-md-3 mb-3"><label class="form-label" for="file_code">Dosya planı kodu</label><input id="file_code" name="file_code" class="form-control" value="{{ old('file_code', $letter->file_code) }}" maxlength="30" placeholder="ör. 010.06"></div>
                     <div class="col-md-9 mb-3"><label class="form-label" for="file_name">Dosya planı adı</label><input id="file_name" name="file_name" class="form-control" value="{{ old('file_name', $letter->file_name) }}" maxlength="150"></div>

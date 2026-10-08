@@ -5,8 +5,10 @@ namespace Modules\Correspondence\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Correspondence\Support\CorrespondenceSettings;
+use Modules\Correspondence\Support\LetterPackage;
 use Modules\Correspondence\Support\Numbering;
 
 class SettingsController extends Controller
@@ -28,6 +30,7 @@ class SettingsController extends Controller
                 }
             }],
             'start_number' => ['required', 'integer', 'between:1,1000000'],
+            'package_generation' => ['nullable', Rule::in([LetterPackage::OLD, LetterPackage::CURRENT])],
             'tsa_url' => ['nullable', 'url:http,https', 'max:255'],
             'tsa_user' => ['nullable', 'string', 'max:100'],
             'tsa_password' => ['nullable', 'string', 'max:200'],
@@ -39,6 +42,7 @@ class SettingsController extends Controller
         $settings->save([
             'correspondence_number_format' => $data['number_format'],
             'correspondence_start_number' => (string) $data['start_number'],
+            'correspondence_package_generation' => $data['package_generation'] ?? null,
         ]);
         $settings->saveTimestampService($data['tsa_url'] ?? null, $data['tsa_user'] ?? null, $data['tsa_password'] ?? null);
         $this->set_log('change', 'Yazışma ayarları güncellendi');

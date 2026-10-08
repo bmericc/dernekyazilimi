@@ -37,12 +37,22 @@ class Letter extends Model
         self::CANCELLED => 'red',
     ];
 
+    /** Written in the portal, which prints it as a PDF. */
+    public const COMPOSED = 'composed';
+
+    /** A finished letter uploaded as a PDF, with the number and date it already carries. */
+    public const PDF = 'pdf';
+
     /** Files of the letters on the private disk. */
     public const DIRECTORY = 'correspondence';
 
     protected $table = 'correspondence_letters';
 
     protected $fillable = ['subject', 'body', 'references', 'signers', 'file_code', 'file_name'];
+
+    protected $attributes = [
+        'source' => self::COMPOSED,
+    ];
 
     protected $casts = [
         'references' => 'array',
@@ -70,6 +80,11 @@ class Letter extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function isPdf(): bool
+    {
+        return $this->source === self::PDF;
     }
 
     /** The content may change only before the letter gets its number. */

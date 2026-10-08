@@ -6,6 +6,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Support\Organization;
 use BahriCanli\EYazisma\Enums\PaketAsamasi;
+use BahriCanli\EYazisma\Enums\Surum;
 use BahriCanli\EYazisma\Model\TuzelSahis;
 use BahriCanli\EYazisma\Paket;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -246,7 +247,7 @@ class CorrespondenceTest extends TestCase
         $owner = $this->owner();
         $draft = $this->letter($owner);
 
-        $this->actingAs($owner)->post("/admin/correspondence/{$draft->id}/package")->assertSessionHas('danger-status');
+        $this->actingAs($owner)->post("/admin/correspondence/{$draft->id}/package", ['generation' => '2'])->assertSessionHas('danger-status');
         $this->assertNull($draft->fresh()->package_path);
 
         $this->actingAs($owner)->post("/admin/correspondence/{$draft->id}/attachments", ['name' => 'Rapor', 'file' => UploadedFile::fake()->createWithContent('Çalışma Raporu.pdf', '%PDF-1.4 rapor')]);
@@ -255,16 +256,16 @@ class CorrespondenceTest extends TestCase
         $letter = $draft->fresh();
 
         // The organization's identifier is needed first.
-        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package")->assertSessionHas('danger-status');
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package", ['generation' => '2'])->assertSessionHas('danger-status');
         $this->actingAs($owner)->put('/admin/correspondence/settings', ['number_format' => '{yil}', 'start_number' => 1])->assertSessionHasErrors('number_format');
         $this->actingAs($owner)->put('/admin/correspondence/settings', ['number_format' => '{yil}/{sira}', 'start_number' => 1])->assertSessionHasNoErrors();
         $this->actingAs($owner)->put('/admin/settings/organization', ['name' => 'Örnek Derneği', 'mersis_no' => '0123456789012345'])->assertSessionHasNoErrors();
         $this->actingAs($owner)->get('/admin/correspondence/settings')->assertOk()->assertSee('0123456789012345');
 
-        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package")->assertSessionHas('success-status');
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package", ['generation' => '2'])->assertSessionHas('success-status');
         $letter->refresh();
         $this->assertSame("correspondence/{$letter->id}/{$letter->document_id}.eyp", $letter->package_path);
-        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package")->assertForbidden();
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package", ['generation' => '2'])->assertForbidden();
 
         $package = Paket::icerikten(Storage::disk('local')->get($letter->package_path));
         $metadata = $package->ustveri();
@@ -306,9 +307,123 @@ class CorrespondenceTest extends TestCase
         $this->assertSame('Ayşe Yılmaz', $package->nihaiUstveri()->imzalar[0]->imzalayan->gorunenAd());
         $this->assertSame('Yönetim Kurulu Başkanı', $package->nihaiUstveri()->imzalar[0]->imzalayan->gorev);
 
-        $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}")->assertSee('Paket yapısı ve özet değerleri geçerli')->assertDontSee('Paketi sil');
+        $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}")->assertSee('Paket tamamlandı: yapısı ve özet değerleri geçerli')->assertDontSee('Paketi sil');
         $this->actingAs($owner)->delete("/admin/correspondence/{$letter->id}/package")->assertForbidden();
         Storage::disk('local')->assertExists($letter->package_path);
+    }
+
+    public function test_a_package_of_the_layout_before_2_0_is_complete_with_the_signature(): void
+    {
+        $owner = $this->owner();
+        $letter = $this->numbered($owner);
+
+        // The old layout is offered first and needs no MERSİS number: the first signer is named as the creator.
+        $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}")->assertOk()->assertSee('2.0 öncesi: yalnız e-imza')->assertSee('2.x: e-imza ve e-mühür');
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package", ['generation' => 'x'])->assertSessionHasErrors('generation');
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package")->assertSessionHas('success-status');
+        $letter->refresh();
+
+        $package = Paket::icerikten(Storage::disk('local')->get($letter->package_path));
+        $this->assertSame(Surum::V1, $package->surum());
+        $this->assertSame('1.0', $package->ozellikler()->surum);
+        $this->assertSame('Ayşe Yılmaz', $package->ustveri()->olusturan->gorunenAd());
+        $this->assertSame($letter->document_no, $package->nihaiUstveri()->belgeNo);
+        $this->assertSame($letter->document_date->toDateString(), $package->nihaiUstveri()->tarih->format('Y-m-d'));
+        $this->assertSame(['Adalet Bakanlığı', 'Ali Rıza Kaya'], array_map(fn ($hedef) => $hedef->gorunenAd(), $package->hedefler()));
+
+        $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}")->assertSee('2.0 öncesi')->assertSee('İmza uygulamasıyla imzala')->assertDontSee('İmza uygulamasıyla mühürle');
+
+        $link = $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package/signing-link")->getSession()->get('signing-link');
+        auth()->logout();
+        $session = $this->getJson($link)->assertOk()->assertJsonPath('step', 'signature')->assertJsonPath('profile', 'BES')->json();
+        $this->postJson($link, ['signature' => base64_encode("\x30\x82".base64_decode($session['content']))])->assertOk()->assertJsonPath('complete', true);
+
+        $package = Paket::icerikten(Storage::disk('local')->get($letter->package_path));
+        $this->assertSame(PaketAsamasi::Tamamlandi, $package->asama());
+        $this->assertSame([], array_map('strval', $package->dogrula()->bulgular));
+        $this->assertNull($package->muhur());
+
+        // Complete without a seal; one may still be added.
+        $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}")->assertSee('Paket tamamlandı')->assertSee('isteğe bağlı')->assertSee('İmza uygulamasıyla mühürle')->assertSee('.eyp indir');
+
+        $link = $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package/signing-link")->getSession()->get('signing-link');
+        auth()->logout();
+        $session = $this->getJson($link)->assertOk()->assertJsonPath('step', 'seal')->assertJsonPath('profile', 'A')->assertJsonPath('filename', 'NihaiOzet.xml')->json();
+        $this->postJson($link, ['signature' => base64_encode("\x30\x82".base64_decode($session['content']))])->assertOk();
+
+        $package = Paket::icerikten(Storage::disk('local')->get($letter->package_path));
+        $this->assertNotNull($package->muhur());
+        $this->assertTrue($package->dogrula()->gecerli());
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package/signing-link")->assertForbidden();
+        $this->actingAs($owner)->delete("/admin/correspondence/{$letter->id}/package")->assertForbidden();
+
+        // With the time-stamp service set, the signature of the old layout is asked time-stamped.
+        app(Organization::class)->save(['name' => 'Örnek Derneği', 'correspondence_tsa_url' => 'http://zd.example.org', 'correspondence_package_generation' => '2', 'mersis_no' => '0123456789012345']);
+        $other = $this->numbered($owner);
+        $this->actingAs($owner)->get("/admin/correspondence/{$other->id}")->assertSee('value="2" checked', false);
+        $this->actingAs($owner)->post("/admin/correspondence/{$other->id}/package", ['generation' => '1']);
+        $link = $this->actingAs($owner)->post("/admin/correspondence/{$other->id}/package/signing-link")->getSession()->get('signing-link');
+        $this->getJson($link)->assertJsonPath('profile', 'T');
+        $this->assertSame('Örnek Derneği', Paket::icerikten(Storage::disk('local')->get($other->fresh()->package_path))->ustveri()->olusturan->gorunenAd());
+    }
+
+    public function test_a_finished_letter_is_uploaded_as_a_pdf_with_its_own_number(): void
+    {
+        $owner = $this->owner();
+        $pdf = "%PDF-1.7 imzalı yazı \x00\xff";
+        $form = fn (array $overrides = []) => array_replace($this->form(['body' => null]), [
+            'source' => 'pdf',
+            'pdf' => UploadedFile::fake()->createWithContent('06-061-115-2026-22 - Anadolu Üniversitesi (imzalı).pdf', $pdf),
+            'document_no' => '06-061-115-2026-22',
+            'document_date' => '2026-10-03',
+        ], $overrides);
+
+        $this->actingAs($owner)->get('/admin/correspondence')->assertSee('Hazır PDF ile yazı');
+        $this->actingAs($owner)->get('/admin/correspondence/create?source=pdf')->assertOk()->assertSee('PDF dosyası')->assertSee('name="document_no"', false)->assertDontSee('name="body"', false);
+        $this->actingAs($owner)->get('/admin/correspondence/create')->assertOk()->assertDontSee('name="document_no"', false);
+
+        $this->actingAs($owner)->post('/admin/correspondence', $form(['pdf' => null, 'document_no' => '', 'document_date' => '']))->assertSessionHasErrors(['pdf', 'document_no', 'document_date']);
+        $this->actingAs($owner)->post('/admin/correspondence', $form(['pdf' => UploadedFile::fake()->createWithContent('yazi.docx', 'x')]))->assertSessionHasErrors('pdf');
+        $this->actingAs($owner)->post('/admin/correspondence', $form())->assertSessionHasNoErrors();
+
+        $letter = Letter::latest('id')->first();
+        $this->assertTrue($letter->isPdf());
+        $this->assertSame(Letter::DRAFT, $letter->status);
+        $this->assertSame('06-061-115-2026-22', $letter->document_no);
+        $this->assertSame('2026-10-03', $letter->document_date->toDateString());
+        $this->assertNull($letter->body);
+        $this->assertStringStartsWith("correspondence/{$letter->id}/", $letter->pdf_path);
+        $this->assertSame($pdf, Storage::disk('local')->get($letter->pdf_path));
+
+        // The same number cannot be recorded twice.
+        $this->actingAs($owner)->post('/admin/correspondence', $form())->assertSessionHasErrors('document_no');
+
+        // The PDF is served as it was uploaded; the details can change while it is a draft.
+        $this->assertSame($pdf, $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}/pdf")->assertOk()->getContent());
+        $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}")->assertOk()->assertSee('Hazır PDF')->assertSee('06-061-115-2026-22');
+        $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}/edit")->assertOk()->assertSee('Yüklü:');
+        $this->actingAs($owner)->put("/admin/correspondence/{$letter->id}", $form(['pdf' => null, 'subject' => 'Kış Kampı']))->assertSessionHasNoErrors();
+        $this->assertSame('Kış Kampı', $letter->fresh()->subject);
+        $this->assertSame($pdf, Storage::disk('local')->get($letter->fresh()->pdf_path));
+
+        // Approval keeps the number on the letter and leaves the sequence alone.
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/approve")->assertSessionHasNoErrors();
+        $letter->refresh();
+        $this->assertSame(Letter::NUMBERED, $letter->status);
+        $this->assertSame('06-061-115-2026-22', $letter->document_no);
+        $this->assertNull($letter->number);
+        $this->assertNull(LetterSequence::find(now()->year));
+        $this->actingAs($owner)->put("/admin/correspondence/{$letter->id}", $form())->assertForbidden();
+
+        // The package carries the uploaded PDF byte for byte.
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package")->assertSessionHas('success-status');
+        $package = Paket::icerikten(Storage::disk('local')->get($letter->fresh()->package_path));
+        $this->assertSame($pdf, $package->ustYazi()->icerik);
+        $this->assertSame('06-061-115-2026-22', $package->nihaiUstveri()->belgeNo);
+        $this->assertSame('2026-10-03', $package->nihaiUstveri()->tarih->format('Y-m-d'));
+
+        auth()->logout();
+        $this->get('/belge-dogrula?kod='.$letter->document_id)->assertOk()->assertSee('06-061-115-2026-22');
     }
 
     public function test_an_unfinished_package_can_be_discarded_and_needs_recipient_identifiers(): void
@@ -317,10 +432,10 @@ class CorrespondenceTest extends TestCase
         app(Organization::class)->save(['mersis_no' => '0123456789012345']);
 
         $letter = $this->numbered($owner, ['recipients' => [['kind' => 'institution', 'name' => 'Numarasız Kurum', 'delivery' => 'GRG']]]);
-        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package")->assertSessionHas('danger-status', 'Paket için alıcının DETSİS no değeri gerekir: Numarasız Kurum');
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package", ['generation' => '2'])->assertSessionHas('danger-status', 'Paket için alıcının DETSİS no değeri gerekir: Numarasız Kurum');
 
         $letter = $this->numbered($owner);
-        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package")->assertSessionHas('success-status');
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package", ['generation' => '2'])->assertSessionHas('success-status');
         $path = $letter->fresh()->package_path;
 
         $this->actingAs($this->userWith(['correspondence.view']))->delete("/admin/correspondence/{$letter->id}/package")->assertForbidden();
@@ -337,7 +452,7 @@ class CorrespondenceTest extends TestCase
         $letter = $this->numbered($owner);
 
         $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package/signing-link")->assertForbidden();
-        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package");
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package", ['generation' => '2']);
         $this->actingAs($this->userWith(['correspondence.view']))->post("/admin/correspondence/{$letter->id}/package/signing-link")->assertForbidden();
 
         $this->actingAs($owner)->put('/admin/correspondence/settings', ['number_format' => '{yil}/{sira}', 'start_number' => 1, 'tsa_url' => 'http://zd.example.org', 'tsa_user' => '1234', 'tsa_password' => 'gizli'])->assertSessionHasNoErrors();

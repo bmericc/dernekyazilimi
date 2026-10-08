@@ -33,6 +33,18 @@
                 <dd class="col-sm-9">{{ $settings->identifier() ?? '—' }} <span class="text-secondary small">e-Yazışma paketi oluşturmak için gereklidir.</span></dd>
             </dl>
 
+            <h3 class="card-title mt-4">e-Yazışma paketi</h3>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label" for="package_generation">Önerilen paket türü</label>
+                    <select id="package_generation" name="package_generation" class="form-select">
+                        <option value="{{ \Modules\Correspondence\Support\LetterPackage::OLD }}" @selected(old('package_generation', $settings->packageGeneration()) === \Modules\Correspondence\Support\LetterPackage::OLD)>2.0 öncesi: yalnız e-imza</option>
+                        <option value="{{ \Modules\Correspondence\Support\LetterPackage::CURRENT }}" @selected(old('package_generation', $settings->packageGeneration()) === \Modules\Correspondence\Support\LetterPackage::CURRENT)>2.x: e-imza ve e-mühür</option>
+                    </select>
+                    <span class="form-hint">Paket oluştururken ilk seçili gelen tür; her pakette değiştirilebilir. 2.0 öncesi paket imzayla tamamlanır ve kurumlar arasında hâlâ kullanılır; 2.x için kurumun e-mührü gerekir.</span>
+                </div>
+            </div>
+
             <h3 class="card-title mt-4">Zaman damgası</h3>
             <p class="text-secondary small">İmza uygulaması, imzayı uzun süre doğrulanabilir kılmak için zaman damgası alır. Hesap bilgisi burada saklanır ve yalnız imza sırasında, tek kullanımlık imza bağlantısıyla uygulamaya iletilir. Boş bırakılırsa imza zaman damgasız atılır.</p>
             @php $timestamp = $settings->timestampService(); @endphp
