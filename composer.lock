@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "5cd896f553a00b94b5100641ca53dbc3",
+    "content-hash": "625eb6ae20e17ba597a6511268a91cd0",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -60,6 +60,77 @@
                 "source": "https://github.com/Bacon/BaconQrCode/tree/v3.1.1"
             },
             "time": "2026-04-05T21:06:35+00:00"
+        },
+        {
+            "name": "bahricanli/eyazisma",
+            "version": "v0.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/bahricanli/eyazisma.git",
+                "reference": "863bf28cee4b588e8cb122e8835d6ab63b79f7e0"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/bahricanli/eyazisma/zipball/863bf28cee4b588e8cb122e8835d6ab63b79f7e0",
+                "reference": "863bf28cee4b588e8cb122e8835d6ab63b79f7e0",
+                "shasum": ""
+            },
+            "require": {
+                "ext-dom": "*",
+                "ext-libxml": "*",
+                "ext-zlib": "*",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "orchestra/testbench": "^9.0 || ^10.0 || ^11.0",
+                "phpunit/phpunit": "^11.0 || ^12.0"
+            },
+            "suggest": {
+                "illuminate/support": "Laravel servis sağlayıcısı ve facade için (^10.0 || ^11.0 || ^12.0 || ^13.0)"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "aliases": {
+                        "EYazisma": "BahriCanli\\EYazisma\\Laravel\\Facades\\EYazisma"
+                    },
+                    "providers": [
+                        "BahriCanli\\EYazisma\\Laravel\\EYazismaServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "BahriCanli\\EYazisma\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Bahri Meriç Canlı",
+                    "email": "bahri@bahri.info",
+                    "homepage": "https://www.bahri.info",
+                    "role": "Developer"
+                }
+            ],
+            "description": "e-Yazışma Paketi (EYP 2.x) oluşturma, okuma ve doğrulama; Laravel desteğiyle",
+            "homepage": "https://github.com/bahricanli/eyazisma",
+            "keywords": [
+                "e-yazışma",
+                "ebys",
+                "eyazisma",
+                "eyp",
+                "laravel",
+                "resmi yazışma"
+            ],
+            "support": {
+                "issues": "https://github.com/bahricanli/eyazisma/issues",
+                "source": "https://github.com/bahricanli/eyazisma/tree/v0.1.0"
+            },
+            "time": "2026-10-08T15:32:18+00:00"
         },
         {
             "name": "bahricanli/netgsm",

@@ -40,6 +40,7 @@ class Audit
         \Modules\IdCard\Models\IdCard::class => 'Kimlik kartı',
         \Modules\Membership\Models\Membership::class => 'Üyelik',
         \Modules\IdCard\Models\IdCardTemplate::class => 'Kart şablonu',
+        \Modules\Correspondence\Models\Letter::class => 'Yazı',
     ];
 
     private static bool $paused = false;

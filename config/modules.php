@@ -107,6 +107,11 @@ return [
             'requires' => ['membership', 'dues', 'donation', 'mail-forwarding'],
         ],
 
+        'correspondence' => [
+            'enabled' => env('MODULE_CORRESPONDENCE', false),
+            'provider' => \Modules\Correspondence\CorrespondenceServiceProvider::class,
+        ],
+
     ],
 
 ];
