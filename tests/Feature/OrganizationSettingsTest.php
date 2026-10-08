@@ -67,6 +67,7 @@ class OrganizationSettingsTest extends TestCase
 
         $this->actingAs($manager)->put('/admin/settings/organization', $this->valid([
             'address' => 'PK 50, 06430 Yenişehir / Ankara',
+            'official_address' => 'Örnek Mah. Deneme Sok. No: 1 Çankaya / Ankara',
             'registry_no' => '06-061-115',
             'tax_office' => 'Çankaya',
             'tax_number' => '1234567890',
@@ -75,6 +76,8 @@ class OrganizationSettingsTest extends TestCase
 
         $organization = app(Organization::class);
         $this->assertSame('06-061-115', $organization->get('registry_no'));
+        $this->assertSame('Örnek Mah. Deneme Sok. No: 1 Çankaya / Ankara', $organization->officialAddress());
+        $this->assertSame('PK 50, 06430 Yenişehir / Ankara', $organization->get('address'));
         $this->assertSame('Çankaya', $organization->get('tax_office'));
         $this->assertSame('1234567890', $organization->get('tax_number'));
         $this->assertSame('0123456789012345', $organization->get('mersis_no'));

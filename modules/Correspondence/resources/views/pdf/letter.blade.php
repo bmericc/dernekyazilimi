@@ -4,7 +4,7 @@
     $action = $letter->recipients->where('delivery', LetterRecipient::ACTION)->values();
     $information = $letter->recipients->where('delivery', LetterRecipient::INFORMATION)->values();
     $single = $letter->recipients->count() === 1 ? $letter->recipients->first() : null;
-    $contact = array_filter([$organization->get('address'), $organization->get('phone'), $organization->get('contact_email'), $organization->get('website_url')]);
+    $contact = array_filter([$organization->officialAddress(), $organization->get('phone'), $organization->get('contact_email'), $organization->get('website_url')]);
 @endphp
 <!doctype html>
 <html lang="tr">

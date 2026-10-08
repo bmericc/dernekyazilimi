@@ -77,6 +77,15 @@ class Organization
         return $this->fileUrl('favicon_path', 'organization.favicon');
     }
 
+    /**
+     * Registered address of the association, written on official letters;
+     * the public address stands in while none is set.
+     */
+    public function officialAddress(): ?string
+    {
+        return $this->get('official_address') ?: $this->get('address');
+    }
+
     public function sourceUrl(): string
     {
         return $this->get('source_url', (string) config('organization.source_url'));
