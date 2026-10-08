@@ -242,10 +242,11 @@ class CorrespondenceTest extends TestCase
         $this->assertStringContainsString($letter->document_id, $html);
 
         // The letterhead carries the registered address, not the public one.
-        $this->actingAs($owner)->put('/admin/settings/organization', ['name' => 'Örnek Derneği', 'address' => 'PK 50 Yenişehir', 'official_address' => 'Deneme Sok. No: 1 Çankaya'])->assertSessionHasNoErrors();
+        $this->actingAs($owner)->put('/admin/settings/organization', ['name' => 'Örnek Derneği', 'address' => 'PK 50 Yenişehir', 'official_address' => 'Deneme Sok. No: 1 Çankaya', 'kep_address' => 'ornek@hs01.kep.tr'])->assertSessionHasNoErrors();
         $html = view('correspondence::pdf.letter', ['letter' => $letter->fresh()->load(['recipients', 'attachments']), 'logo' => null])->render();
         $this->assertStringContainsString('Deneme Sok. No: 1 Çankaya', $html);
         $this->assertStringNotContainsString('PK 50 Yenişehir', $html);
+        $this->assertStringContainsString('KEP: ornek@hs01.kep.tr', $html);
     }
 
     public function test_the_package_is_built_signed_and_sealed(): void
