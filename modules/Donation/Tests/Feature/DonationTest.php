@@ -4,6 +4,7 @@ namespace Modules\Donation\Tests\Feature;
 
 use App\Events\ContactAnonymized;
 use App\Models\Agreement;
+use App\Models\AgreementAcceptance;
 use App\Models\BankAccount;
 use App\Models\Contact;
 use App\Models\Payment;
@@ -46,6 +47,22 @@ class DonationTest extends TestCase
     {
         $this->get('/donate')->assertOk()->assertSee('çevrim içi bağış alınmıyor');
         $this->post('/donate', $this->form())->assertNotFound();
+    }
+
+    public function test_a_donation_needs_the_payment_terms_in_force_accepted(): void
+    {
+        $this->account();
+        $agreement = Agreement::create(['key' => Agreement::PAYMENT_TERMS, 'title' => 'Ödeme, İptal ve İade Koşulları']);
+        $agreement->versions()->create(['version' => 1, 'content' => '<p>Metin</p>'])->forceFill(['published_at' => now()])->save();
+
+        $this->get('/donate')->assertOk()->assertSee('Ödeme, İptal ve İade Koşulları')->assertSee('name="payment_terms"', false);
+        $this->post('/donate', $this->form())->assertSessionHasErrors('payment_terms');
+        $this->assertSame(0, Payment::count());
+
+        $user = User::factory()->create();
+        $this->actingAs($user)->post('/donate', $this->form(['payment_terms' => 'true']))->assertSessionHasNoErrors();
+        $this->assertSame(1, Payment::count());
+        $this->assertSame('donation', AgreementAcceptance::where('user_id', $user->id)->sole()->context);
     }
 
     public function test_a_guest_donates_by_transfer_and_management_confirms_it(): void

@@ -45,7 +45,7 @@ class DonationController extends Controller
 
         $payment = $service->submit($data, Auth::user());
         if (Auth::check()) {
-            $agreements->accept(Auth::user(), 'donation', Agreement::PRIVACY);
+            $agreements->accept(Auth::user(), 'donation', Agreement::PRIVACY, Agreement::PAYMENT_TERMS);
         }
 
         $result = route('donations.show', $payment->uuid);

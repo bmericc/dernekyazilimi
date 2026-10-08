@@ -48,7 +48,7 @@ class AgreementTest extends TestCase
 
     public function test_without_a_published_agreement_there_is_nothing_to_accept(): void
     {
-        $this->get('/register')->assertOk()->assertDontSee('koşullarını kabul ediyorum');
+        $this->get('/register')->assertOk()->assertDontSee('okudum, kabul ediyorum');
 
         $this->register()->assertRedirect('/home');
         $this->assertSame(0, AgreementAcceptance::count());

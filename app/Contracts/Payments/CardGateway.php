@@ -19,6 +19,12 @@ interface CardGateway
     public static function label(): string;
 
     /**
+     * The provider's logo band it asks to be shown where payments are made,
+     * as a path under public/; null when it has none.
+     */
+    public static function logo(): ?string;
+
+    /**
      * Credential inputs of the admin form.
      *
      * @return array<string, array{label: string, secret?: bool}>

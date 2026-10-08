@@ -19,7 +19,7 @@ use Modules\Donation\Models\Donation;
 class DonationService
 {
     /** Names of the donation form's fields in validation messages. */
-    public const ATTRIBUTES = ['amount' => 'Tutar', 'cause_id' => 'Bağış amacı', 'name' => 'Ad soyad', 'email' => 'E-posta', 'phone' => 'Telefon', 'message' => 'Mesaj', 'method' => 'Ödeme yöntemi'];
+    public const ATTRIBUTES = ['amount' => 'Tutar', 'cause_id' => 'Bağış amacı', 'name' => 'Ad soyad', 'email' => 'E-posta', 'phone' => 'Telefon', 'message' => 'Mesaj', 'method' => 'Ödeme yöntemi', 'payment_terms' => 'Ödeme koşulları'];
 
     public function __construct(private Payments $payments, private DonationSettings $settings, private Agreements $agreements)
     {
@@ -44,6 +44,7 @@ class DonationService
             'message' => ['nullable', 'string', 'max:1000'],
             'method' => ['required', Rule::in(array_keys($methods))],
             'agreement' => $this->agreements->rules(Agreement::PRIVACY),
+            'payment_terms' => $this->agreements->rules(Agreement::PAYMENT_TERMS),
         ];
     }
 

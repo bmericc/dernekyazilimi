@@ -68,6 +68,7 @@
                 </div>
 
                 <x-agreement-checkbox key="kvkk" />
+                @include('payments.terms', ['purpose' => 'donation'])
             </div>
             <div class="card-footer text-end"><button type="submit" class="btn btn-primary">Bağış yap</button></div>
         </form>
