@@ -100,6 +100,11 @@
                         </div>
                         {{ $input('official_address', 'Resmî adres', 'text', 'Tescilli adres; yalnız resmî yazıların antetinde ve e-Yazışma paketlerinde yazılır. Boşsa yukarıdaki adres kullanılır.') }}
                         {{ $input('mersis_no', 'MERSİS numarası', 'text', '16 hane. e-Yazışma paketlerinde kurumun kimliği olarak yazılır.') }}
+                        <div class="row">
+                            <div class="col-sm-6">{{ $input('kep_address', 'KEP adresi', 'email', 'Kayıtlı elektronik posta.', 'ornek@hs01.kep.tr') }}</div>
+                            <div class="col-sm-6">{{ $input('uets_address', 'UETS adresi', 'text', 'Ulusal Elektronik Tebligat Sistemi.', '00000-00000-00000') }}</div>
+                        </div>
+                        {{ $input('duns_number', 'D-U-N-S numarası', 'text', '9 hane.') }}
                     </div>
                 </div>
             </div>

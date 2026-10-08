@@ -46,6 +46,9 @@ class LkdOrganizationSeeder extends Seeder
             'mail_forwarding_label' => 'Gönüllü e-posta adresi',
             // Document numbers start with the association's registry number: 06-061-115-2026-22.
             'registry_no' => '06-061-115',
+            'duns_number' => '751126739',
+            'kep_address' => 'lkd@hs02.kep.tr',
+            'uets_address' => '25969-09336-54294',
             'correspondence_number_format' => '{kutuk}-{yil}-{sira}',
             // Membership application form (LKD_Yeni_Uye_Formu_v4.2): two member
             // references, at most five in total and one per calendar year per

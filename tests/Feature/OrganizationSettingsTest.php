@@ -62,8 +62,8 @@ class OrganizationSettingsTest extends TestCase
     {
         $manager = $this->settingsManager();
 
-        $this->actingAs($manager)->put('/admin/settings/organization', $this->valid(['tax_number' => '12345678901', 'mersis_no' => '123']))
-            ->assertSessionHasErrors(['tax_number', 'mersis_no']);
+        $this->actingAs($manager)->put('/admin/settings/organization', $this->valid(['tax_number' => '12345678901', 'mersis_no' => '123', 'duns_number' => '12345', 'kep_address' => 'kep', 'uets_address' => '123456789012345']))
+            ->assertSessionHasErrors(['tax_number', 'mersis_no', 'duns_number', 'kep_address', 'uets_address']);
 
         $this->actingAs($manager)->put('/admin/settings/organization', $this->valid([
             'address' => 'PK 50, 06430 Yenişehir / Ankara',
@@ -72,6 +72,9 @@ class OrganizationSettingsTest extends TestCase
             'tax_office' => 'Çankaya',
             'tax_number' => '1234567890',
             'mersis_no' => '0123456789012345',
+            'duns_number' => '123456789',
+            'kep_address' => 'ornek@hs01.kep.tr',
+            'uets_address' => '12345-67890-12345',
         ]))->assertSessionHasNoErrors();
 
         $organization = app(Organization::class);
@@ -81,6 +84,9 @@ class OrganizationSettingsTest extends TestCase
         $this->assertSame('Çankaya', $organization->get('tax_office'));
         $this->assertSame('1234567890', $organization->get('tax_number'));
         $this->assertSame('0123456789012345', $organization->get('mersis_no'));
+        $this->assertSame('123456789', $organization->get('duns_number'));
+        $this->assertSame('ornek@hs01.kep.tr', $organization->get('kep_address'));
+        $this->assertSame('12345-67890-12345', $organization->get('uets_address'));
 
         $this->actingAs($manager)->get('/admin/settings/organization')->assertOk()
             ->assertSee('Dernek kütük numarası')->assertSee('06-061-115')->assertSee('Vergi dairesi')->assertSee('0123456789012345');
