@@ -132,6 +132,26 @@ class PaymentsTest extends TestCase
         $payments->startCard($payment, $gateway, 'https://portal.test/donate/x');
     }
 
+    public function test_a_start_that_failed_keeps_the_gateways_words_on_the_payment(): void
+    {
+        $gateway = PaymentGateway::create(['driver' => 'iyzico', 'name' => 'iyzico', 'credentials' => ['api_key' => 'k', 'secret_key' => 's'], 'test_mode' => true]);
+        $payments = app(Payments::class);
+        $payment = $payments->create('donation', null, 150, Payment::CARD, ['name' => 'Ada Lovelace', 'email' => 'ada@example.org']);
+
+        Http::fake(['*' => Http::response(['status' => 'failure', 'errorCode' => '9000', 'errorMessage' => 'Şu anda işleminizi gerçekleştiremiyoruz'])]);
+
+        try {
+            $payments->startCard($payment, $gateway, 'https://portal.test/donate/x');
+            $this->fail('The gateway refused; an exception was expected.');
+        } catch (\RuntimeException $e) {
+            $payments->startFailed($payment, $e);
+        }
+
+        $payment->refresh();
+        $this->assertSame(Payment::CANCELLED, $payment->status);
+        $this->assertSame('Kart ödemesi başlatılamadı: iyzico: Şu anda işleminizi gerçekleştiremiyoruz [9000]', $payment->note);
+    }
+
     public function test_a_gateway_answer_with_another_amount_fails_the_payment(): void
     {
         $gateway = PaymentGateway::create(['driver' => 'iyzico', 'name' => 'iyzico', 'credentials' => ['api_key' => 'k', 'secret_key' => 's'], 'test_mode' => true]);
