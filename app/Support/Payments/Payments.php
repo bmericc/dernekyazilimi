@@ -119,6 +119,16 @@ class Payments
     }
 
     /**
+     * The gateway refused to open its payment page: the payment is cancelled
+     * and keeps the gateway's own words, for management to read.
+     */
+    public function startFailed(Payment $payment, Throwable $e): void
+    {
+        report($e);
+        $this->cancel($payment, Str::limit('Kart ödemesi başlatılamadı: '.$e->getMessage(), 250));
+    }
+
+    /**
      * The gateway's callback: verify with the gateway and settle the payment.
      */
     public function completeCard(PaymentGateway $gateway, string $token): ?Payment

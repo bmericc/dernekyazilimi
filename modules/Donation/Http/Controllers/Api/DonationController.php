@@ -35,8 +35,7 @@ class DonationController extends Controller
                 $gateway = PaymentGateway::findOrFail((int) substr($data['method'], strlen('gateway:')));
                 $frame = $gateway->driverClass()::frameUrl($payments->startCard($payment, $gateway, $result, ['item' => 'Bağış']));
             } catch (Throwable $e) {
-                report($e);
-                $payments->cancel($payment, 'Kart ödemesi başlatılamadı.');
+                $payments->startFailed($payment, $e);
 
                 return response()->json(['message' => 'Kart ödemesi şu anda başlatılamadı. Lütfen biraz sonra tekrar deneyin ya da havale ile bağış yapın.'], 502);
             }

@@ -131,8 +131,7 @@ class DuesController extends Controller
                 'item' => 'Üyelik aidatı',
             ]));
         } catch (Throwable $e) {
-            report($e);
-            $payments->cancel($payment, 'Kart ödemesi başlatılamadı.');
+            $payments->startFailed($payment, $e);
 
             return redirect($back)->withInput()->with('danger-status', 'Kart ödemesi şu anda başlatılamadı. Lütfen biraz sonra tekrar deneyin ya da havale ile ödeyin.');
         }
