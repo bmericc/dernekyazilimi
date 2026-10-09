@@ -83,7 +83,10 @@ class IyzicoGateway implements CardGateway
         ]);
 
         if (($response['status'] ?? null) !== 'success' || empty($response['paymentPageUrl'])) {
-            throw new RuntimeException('iyzico: '.($response['errorMessage'] ?? 'ödeme başlatılamadı'));
+            // The message alone is often generic; the code tells what iyzico refused.
+            $code = implode(' / ', array_filter([$response['errorCode'] ?? null, $response['errorGroup'] ?? null]));
+
+            throw new RuntimeException('iyzico: '.($response['errorMessage'] ?? 'ödeme başlatılamadı').($code !== '' ? " [{$code}]" : ''));
         }
 
         $payment->forceFill(['gateway_token' => $response['token']])->save();
