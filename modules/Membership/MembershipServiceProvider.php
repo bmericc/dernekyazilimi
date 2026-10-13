@@ -29,6 +29,7 @@ class MembershipServiceProvider extends ModuleServiceProvider
     protected function bootModule(Menu $menu, Slots $slots): void
     {
         $this->permissions()->group('membership', 'Üyelik', 20);
+        $this->trash()->register('membership-fee', \Modules\Membership\Models\MembershipFee::class, 'Aidat tutarı');
         $this->permissions()->register('memberships.view', 'Üyeleri görebilsin', 'membership', 20);
         $this->permissions()->register('memberships.manage', 'Üye yapabilsin, üyelik durumunu ve üye no değiştirebilsin', 'membership', 21);
 

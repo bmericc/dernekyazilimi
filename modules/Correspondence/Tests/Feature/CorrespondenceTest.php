@@ -218,8 +218,12 @@ class CorrespondenceTest extends TestCase
         $this->actingAs($owner)->post("/admin/correspondence/{$draft->id}/attachments", ['name' => 'Ek', 'file' => UploadedFile::fake()->createWithContent('ek.pdf', '%PDF-1.4')]);
         $path = $draft->attachments()->first()->path;
         $this->actingAs($owner)->delete("/admin/correspondence/{$draft->id}")->assertRedirect('/admin/correspondence');
-        Storage::disk('local')->assertMissing($path);
+        // Nothing is deleted for good: the draft and its files wait in "Silinenler".
+        Storage::disk('local')->assertExists($path);
         $this->assertNull(Letter::find($draft->id));
+        $this->actingAs($owner)->get('/admin/trash')->assertOk()->assertSee($draft->subject);
+        $this->actingAs($owner)->patch("/admin/trash/letter/{$draft->id}")->assertSessionHas('success-status');
+        $this->assertSame(1, Letter::find($draft->id)->attachments()->count());
     }
 
     public function test_the_letter_is_printed_as_a_pdf(): void

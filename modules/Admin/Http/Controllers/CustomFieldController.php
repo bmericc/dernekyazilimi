@@ -55,7 +55,7 @@ class CustomFieldController extends Controller
     {
         $customField->delete();
 
-        return redirect()->route('admin.custom-fields')->with('success-status', "\"{$customField->label}\" alanı ve kişilerdeki değerleri silindi.");
+        return redirect()->route('admin.custom-fields')->with('success-status', "\"{$customField->label}\" alanı silindi; kişilerdeki değerleri saklanır, \"Silinenler\"den geri getirilebilir.");
     }
 
     private function rules(CustomFields $customFields, ?string $type = null): array

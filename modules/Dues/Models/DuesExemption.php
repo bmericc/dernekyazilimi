@@ -7,13 +7,14 @@ use App\Models\Contact;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * A member pays no yearly dues from from_year to until_year (open-ended when null).
  */
 class DuesExemption extends Model
 {
-    use Auditable;
+    use Auditable, SoftDeletes;
 
     protected $fillable = ['contact_id', 'from_year', 'until_year', 'reason', 'created_by'];
 

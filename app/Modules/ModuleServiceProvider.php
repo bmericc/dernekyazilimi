@@ -108,6 +108,15 @@ abstract class ModuleServiceProvider extends ServiceProvider
     }
 
     /**
+     * Deleted records the panel can restore: register the module's models
+     * that use SoftDeletes.
+     */
+    protected function trash(): Trash
+    {
+        return $this->app->make(Trash::class);
+    }
+
+    /**
      * The API of the association's web site: describe the module's form.
      */
     protected function siteApi(): \App\Support\SiteApi

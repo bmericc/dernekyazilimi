@@ -47,7 +47,7 @@ class PaymentGatewayController extends Controller
         $gateway->delete();
         $this->set_log('delete', "Ödeme sistemi silindi ({$gateway->name})");
 
-        return back()->with('success-status', "{$gateway->name} silindi.");
+        return back()->with('success-status', "{$gateway->name} silindi; \"Silinenler\"den geri getirilebilir.");
     }
 
     private function validated(Request $request, PaymentGateway $gateway, Payments $payments): array

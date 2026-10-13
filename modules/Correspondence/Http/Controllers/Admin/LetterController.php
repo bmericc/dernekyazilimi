@@ -109,11 +109,10 @@ class LetterController extends Controller
     {
         abort_unless($letter->isEditable(), 403);
 
-        $letter->attachments->each->delete();
-        Storage::disk('local')->deleteDirectory($letter->directory());
+        // Soft delete: the draft, its attachments and files stay and can be restored.
         $letter->delete();
 
-        return redirect()->route('admin.correspondence')->with('success-status', 'Taslak silindi.');
+        return redirect()->route('admin.correspondence')->with('success-status', 'Taslak silindi; "Silinenler"den geri getirilebilir.');
     }
 
     public function submit(Letter $letter): RedirectResponse

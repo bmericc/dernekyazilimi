@@ -4,13 +4,14 @@ namespace Modules\Membership\Models;
 
 use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Entry fee and yearly dues of one year.
  */
 class MembershipFee extends Model
 {
-    use Auditable;
+    use Auditable, SoftDeletes;
 
     protected $fillable = ['year', 'entry_fee', 'annual_fee', 'note'];
 

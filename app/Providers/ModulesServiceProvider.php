@@ -10,6 +10,7 @@ use App\Modules\Menu;
 use App\Modules\ModuleManager;
 use App\Modules\Permissions;
 use App\Modules\Slots;
+use App\Modules\Trash;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 
@@ -29,6 +30,18 @@ class ModulesServiceProvider extends ServiceProvider
             return $permissions;
         });
         $this->app->singleton(\App\Support\CustomFields::class);
+        $this->app->singleton(Trash::class, function () {
+            $trash = new Trash();
+            $trash->register('tag', \App\Models\Tag::class);
+            $trash->register('custom-field', \App\Models\CustomField::class);
+            $trash->register('role', \App\Models\Role::class);
+            $trash->register('affiliation-type', \App\Models\AffiliationType::class);
+            $trash->register('affiliation', \App\Models\ContactAffiliation::class);
+            $trash->register('payment-gateway', \App\Models\PaymentGateway::class);
+            $trash->register('bank-account', \App\Models\BankAccount::class);
+
+            return $trash;
+        });
         $this->app->singleton(\App\Modules\ProfileTabs::class, function () {
             $tabs = new \App\Modules\ProfileTabs();
             $tabs->add('personal', 'Kişisel', 'profile.tabs.personal', 10, ['personal', 'other'], 'user');

@@ -118,7 +118,7 @@ class FonzipImport
             'accounts' => collect($contacts)->countBy('account')->except([''])->all(),
             'fields' => $this->planFields($snapshot),
             'tags' => collect($snapshot['users'])->pluck('tag_names')->flatten()->filter()->unique()->values()
-                ->mapWithKeys(fn ($name) => [$name => Tag::where('name', $name)->exists()])->all(),
+                ->mapWithKeys(fn ($name) => [$name => Tag::withTrashed()->where('name', $name)->exists()])->all(),
             'causes' => collect($snapshot['donations'])->pluck('sub_donation_type__name')->filter()->unique()->values()
                 ->mapWithKeys(fn ($name) => [$name => DonationCause::where('name', $name)->exists()])->all(),
             'finance' => [
@@ -804,7 +804,7 @@ class FonzipImport
             'key' => $this->fieldKey($field['value']),
             'label' => $field['name'],
             'type' => $this->fieldType($field),
-            'exists' => CustomField::where('key', $this->fieldKey($field['value']))->exists(),
+            'exists' => CustomField::withTrashed()->where('key', $this->fieldKey($field['value']))->exists(),
         ])->values()->all();
     }
 
@@ -822,7 +822,7 @@ class FonzipImport
         }
 
         foreach (collect($snapshot['users'])->pluck('tag_names')->flatten()->filter()->unique() as $name) {
-            Tag::firstOrCreate(['name' => $name]);
+            Tag::withTrashed()->firstOrCreate(['name' => $name]);
         }
         foreach (collect($snapshot['donations'])->pluck('sub_donation_type__name')->filter()->unique() as $name) {
             DonationCause::firstOrCreate(['name' => $name]);

@@ -32,6 +32,7 @@ class DonationServiceProvider extends ModuleServiceProvider
     protected function bootModule(Menu $menu, Slots $slots): void
     {
         $this->permissions()->group('donations', 'Bağışlar', 55);
+        $this->trash()->register('donation-cause', \Modules\Donation\Models\DonationCause::class, 'Bağış amacı');
         $this->permissions()->register('donations.view', 'Bağışları görebilsin', 'donations', 55);
         $this->permissions()->register('donations.manage', 'Bağış kaydedebilsin, bağış amaçlarını ve ayarlarını düzenleyebilsin', 'donations', 56);
 

@@ -2,11 +2,12 @@
 
 namespace App\Models;
 
-use App\Models\Concerns\Auditable;
 
+use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * One period in which a contact held an affiliation type. A new period is a
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class ContactAffiliation extends Model
 {
-    use Auditable;
+    use Auditable, SoftDeletes;
 
     protected $fillable = ['contact_id', 'affiliation_type_id', 'title', 'started_at', 'ended_at', 'note'];
 

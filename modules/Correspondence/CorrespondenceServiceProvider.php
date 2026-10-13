@@ -21,6 +21,7 @@ class CorrespondenceServiceProvider extends ModuleServiceProvider
     protected function bootModule(Menu $menu, Slots $slots): void
     {
         $this->permissions()->group('correspondence', 'Yazışmalar', 70);
+        $this->trash()->register('letter', \Modules\Correspondence\Models\Letter::class);
         $this->permissions()->register('correspondence.view', 'Yazıları görebilsin', 'correspondence', 70);
         $this->permissions()->register('correspondence.manage', 'Yazı yazabilsin, e-Yazışma paketini hazırlayabilsin', 'correspondence', 71);
         $this->permissions()->register('correspondence.approve', 'Yazıyı onaylayıp sayı verebilsin, iptal edebilsin', 'correspondence', 72);

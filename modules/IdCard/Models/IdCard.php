@@ -51,7 +51,7 @@ class IdCard extends Model
 
     public function affiliation(): BelongsTo
     {
-        return $this->belongsTo(ContactAffiliation::class, 'contact_affiliation_id');
+        return $this->belongsTo(ContactAffiliation::class, 'contact_affiliation_id')->withTrashed();
     }
 
     public static function newVerifyToken(): string
@@ -64,7 +64,7 @@ class IdCard extends Model
         return match (true) {
             $this->revoked_at !== null => self::REVOKED,
             ! $this->template->is_active => self::INACTIVE,
-            ! $this->affiliation->isActive() || $this->contact->trashed() => self::ENDED,
+            ! $this->affiliation->isActive() || $this->affiliation->trashed() || $this->contact->trashed() => self::ENDED,
             default => self::VALID,
         };
     }
