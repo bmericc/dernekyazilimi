@@ -9,13 +9,18 @@
 
     @include('admin::partials.status')
 
+    <h3 class="mb-2">Kayıtlı ödeme sistemleri</h3>
+    @if ($gateways->isEmpty())
+        <div class="card mb-3"><div class="card-body text-secondary">Henüz ödeme sistemi eklenmedi. Aşağıdan ekleyebilirsiniz.</div></div>
+    @endif
     @foreach ($gateways as $gateway)
         <div class="card mb-3">
+            <div class="card-status-start {{ $gateway->is_active ? 'bg-green' : 'bg-secondary' }}"></div>
             <div class="card-header">
                 <h3 class="card-title">{{ $gateway->name }} <span class="text-secondary">({{ $drivers[$gateway->driver]::label() ?? $gateway->driver }})</span></h3>
                 <div class="card-actions">
                     @if ($gateway->test_mode)<span class="badge bg-orange-lt">Test</span>@endif
-                    @unless ($gateway->is_active)<span class="badge bg-secondary-lt">Pasif</span>@endunless
+                    @if ($gateway->is_active)<span class="badge bg-green-lt">Aktif</span>@else<span class="badge bg-secondary-lt">Pasif</span>@endif
                 </div>
             </div>
             <div class="card-body">
@@ -30,9 +35,10 @@
         </div>
     @endforeach
 
+    <h3 class="mt-4 mb-2">Yeni ödeme sistemi ekle</h3>
     @foreach ($drivers as $key => $driver)
-        <div class="card mb-3">
-            <div class="card-header"><h3 class="card-title">Yeni {{ $driver::label() }} hesabı</h3></div>
+        <details class="card mb-3 bg-transparent" style="border-style: dashed" @if ($gateways->isEmpty() || old('driver') === $key) open @endif>
+            <summary class="card-header" style="cursor: pointer"><span class="card-title text-primary">+ Yeni {{ $driver::label() }} hesabı ekle</span></summary>
             <div class="card-body">
                 <form method="POST" action="{{ route('admin.payment-gateways.store') }}">
                     @csrf
@@ -41,7 +47,7 @@
                     <button type="submit" class="btn btn-primary">Ekle</button>
                 </form>
             </div>
-        </div>
+        </details>
     @endforeach
 </div>
 @endsection
