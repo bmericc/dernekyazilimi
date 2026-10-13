@@ -56,11 +56,11 @@
                 </div>
                 <div class="col-md-3 mb-3">
                     <label class="form-label" for="tsa_user">Kullanıcı / müşteri no</label>
-                    <input id="tsa_user" name="tsa_user" class="form-control" value="{{ old('tsa_user', $timestamp['user'] ?? '') }}" maxlength="100" autocomplete="off">
+                    <input id="tsa_user" name="tsa_user" class="form-control" value="{{ old('tsa_user', $timestamp['user'] ?? '') }}" maxlength="100" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other">
                 </div>
                 <div class="col-md-3 mb-3">
                     <label class="form-label" for="tsa_password">Parola</label>
-                    <input id="tsa_password" type="password" name="tsa_password" class="form-control" maxlength="200" autocomplete="new-password" placeholder="{{ ($timestamp['password'] ?? null) ? 'Kayıtlı; değiştirmek için yazın' : '' }}">
+                    <x-secret-input id="tsa_password" name="tsa_password" maxlength="200" placeholder="{{ ($timestamp['password'] ?? null) ? 'Kayıtlı; değiştirmek için yazın' : '' }}" />
                 </div>
             </div>
         </div>

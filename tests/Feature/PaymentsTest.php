@@ -55,7 +55,8 @@ class PaymentsTest extends TestCase
         $gateway = PaymentGateway::sole();
 
         $this->assertStringNotContainsString('secret-1', DB::table('payment_gateways')->value('credentials'));
-        $this->actingAs($owner)->get('/admin/payment-gateways')->assertOk()->assertDontSee('secret-1')->assertSee(route('payments.callback', $gateway));
+        // No password field: the browser would fill the saved portal login over the keys.
+        $this->actingAs($owner)->get('/admin/payment-gateways')->assertOk()->assertDontSee('secret-1')->assertDontSee('type="password"', false)->assertSee(route('payments.callback', $gateway));
 
         $this->actingAs($owner)->put("/admin/payment-gateways/{$gateway->id}", ['name' => 'iyzico bağış', 'credentials' => ['api_key' => 'key-2', 'secret_key' => ''], 'is_active' => '1'])->assertSessionHasNoErrors();
         $gateway->refresh();
