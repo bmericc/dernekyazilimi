@@ -5,8 +5,12 @@
     @foreach ($driver::credentialFields() as $key => $field)
         <div class="col-md-4 mb-2">
             <label class="form-label @if ($new) required @endif">{{ $field['label'] }}</label>
-            <input type="{{ ($field['secret'] ?? false) ? 'password' : 'text' }}" name="credentials[{{ $key }}]" class="form-control" autocomplete="off"
-                   placeholder="{{ ! $new && filled($gateway->credential($key)) ? (($field['secret'] ?? false) ? '•••••• (kayıtlı)' : $gateway->credential($key)) : '' }}" @if ($new) required @endif>
+            @if ($field['secret'] ?? false)
+                <x-secret-input name="credentials[{{ $key }}]" placeholder="{{ ! $new && filled($gateway->credential($key)) ? '•••••• (kayıtlı)' : '' }}" :required="$new" />
+            @else
+                <input type="text" name="credentials[{{ $key }}]" class="form-control" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other"
+                       placeholder="{{ ! $new && filled($gateway->credential($key)) ? $gateway->credential($key) : '' }}" @if ($new) required @endif>
+            @endif
         </div>
     @endforeach
     <div class="col-md-2 mb-2"><label class="form-label">Sıra</label><input type="number" name="sort" class="form-control" value="{{ $new ? 0 : $gateway->sort }}"></div>
