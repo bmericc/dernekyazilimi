@@ -34,7 +34,7 @@ class TagController extends Controller
     {
         $tag->delete();
 
-        return back()->with('success-status', "\"{$tag->name}\" etiketi silindi; kişilerden de kaldırıldı.");
+        return back()->with('success-status', "\"{$tag->name}\" etiketi silindi; \"Silinenler\"den geri getirilebilir.");
     }
 
     private function rules(?Tag $tag = null): array

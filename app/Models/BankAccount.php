@@ -5,10 +5,11 @@ namespace App\Models;
 use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class BankAccount extends Model
 {
-    use Auditable;
+    use Auditable, SoftDeletes;
 
     protected $fillable = ['bank_name', 'branch', 'account_holder', 'iban', 'currency', 'purposes', 'is_active', 'sort'];
 

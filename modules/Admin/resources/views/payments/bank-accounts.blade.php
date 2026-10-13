@@ -33,7 +33,7 @@
                     @include('admin::payments.partials.bank-account-fields', ['account' => $account])
                     <button type="submit" class="btn btn-outline-primary">Kaydet</button>
                 </form>
-                <form method="POST" action="{{ route('admin.bank-accounts.destroy', $account) }}" class="mt-2" onsubmit="return confirm('Hesap silinsin mi? Geçmiş ödemelerdeki bağlantısı kaldırılır.')">@csrf @method('DELETE')<button type="submit" class="btn btn-sm btn-link text-danger p-0">Sil</button></form>
+                <form method="POST" action="{{ route('admin.bank-accounts.destroy', $account) }}" class="mt-2" onsubmit="return confirm('Hesap silinsin mi? Silinenler sayfasından geri getirilebilir.')">@csrf @method('DELETE')<button type="submit" class="btn btn-sm btn-link text-danger p-0">Sil</button></form>
             </div>
         </div>
     @endforeach

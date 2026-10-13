@@ -40,6 +40,7 @@ class AdminServiceProvider extends ModuleServiceProvider
         $this->permissions()->register('fields.manage', 'Etiketleri ve özel alanları tanımlayabilsin', 'settings', 89);
         $this->permissions()->register('agreements.manage', 'Sözleşmeleri düzenleyip yayınlayabilsin, kabulleri görebilsin', 'settings', 89);
         $this->permissions()->register('affiliations.manage', 'Sıfat türlerini düzenleyebilsin', 'settings', 90);
+        $this->permissions()->register('trash.restore', 'Silinen kayıtları görüp geri getirebilsin', 'settings', 92);
         $this->permissions()->register('roles.manage', 'Rolleri, yetkileri ve rol şablonlarını düzenleyebilsin', 'settings', 91);
 
         $menu->label('admin', 'contacts', 'Kişi & Kurumlar', 'address-book');
@@ -65,6 +66,7 @@ class AdminServiceProvider extends ModuleServiceProvider
         $menu->add('admin', 'settings', 'Sözleşmeler', 'admin.agreements', ['agreements.manage'], 89);
         $menu->add('admin', 'settings', 'Sıfatlar', 'admin.affiliation-types', ['affiliations.manage'], 90);
         $menu->add('admin', 'settings', 'Roller ve yetkiler', 'admin.roles', ['roles.manage'], 91);
+        $menu->add('admin', 'settings', 'Silinenler', 'admin.trash', ['trash.restore'], 95);
 
         $menu->label('admin', 'users', 'panel.users', 'users');
         $menu->add('admin', 'users', 'panel.users', 'admin.users', [1, 2], 10);

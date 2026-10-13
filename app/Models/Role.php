@@ -2,10 +2,11 @@
 
 namespace App\Models;
 
-use App\Models\Concerns\Auditable;
 
+use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -14,7 +15,7 @@ use Illuminate\Support\Facades\DB;
  */
 class Role extends Model
 {
-    use Auditable;
+    use Auditable, SoftDeletes;
 
     public const OWNER = 'owner';
 

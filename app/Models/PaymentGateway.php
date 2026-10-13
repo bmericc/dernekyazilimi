@@ -6,13 +6,14 @@ use App\Contracts\Payments\CardGateway;
 use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * A card payment provider set up for the installation (driver + credentials).
  */
 class PaymentGateway extends Model
 {
-    use Auditable;
+    use Auditable, SoftDeletes;
 
     protected $fillable = ['driver', 'name', 'credentials', 'test_mode', 'purposes', 'is_active', 'sort'];
 

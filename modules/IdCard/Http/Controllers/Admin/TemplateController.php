@@ -26,7 +26,7 @@ class TemplateController extends Controller
                 'template' => $template,
                 'fields' => $view->sampleFields($template),
             ]),
-            'typesWithoutTemplate' => AffiliationType::whereNotIn('id', $templates->pluck('affiliation_type_id'))->orderBy('sort')->get(),
+            'typesWithoutTemplate' => AffiliationType::whereNotIn('id', IdCardTemplate::withTrashed()->pluck('affiliation_type_id'))->orderBy('sort')->get(),
         ]);
     }
 

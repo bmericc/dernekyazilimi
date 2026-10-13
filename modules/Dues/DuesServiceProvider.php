@@ -35,6 +35,7 @@ class DuesServiceProvider extends ModuleServiceProvider
     protected function bootModule(Menu $menu, Slots $slots): void
     {
         $this->permissions()->group('dues', 'Üyelik aidatları', 25);
+        $this->trash()->register('dues-exemption', \Modules\Dues\Models\DuesExemption::class, 'Aidat muafiyeti');
         $this->permissions()->register('dues.view', 'Aidat borç ve ödemelerini görebilsin', 'dues', 25);
         $this->permissions()->register('dues.manage', 'Aidat borcu ve ödemesi ekleyip düzenleyebilsin', 'dues', 26);
         $this->permissions()->register('dues.settings', 'Aidat sayfası ayarlarını düzenleyebilsin', 'dues', 27);

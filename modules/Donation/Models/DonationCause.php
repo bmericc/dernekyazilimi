@@ -7,10 +7,11 @@ use App\Models\Payment;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class DonationCause extends Model
 {
-    use Auditable;
+    use Auditable, SoftDeletes;
 
     protected $fillable = ['name', 'description', 'target_amount', 'is_active', 'sort'];
 

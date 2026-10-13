@@ -75,4 +75,4 @@ Route::middleware('auth')->group(function () {
 });
 
 // Card payment gateways return the payer here (no session, no CSRF token).
-Route::post('/payments/callback/{gateway}', App\Http\Controllers\PaymentCallbackController::class)->middleware('throttle:30,1')->name('payments.callback');
+Route::post('/payments/callback/{gateway}', App\Http\Controllers\PaymentCallbackController::class)->middleware('throttle:30,1')->withTrashed()->name('payments.callback');

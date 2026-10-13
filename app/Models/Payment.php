@@ -77,12 +77,12 @@ class Payment extends Model
 
     public function bankAccount(): BelongsTo
     {
-        return $this->belongsTo(BankAccount::class);
+        return $this->belongsTo(BankAccount::class)->withTrashed();
     }
 
     public function gateway(): BelongsTo
     {
-        return $this->belongsTo(PaymentGateway::class, 'payment_gateway_id');
+        return $this->belongsTo(PaymentGateway::class, 'payment_gateway_id')->withTrashed();
     }
 
     public function recorder(): BelongsTo

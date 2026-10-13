@@ -92,7 +92,7 @@ class AffiliationTest extends TestCase
         $member = User::factory()->create(['lkd_user_id' => 7]);
         $volunteer = User::factory()->create();
         $removed = User::factory()->create(['status' => 0]);
-        ContactAffiliation::query()->delete();
+        ContactAffiliation::query()->forceDelete();
 
         $migration = require database_path('migrations/2026_09_23_000003_create_affiliations_for_existing_users.php');
         $migration->up();

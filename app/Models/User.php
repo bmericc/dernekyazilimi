@@ -101,6 +101,7 @@ class User extends Authenticatable
             ->orWhereIn('id', DB::table('affiliation_type_role')
                 ->join('contact_affiliations', 'contact_affiliations.affiliation_type_id', '=', 'affiliation_type_role.affiliation_type_id')
                 ->where('contact_affiliations.contact_id', $this->contact_id ?? 0)
+                ->whereNull('contact_affiliations.deleted_at')
                 ->where(fn ($query) => $query->whereNull('contact_affiliations.ended_at')->orWhereDate('contact_affiliations.ended_at', '>', today()))
                 ->select('affiliation_type_role.role_id'))
             ->get();

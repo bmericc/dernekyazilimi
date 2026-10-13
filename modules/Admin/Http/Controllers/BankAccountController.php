@@ -42,7 +42,7 @@ class BankAccountController extends Controller
     {
         $account->delete();
 
-        return back()->with('success-status', "{$account->bank_name} hesabı silindi.");
+        return back()->with('success-status', "{$account->bank_name} hesabı silindi; \"Silinenler\"den geri getirilebilir.");
     }
 
     private function validated(Request $request, Payments $payments): array

@@ -9,6 +9,7 @@ use Modules\Admin\Http\Controllers\ContactController;
 use Modules\Admin\Http\Controllers\ContactDetailsController;
 use Modules\Admin\Http\Controllers\CustomFieldController;
 use Modules\Admin\Http\Controllers\TagController;
+use Modules\Admin\Http\Controllers\TrashController;
 use Modules\Admin\Http\Controllers\BankAccountController;
 use Modules\Admin\Http\Controllers\PaymentAdminController;
 use Modules\Admin\Http\Controllers\PaymentGatewayController;
@@ -115,6 +116,11 @@ Route::middleware('role:1')->group(function () {
     Route::post('/users/{user_id}/tc-kimlik', [UserAdminController::class, 'tcKimlikDogrula'])->name('users.tc-kimlik');
 
     Route::get('/process-logs', [ProcessLogController::class, 'getList'])->name('process-logs');
+});
+
+Route::middleware('permission:trash.restore')->group(function () {
+    Route::get('/trash', [TrashController::class, 'index'])->name('trash');
+    Route::patch('/trash/{type}/{id}', [TrashController::class, 'restore'])->whereNumber('id')->name('trash.restore');
 });
 
 Route::middleware('permission:payments.view')->group(function () {

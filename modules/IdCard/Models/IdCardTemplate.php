@@ -2,12 +2,13 @@
 
 namespace Modules\IdCard\Models;
 
-use App\Models\Concerns\Auditable;
 
 use App\Models\AffiliationType;
+use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -15,7 +16,7 @@ use Illuminate\Support\Facades\Storage;
  */
 class IdCardTemplate extends Model
 {
-    use Auditable;
+    use Auditable, SoftDeletes;
 
     /** Fields a card has room for besides the name. */
     public const MAX_FIELDS = 4;
@@ -56,7 +57,7 @@ class IdCardTemplate extends Model
 
     protected static function booted(): void
     {
-        static::deleted(fn (IdCardTemplate $template) => $template->logo_path && Storage::disk('local')->delete($template->logo_path));
+        static::forceDeleted(fn (IdCardTemplate $template) => $template->logo_path && Storage::disk('local')->delete($template->logo_path));
     }
 
     public function affiliationType(): BelongsTo

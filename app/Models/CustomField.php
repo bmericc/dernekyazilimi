@@ -6,6 +6,7 @@ use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * A field an association defines for its contacts, shown on the contact page
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class CustomField extends Model
 {
-    use Auditable;
+    use Auditable, SoftDeletes;
 
     public const TYPES = [
         'text' => 'Kısa metin',
@@ -62,6 +63,7 @@ class CustomField extends Model
         $refresh = fn () => app(\App\Modules\ContactFields::class)->refresh();
         static::saved($refresh);
         static::deleted($refresh);
+        static::restored($refresh);
     }
 
     public function values(): HasMany
