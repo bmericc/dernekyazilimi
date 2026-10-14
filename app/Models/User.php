@@ -18,6 +18,18 @@ class User extends Authenticatable
 {
     use Auditable, HasApiTokens, HasFactory, Notifiable;
 
+    /**
+     * The reset link goes out in the editable "account.password-reset" email.
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        \Illuminate\Support\Facades\Mail::to($this->email)->send(new \App\Mail\TemplateMail('account.password-reset', [
+            'name' => trim($this->name.' '.$this->surname),
+            'link' => route('password.reset', ['token' => $token, 'email' => $this->email]),
+            'minutes' => (int) config('auth.passwords.'.config('auth.defaults.passwords').'.expire'),
+        ]));
+    }
+
     private ?Collection $effectiveRoles = null;
 
     private ?array $permissions = null;

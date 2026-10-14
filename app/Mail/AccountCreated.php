@@ -2,7 +2,7 @@
 
 namespace App\Mail;
 
-use App\Support\Organization;
+use App\Mail\Concerns\UsesMailTemplate;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -14,7 +14,7 @@ use Illuminate\Queue\SerializesModels;
  */
 class AccountCreated extends Mailable implements ShouldQueue
 {
-    use Queueable, SerializesModels;
+    use Queueable, SerializesModels, UsesMailTemplate;
 
     public function __construct(public string $name, public string $link)
     {
@@ -22,7 +22,11 @@ class AccountCreated extends Mailable implements ShouldQueue
 
     public function build(): self
     {
-        return $this->subject(app(Organization::class)->name().' portalına hoş geldiniz')
-            ->view('emails.account-created', ['minutes' => (int) config('auth.passwords.'.config('auth.defaults.passwords').'.expire')]);
+        return $this->template('account.created', [
+            'name' => $this->name,
+            'link' => $this->link,
+            'minutes' => (int) config('auth.passwords.'.config('auth.defaults.passwords').'.expire'),
+            'reset_url' => route('password.request'),
+        ]);
     }
 }

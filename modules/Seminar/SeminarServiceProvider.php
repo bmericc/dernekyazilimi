@@ -22,6 +22,26 @@ class SeminarServiceProvider extends ModuleServiceProvider
 
     protected function bootModule(Menu $menu, Slots $slots): void
     {
+        $this->mailTemplates()->group('seminar', 'Seminer', 80);
+        $request = ['name' => 'Talep sahibinin adı', 'email' => 'Talep sahibinin e-postası', 'phone' => 'Talep sahibinin telefonu', 'subject' => 'Seminer konusu', 'institution' => 'Kurum / kuruluş', 'type' => 'Tür (Online / Yüz yüze)', 'location' => 'Yer (yüz yüze ise)', 'dates' => 'Tercih edilen tarih aralığı', 'details' => 'Talep bilgilerinin listesi'];
+        $this->mailTemplates()->register('seminar.request-received', 'Seminer talebi alındı', 'seminar',
+            'Seminer talebiniz alındı',
+            '<p>Merhaba {{name}},</p><p><strong>{{subject}}</strong> semineri için talebiniz alındı. Talebiniz değerlendirme sürecindedir; sizinle üyelik bilgilerinizdeki iletişim kanallarından dönüş yapacağız.</p>{{details}}<p>{{organization}}</p>',
+            $request, 'Talep sahibi', 10);
+        $this->mailTemplates()->register('seminar.request-notification', 'Yeni seminer talebi (yönetime)', 'seminar',
+            'Yeni seminer talebi',
+            '<p>Yeni bir seminer talebi oluşturuldu.</p>{{details}}<ul><li><strong>Talep sahibi:</strong> {{name}}</li><li><strong>E-posta:</strong> {{email}}</li><li><strong>Telefon:</strong> {{phone}}</li></ul>',
+            $request, 'Bildirim adresi (kurum ayarları)', 20);
+        $offer = ['name' => 'Başvuranın adı', 'email' => 'Başvuranın e-postası', 'subject' => 'Seminer konusu', 'type' => 'Tür', 'summary' => 'Özet', 'biography' => 'Özgeçmiş'];
+        $this->mailTemplates()->register('seminar.offer-received', 'Seminer verme başvurusu alındı', 'seminar',
+            'Seminer verme başvurunuz alındı',
+            '<p>Merhaba {{name}},</p><p>Seminer verme başvurunuz alındı ve değerlendirmeye gönderildi.</p><p>{{organization}}</p>',
+            $offer, 'Başvuran', 30);
+        $this->mailTemplates()->register('seminar.offer-notification', 'Yeni seminer verme başvurusu (yönetime)', 'seminar',
+            'Yeni seminer verme başvurusu',
+            '<p>Yeni seminer verme başvurusu oluşturuldu.</p><ul><li><strong>Başvuran:</strong> {{name}} ({{email}})</li><li><strong>Konu:</strong> {{subject}}</li><li><strong>Tür:</strong> {{type}}</li><li><strong>Özet:</strong> {{summary}}</li><li><strong>Özgeçmiş:</strong> {{biography}}</li></ul>',
+            $offer, 'Bildirim adresi (kurum ayarları)', 40);
+
         $menu->label('user', 'seminar', 'Seminerler', 'presentation');
         $menu->add('user', 'seminar', 'panel.create_seminar_request', 'create-seminar-request', [], 30);
         $menu->add('user', 'seminar', 'Seminer vermek istiyorum', 'create-seminar-offer', [], 31);

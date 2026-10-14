@@ -22,6 +22,28 @@ class RepresentationServiceProvider extends ModuleServiceProvider
 
     protected function bootModule(Menu $menu, Slots $slots): void
     {
+        $this->mailTemplates()->group('representation', 'Temsilcilikler', 90);
+        $this->mailTemplates()->register('representation.volunteer-to-representative', 'Yeni gönüllü (temsilciye)', 'representation',
+            'Temsilcilik gönüllüsü',
+            '<p>{{city}} temsilciliğine yeni gönüllü:</p><ul><li>Ad soyad: {{name}}</li><li>E-posta: {{email}}</li><li>Telefon: {{phone}}</li></ul>',
+            ['name' => 'Gönüllünün adı', 'email' => 'Gönüllünün e-postası', 'phone' => 'Gönüllünün telefonu', 'city' => 'Temsilciliğin ili'],
+            'Temsilcilik e-posta adresi', 10);
+        $this->mailTemplates()->register('representation.representative-to-volunteer', 'Temsilci iletişim bilgileri (gönüllüye)', 'representation',
+            'Temsilcilik iletişim bilgileri',
+            '<p>Merhaba {{name}},</p><p>{{city}} temsilcisi: {{representative}}<br>E-posta: {{representative_email}}</p><p>{{organization}}</p>',
+            ['name' => 'Gönüllünün adı', 'city' => 'Temsilciliğin ili', 'representative' => 'Temsilcinin adı', 'representative_email' => 'Temsilciliğin e-postası'],
+            'Gönüllü', 20);
+        $this->mailTemplates()->register('representation.candidate', 'Temsilci adaylığı (yönetime)', 'representation',
+            'Temsilci adaylığı',
+            '<p>Yeni yasal temsilci adaylığı: {{name}} ({{email}}), {{city}}.</p>',
+            ['name' => 'Adayın adı', 'email' => 'Adayın e-postası', 'city' => 'Temsilciliğin ili'],
+            'Bildirim adresi (kurum ayarları)', 30);
+        $this->mailTemplates()->register('representation.announcement-pending', 'Duyuru onay bekliyor (yönetime)', 'representation',
+            'Temsilcilik duyuru onayı',
+            '<p>{{city}} temsilciliğinin duyurusu onay bekliyor: {{subject}}</p>',
+            ['subject' => 'Duyurunun konusu', 'city' => 'Temsilciliğin ili'],
+            'Bildirim adresi (kurum ayarları)', 40);
+
         $menu->label('user', 'community', 'Topluluk', 'users-group');
         $menu->add('user', 'community', 'Temsilcilikler', 'representations.index', [], 51);
         $menu->add('user', 'community', 'Temsilci adayı ol', 'representations.candidate', [], 52);

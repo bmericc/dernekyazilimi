@@ -34,6 +34,23 @@ class DuesServiceProvider extends ModuleServiceProvider
 
     protected function bootModule(Menu $menu, Slots $slots): void
     {
+        $this->mailTemplates()->group('dues', 'Aidat', 40);
+        $this->mailTemplates()->register('dues.payment-received', 'Aidat ödemesi alındı', 'dues',
+            'Aidat ödemeniz alındı',
+            '<p>Merhaba {{name}},</p><p>{{date}} tarihli {{amount}} tutarındaki aidat ödemeniz alındı. Teşekkür ederiz.</p><p>Güncel aidat bakiyeniz: {{balance}}</p><p>Referans: {{reference}}</p><p>{{organization}}</p>',
+            ['name' => 'Ödeyenin adı', 'date' => 'Ödeme tarihi', 'amount' => 'Tutar', 'balance' => 'Güncel bakiye', 'reference' => 'Ödemenin referans kodu'],
+            'Ödeyen üye (tahsil olunca)', 10);
+        $this->mailTemplates()->register('dues.statement', 'Aidat bakiyesi (sorgu)', 'dues',
+            'Aidat bakiyeniz',
+            '<p>Merhaba {{name}},</p><p>Aidat bakiyeniz sorgulandı. Güncel borcunuz: <strong>{{balance}}</strong>.</p>{{charges}}<p>Hareketlerinizi görmek ve ödeme yapmak için: <a href="{{link}}">{{link}}</a></p><p>Bu bağlantı size özeldir ve {{days}} gün geçerlidir; başkasıyla paylaşmayın.</p><p>Bu sorgulamayı siz yapmadıysanız bu e-postayı dikkate almayın.</p><p>{{organization}}</p>',
+            ['name' => 'Üyenin adı', 'balance' => 'Güncel borç', 'charges' => 'Ödenmemiş borçların listesi', 'link' => 'Kişiye özel ödeme bağlantısı', 'days' => 'Bağlantının geçerlilik süresi (gün)'],
+            'Bakiyesini /odeme sayfasından sorgulayan üye', 20);
+        $this->mailTemplates()->register('dues.reminder', 'Aidat borcu hatırlatması', 'dues',
+            'Aidat borcu hatırlatması',
+            '<p>Merhaba {{name}},</p><p>{{organization}} üyelik aidatınızdan ödenmemiş <strong>{{balance}}</strong> bulunuyor.</p>{{charges}}<p>Hareketlerinizi görmek ve ödeme yapmak için: <a href="{{link}}">{{link}}</a></p><p>Bu bağlantı size özeldir ve {{days}} gün geçerlidir; başkasıyla paylaşmayın.</p><p>{{organization}}</p>',
+            ['name' => 'Üyenin adı', 'balance' => 'Güncel borç', 'charges' => 'Ödenmemiş borçların listesi', 'link' => 'Kişiye özel ödeme bağlantısı', 'days' => 'Bağlantının geçerlilik süresi (gün)'],
+            'Borçlu üye (yönetim hatırlatma gönderince)', 30);
+
         $this->permissions()->group('dues', 'Üyelik aidatları', 25);
         $this->trash()->register('dues-exemption', \Modules\Dues\Models\DuesExemption::class, 'Aidat muafiyeti');
         $this->permissions()->register('dues.view', 'Aidat borç ve ödemelerini görebilsin', 'dues', 25);

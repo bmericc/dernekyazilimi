@@ -3,6 +3,7 @@
 namespace Modules\EmailChange\Mail;
 
 use Modules\EmailChange\Models\EmailChangeRequest;
+use App\Mail\Concerns\UsesMailTemplate;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -10,7 +11,7 @@ use Illuminate\Queue\SerializesModels;
 
 class EmailChangeRequestProcessed extends Mailable implements ShouldQueue
 {
-    use Queueable, SerializesModels;
+    use Queueable, SerializesModels, UsesMailTemplate;
 
     public function __construct(public EmailChangeRequest $emailChangeRequest)
     {
@@ -18,10 +19,12 @@ class EmailChangeRequestProcessed extends Mailable implements ShouldQueue
 
     public function build(): self
     {
-        $subject = $this->emailChangeRequest->status === 'approved'
-            ? 'E-posta değişikliği talebiniz onaylandı'
-            : 'E-posta değişikliği talebiniz sonuçlandı';
+        $request = $this->emailChangeRequest;
 
-        return $this->subject($subject)->view('email-change::emails.processed');
+        return $this->template($request->status === 'approved' ? 'email-change.approved' : 'email-change.rejected', [
+            'name' => trim($request->user?->name.' '.$request->user?->surname),
+            'current_email' => $request->current_email,
+            'requested_email' => $request->requested_email,
+        ]);
     }
 }

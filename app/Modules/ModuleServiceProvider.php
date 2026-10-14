@@ -100,6 +100,15 @@ abstract class ModuleServiceProvider extends ServiceProvider
     }
 
     /**
+     * Emails the module sends: register each with its default text so
+     * management can edit it.
+     */
+    protected function mailTemplates(): MailTemplates
+    {
+        return $this->app->make(MailTemplates::class);
+    }
+
+    /**
      * Figures and charts of the admin panel home.
      */
     protected function dashboard(): Dashboard

@@ -44,7 +44,7 @@ class DataDeletionAdminController extends Controller
             'reason' => null,
         ])->save();
 
-        $this->notify($email, "{$organization->name()} portalındaki kişisel verilerinizin silinmesi talebiniz tamamlandı. Hesabınız kapatıldı ve kişisel verileriniz silindi.");
+        $this->notify($email, 'data-deletion.approved');
 
         return back()->with('success-status', "Talep #{$deletion->id}: kişisel veriler silindi.");
     }
@@ -63,19 +63,19 @@ class DataDeletionAdminController extends Controller
         ])->save();
         $this->set_log('change', "Veri silme talebi reddedildi (#{$deletion->id})");
 
-        $this->notify($deletion->user?->email ?? $deletion->contact->email, "{$organization->name()} portalındaki kişisel verilerinizin silinmesi talebiniz reddedildi.\n\nGerekçe: {$data['response']}");
+        $this->notify($deletion->user?->email ?? $deletion->contact->email, 'data-deletion.rejected', ['reason' => $data['response']]);
 
         return back()->with('success-status', "Talep #{$deletion->id} reddedildi.");
     }
 
-    private function notify(?string $email, string $text): void
+    private function notify(?string $email, string $template, array $values = []): void
     {
         if (! $email) {
             return;
         }
 
         try {
-            Mail::raw($text, fn ($message) => $message->to($email)->subject('Kişisel veri silme talebiniz'));
+            Mail::to($email)->send(new \App\Mail\TemplateMail($template, $values));
         } catch (Throwable $e) {
             report($e);
         }

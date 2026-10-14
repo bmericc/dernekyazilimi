@@ -28,6 +28,33 @@ class MembershipServiceProvider extends ModuleServiceProvider
 
     protected function bootModule(Menu $menu, Slots $slots): void
     {
+        $this->mailTemplates()->group('membership', 'Üyelik', 30);
+        $this->mailTemplates()->register('membership.reference-invitation', 'Referans daveti', 'membership',
+            '{{applicant}} sizi üyelik başvurusunda referans gösterdi',
+            '<p>Merhaba {{name}},</p><p><strong>{{applicant}}</strong>, {{organization}} üyelik başvurusunda ({{application_no}}) sizi referans olarak gösterdi.</p><p>Referans olmayı kabul ediyor musunuz? Yanıtlamak için aşağıdaki bağlantıya tıklayın ve portala giriş yapın:</p><p><a href="{{link}}">{{link}}</a></p><p>Bağlantı {{expires}} tarihine kadar geçerlidir. Portalda hesabınız yoksa giriş sayfasındaki "Hesabımı etkinleştir" ile üye kaydınızdaki e-posta adresinizle hesap açabilirsiniz.</p><p>{{organization}}</p>',
+            ['name' => 'Referans üyenin adı', 'applicant' => 'Adayın adı', 'application_no' => 'Başvuru no', 'link' => 'Yanıt bağlantısı', 'expires' => 'Bağlantının son geçerlilik tarihi'],
+            'Referans gösterilen üye', 20);
+        $this->mailTemplates()->register('membership.reference-declined', 'Referans reddetti', 'membership',
+            'Referans yanıtı: {{application_no}}',
+            '<p>Merhaba {{name}},</p><p>{{application_no}} numaralı üyelik başvurunuzda referans gösterdiğiniz <strong>{{referee}}</strong> referans olmayı kabul etmedi.</p><p>Portalda "Üyelik başvurum" sayfasından yerine başka bir üyeyi referans gösterebilirsiniz: <a href="{{application_url}}">{{application_url}}</a></p><p>{{organization}}</p>',
+            ['name' => 'Adayın adı', 'referee' => 'Reddeden üyenin adı', 'application_no' => 'Başvuru no', 'application_url' => 'Adayın başvuru sayfası'],
+            'Aday', 30);
+        $this->mailTemplates()->register('membership.application-ready', 'Karar bekleyen başvuru (yönetime)', 'membership',
+            'Karar bekleyen üyelik başvurusu: {{application_no}}',
+            '<p>{{application_no}} numaralı üyelik başvurusu ({{applicant}}) karar için hazır.</p><p><a href="{{admin_url}}">{{admin_url}}</a></p>',
+            ['applicant' => 'Adayın adı', 'application_no' => 'Başvuru no', 'admin_url' => 'Yönetimdeki başvuru sayfası'],
+            'Bildirim adresi (kurum ayarları)', 50);
+        $this->mailTemplates()->register('membership.approved', 'Başvuru kabul edildi: hoş geldiniz', 'membership',
+            'Üyelik başvurunuz kabul edildi',
+            '<p>Merhaba {{name}},</p><p>{{application_no}} numaralı üyelik başvurunuz kabul edildi. Aramıza hoş geldiniz!</p><p>Üye numaranız: <strong>{{member_number}}</strong></p><p>{{organization}}</p>',
+            ['name' => 'Yeni üyenin adı', 'application_no' => 'Başvuru no', 'member_number' => 'Üye no', 'joined_at' => 'Katılma tarihi'],
+            'Yeni üye', 60);
+        $this->mailTemplates()->register('membership.rejected', 'Başvuru reddedildi', 'membership',
+            'Üyelik başvurunuz sonuçlandı',
+            '<p>Merhaba {{name}},</p><p>{{application_no}} numaralı üyelik başvurunuz kabul edilmedi.</p><p>Açıklama: {{reason}}</p><p>{{organization}}</p>',
+            ['name' => 'Adayın adı', 'application_no' => 'Başvuru no', 'reason' => 'Ret gerekçesi'],
+            'Aday', 70);
+
         $this->permissions()->group('membership', 'Üyelik', 20);
         $this->trash()->register('membership-fee', \Modules\Membership\Models\MembershipFee::class, 'Aidat tutarı');
         $this->permissions()->register('memberships.view', 'Üyeleri görebilsin', 'membership', 20);

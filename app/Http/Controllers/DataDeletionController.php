@@ -37,7 +37,7 @@ class DataDeletionController extends Controller
         $this->set_log('create', "Veri silme talebi oluşturuldu (#{$deletion->id})");
 
         if ($notify = $organization->notificationEmail()) {
-            Mail::raw("Portalda yeni bir kişisel veri silme talebi var (#{$deletion->id}). Yönetim panelinde \"Veri silme talepleri\" sayfasından değerlendirebilirsiniz.", fn ($message) => $message->to($notify)->subject('Yeni veri silme talebi'));
+            Mail::to($notify)->send(new \App\Mail\TemplateMail('data-deletion.requested', ['id' => $deletion->id, 'admin_url' => route('admin.data-deletions')]));
         }
 
         return redirect(route('my-infos').'#deletion')->with('deletion-status', 'Talebiniz alındı. Değerlendirildikten sonra e-posta ile bilgilendirileceksiniz.');
