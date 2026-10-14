@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Modules\Menu;
 use App\Modules\ModuleServiceProvider;
 use App\Modules\Slots;
+use App\Support\Notifier;
 use App\Support\Payments\Payments;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
@@ -34,9 +35,10 @@ class DonationServiceProvider extends ModuleServiceProvider
         $this->mailTemplates()->group('donation', 'Bağış', 50);
         $this->mailTemplates()->register('donation.thanks', 'Bağış teşekkürü', 'donation',
             'Bağışınız için teşekkürler',
-            '<p>Merhaba {{name}},</p><p>{{date}} tarihli {{amount}} tutarındaki bağışınız ulaştı. Desteğiniz için çok teşekkür ederiz.</p><p>Referans: {{reference}}</p><p>{{organization}}</p>',
+            '<p>Sayın {{name}},</p><p>{{date}} tarihli {{amount}} tutarındaki bağışınız ulaştı. {{organization}} faaliyetleri için çok değerli ve anlamlı olan desteğiniz için çok teşekkür ederiz.</p><p>Referans: {{reference}}</p><p>Saygılarımızla<br>{{organization}}</p>',
             ['name' => 'Bağışçının adı', 'date' => 'Ödeme tarihi', 'amount' => 'Tutar', 'reference' => 'Ödemenin referans kodu'],
-            'Bağışçı (tahsil olunca)');
+            'Bağışçı (tahsil olunca)',
+            sms: 'Sayın {{name}}, {{amount}} tutarındaki bağışınız ulaştı. {{organization}} faaliyetleri için çok değerli ve anlamlı olan desteğiniz için çok teşekkür ederiz.');
 
         $this->permissions()->group('donations', 'Bağışlar', 55);
         $this->trash()->register('donation-cause', \Modules\Donation\Models\DonationCause::class, 'Bağış amacı');
@@ -75,14 +77,11 @@ class DonationServiceProvider extends ModuleServiceProvider
             ->whereBetween('paid_at', [now()->startOfYear(), now()->endOfYear()])->sum('amount'), 'admin.donations', ['donations.view'], 20, 'TL, tahsil edilen');
 
         Event::listen(PaymentSucceeded::class, function (PaymentSucceeded $event) {
-            if ($event->payment->purpose !== 'donation' || ! $event->payment->payer_email) {
+            $payment = $event->payment;
+            if ($payment->purpose !== 'donation') {
                 return;
             }
-            try {
-                Mail::to($event->payment->payer_email)->send(new DonationThanks($event->payment));
-            } catch (Throwable $e) {
-                report($e);
-            }
+            app(Notifier::class)->send('donation.thanks', DonationThanks::values($payment), $payment->payer_email, $payment->payer_phone ?? $payment->contact?->phone, $payment->contact, mailable: new DonationThanks($payment));
         });
 
         // KVKK deletion: amounts stay for the accounts; the donor's details go.

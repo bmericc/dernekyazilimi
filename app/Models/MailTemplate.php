@@ -13,7 +13,9 @@ class MailTemplate extends Model
 {
     use Auditable;
 
-    protected $fillable = ['key', 'subject', 'body', 'updated_by'];
+    protected $fillable = ['key', 'subject', 'body', 'sms', 'sms_enabled', 'updated_by'];
+
+    protected $casts = ['sms_enabled' => 'boolean'];
 
     public function auditLabel(): string
     {

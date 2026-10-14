@@ -14,6 +14,14 @@ class CoreMailTemplates
     {
         $templates->group('account', 'Hesap', 10);
         $templates->group('privacy', 'Kişisel veriler', 20);
+        $templates->group('greetings', 'Kutlamalar', 25);
+
+        $templates->register('contact.birthday', 'Doğum günü kutlaması', 'greetings',
+            'Doğum gününüz kutlu olsun',
+            '<p>Sayın {{name}},</p><p>{{organization}} olarak yeni yaşınızda ulaşmak istediğiniz tüm hedeflere başarıyla ulaşmanızı, mutluluğun ve sağlığın hayatınızdan eksik olmamasını dileriz. Doğum gününüz kutlu olsun.</p><p>{{organization}}</p>',
+            ['name' => 'Ad soyad'],
+            'Kurum ayarlarında seçilen sıfatları taşıyanlar, doğum gününde (izin verdiği kanallardan)', 10,
+            sms: 'Sayın {{name}}, {{organization}} olarak yeni yaşınızda ulaşmak istediğiniz tüm hedeflere başarıyla ulaşmanızı, mutluluğun ve sağlığın hayatınızdan eksik olmamasını dileriz. Doğum gününüz kutlu olsun.');
 
         $templates->register('account.welcome', 'Kayıt: hoş geldiniz', 'account',
             '{{organization}} portalına hoş geldiniz',

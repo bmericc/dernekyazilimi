@@ -19,14 +19,17 @@ class ApplicationDecided extends Mailable implements ShouldQueue
 
     public function build(): self
     {
-        $application = $this->application;
+        return $this->template($this->approved ? 'membership.approved' : 'membership.rejected', self::values($this->application));
+    }
 
-        return $this->template($this->approved ? 'membership.approved' : 'membership.rejected', [
+    public static function values(MembershipApplication $application): array
+    {
+        return [
             'name' => $application->contact->display_name,
             'application_no' => $application->reference_no,
             'member_number' => $application->membership->number,
             'joined_at' => $application->membership->joined_at?->format('d.m.Y'),
             'reason' => $application->decision_note,
-        ]);
+        ];
     }
 }

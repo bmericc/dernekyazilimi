@@ -129,6 +129,14 @@
                         {{ $input('notification_email', 'Bildirim adresi', 'email', 'Seminer talepleri, e-posta değişikliği talepleri gibi yönetime giden bildirimler. Boşsa bildirim gönderilmez.', 'ör. yk@ornek.org.tr') }}
                         {{ $input('sender_email', 'Duyuru gönderici adresi', 'email', 'Boşsa uygulamanın genel gönderici adresi kullanılır.') }}
                         {{ $input('sender_name', 'Duyuru gönderici adı', 'text', 'Boşsa kurum adı kullanılır.') }}
+                        @php($birthdayTypes = old('birthday_types', array_filter(explode(',', (string) $organization->get('birthday_greeting_types')))))
+                        <div class="mb-3">
+                            <div class="form-label">Doğum günü kutlaması</div>
+                            @foreach ($affiliationTypes as $type)
+                                <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="birthday_types[]" value="{{ $type->id }}" @checked(in_array((string) $type->id, array_map('strval', $birthdayTypes), true))><span class="form-check-label">{{ $type->name }}</span></label>
+                            @endforeach
+                            <div class="form-hint">Seçilen sıfatları taşıyan kişilere doğum günlerinde <a href="{{ route('admin.mail-templates.edit', 'contact.birthday') }}">kutlama</a> gider (her gün 10:00'da; yalnız e-posta / SMS izni verenlere). Hiçbiri seçilmezse gönderilmez.</div>
+                        </div>
                     </div>
                 </div>
             </div>

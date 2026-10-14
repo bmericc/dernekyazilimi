@@ -4,6 +4,7 @@ namespace Modules\Dues;
 
 use App\Events\ContactAnonymized;
 use App\Events\PaymentSucceeded;
+use App\Events\ScheduledNoticesDue;
 use App\Models\Payment;
 use App\Modules\Menu;
 use App\Modules\ModuleServiceProvider;
@@ -47,16 +48,24 @@ class DuesServiceProvider extends ModuleServiceProvider
             ['name' => 'Üyenin adı', 'balance' => 'Güncel borç', 'charges' => 'Ödenmemiş borçların listesi', 'link' => 'Kişiye özel ödeme bağlantısı', 'days' => 'Bağlantının geçerlilik süresi (gün)'],
             'Bakiyesini /odeme sayfasından sorgulayan üye', 20);
         $this->mailTemplates()->register('dues.reminder', 'Aidat borcu hatırlatması', 'dues',
-            'Aidat borcu hatırlatması',
-            '<p>Merhaba {{name}},</p><p>{{organization}} üyelik aidatınızdan ödenmemiş <strong>{{balance}}</strong> bulunuyor.</p>{{charges}}<p>Hareketlerinizi görmek ve ödeme yapmak için: <a href="{{link}}">{{link}}</a></p><p>Bu bağlantı size özeldir ve {{days}} gün geçerlidir; başkasıyla paylaşmayın.</p><p>{{organization}}</p>',
-            ['name' => 'Üyenin adı', 'balance' => 'Güncel borç', 'charges' => 'Ödenmemiş borçların listesi', 'link' => 'Kişiye özel ödeme bağlantısı', 'days' => 'Bağlantının geçerlilik süresi (gün)'],
-            'Borçlu üye (yönetim hatırlatma gönderince)', 30);
+            'Aidat borç durumunuz',
+            '<p>Sayın {{name}},</p><p>Kayıtlarımızda {{date}} itibarıyla <strong>{{balance}}</strong> aidat bakiyeniz olduğu görünmektedir.</p>{{charges}}<p>Kartla ya da havaleyle ödemek için: <a href="{{link}}">{{link}}</a></p><p>Bu bağlantı size özeldir ve {{days}} gün geçerlidir; başkasıyla paylaşmayın.</p><p>Saygılarımızla<br>{{organization}}</p>',
+            ['name' => 'Üyenin adı', 'date' => 'Hatırlatma tarihi', 'balance' => 'Güncel borç', 'charges' => 'Ödenmemiş borçların listesi', 'link' => 'Kişiye özel ödeme bağlantısı', 'days' => 'Bağlantının geçerlilik süresi (gün)'],
+            'Borçlu üye (yönetim hatırlatma gönderince ya da aylık otomatik hatırlatmada)', 30,
+            sms: 'Sn {{name}}, {{date}} itibarıyla {{balance}} aidat bakiyeniz bulunmakta. Ödemek için {{link}}');
         // Steps of the membership application that the dues module carries out.
         $this->mailTemplates()->register('dues.entry-fee', 'Giriş aidatı ödeme isteği', 'membership',
-            'Üyelik başvurunuz: giriş aidatı',
-            '<p>Merhaba {{name}},</p><p>{{application_no}} numaralı üyelik başvurunuzun yönetim kurulunda değerlendirilebilmesi için <strong>{{amount}}</strong> giriş aidatını ödemeniz gerekiyor.</p><p>Kartla ya da havaleyle ödemek için: <a href="{{link}}">{{link}}</a></p><p>Bu bağlantı size özeldir ve {{days}} gün geçerlidir; süresi dolarsa {{contact_email}} adresinden bize yazabilirsiniz.</p><p>Ödemeniz ulaştığında başvurunuz ilk yönetim kurulu toplantısında değerlendirilir.</p><p>{{organization}}</p>',
+            '{{organization_short}} üyelik başvurunuz',
+            '<p>Sayın {{name}},</p><p>{{organization}} üyelik başvurunuz ({{application_no}}) giriş aidatı aşamasına geldi. Bu aşamada dernek tüzüğümüzde yer alan <strong>{{amount}}</strong> giriş aidatını ödemeniz hâlinde üyeliğiniz Yönetim Kurulu tarafından karara bağlanacak ve dernek üyeliğiniz resmiyet kazanacaktır. Sonrasında e-Devlet üzerinden de üyeliğinizi görebileceksiniz.</p><p>Kartla ya da havaleyle ödemek için: <a href="{{link}}">{{link}}</a></p><p>Bu bağlantı size özeldir ve {{days}} gün geçerlidir; süresi dolarsa {{contact_email}} adresinden bize yazabilirsiniz.</p><p>Saygılarımızla<br>{{organization}}</p>',
             ['name' => 'Adayın adı', 'application_no' => 'Başvuru no', 'amount' => 'Giriş aidatı tutarı', 'link' => 'Kişiye özel ödeme bağlantısı', 'days' => 'Bağlantının geçerlilik süresi (gün)'],
-            'Aday (referanslar tamamlanınca; giriş aidatı alınıyorsa)', 40);
+            'Aday (referanslar tamamlanınca; giriş aidatı alınıyorsa)', 40,
+            sms: 'Sayın {{name}}, {{organization}} üyelik başvurunuz giriş aidatı aşamasına geldi. {{amount}} giriş aidatını ödemeniz hâlinde üyeliğiniz Yönetim Kurulu tarafından karara bağlanacaktır. Ödemek için: {{link}}');
+        $this->mailTemplates()->register('dues.entry-fee-reminder', 'Giriş aidatı son uyarısı', 'membership',
+            '{{organization_short}} üyelik başvurunuz: son uyarı',
+            '<p>Sayın {{name}},</p><p>{{organization}} üyelik başvurunuzda ({{application_no}}) bu aşamada dernek tüzüğümüzde yer alan <strong>{{amount}}</strong> giriş aidatını en geç <strong>{{deadline}}</strong> tarihine kadar ödemeniz hâlinde üyeliğiniz Yönetim Kurulu tarafından karara bağlanacak ve dernek üyeliğiniz resmiyet kazanacaktır. Giriş aidatını ödemediğiniz takdirde üyelik başvurunuz üyelik koşullarını yerine getirmemeniz sebebiyle iptal edilecektir.</p><p>Ödemek için: <a href="{{link}}">{{link}}</a> (bağlantı {{days}} gün geçerlidir)</p><p>Saygılarımızla<br>{{organization}}</p>',
+            ['name' => 'Adayın adı', 'application_no' => 'Başvuru no', 'amount' => 'Ödenmemiş giriş aidatı', 'deadline' => 'Son ödeme tarihi (aidat ayarlarındaki süre)', 'link' => 'Kişiye özel ödeme bağlantısı', 'days' => 'Bağlantının geçerlilik süresi (gün)'],
+            'Giriş aidatını aidat ayarlarındaki gün sayısı içinde ödemeyen aday (bir kez)', 45,
+            sms: 'Sayın {{name}}, {{organization}} üyelik başvurunuzda {{amount}} giriş aidatını en geç {{deadline}} tarihine kadar ödemeniz hâlinde üyeliğiniz Yönetim Kurulu tarafından karara bağlanacaktır. Ödenmezse başvurunuz iptal edilecektir. Ödemek için: {{link}}');
         $this->mailTemplates()->register('dues.new-member', 'Yeni üyeye yıllık aidat bilgisi', 'membership',
             '{{year_of_dues}} yılı üyelik aidatınız',
             '<p>Merhaba {{name}},</p><p>Üyeliğiniz başladı. {{year_of_dues}} yılı üyelik aidatınız <strong>{{annual_fee}}</strong>; yıl içinde dilediğiniz zaman ödeyebilirsiniz.</p><p>Şimdi ödemek isterseniz kartla ya da havaleyle: <a href="{{link}}">{{link}}</a> (bağlantı size özeldir ve {{days}} gün geçerlidir).</p><p>Güncel aidat borcunuz: {{balance}}</p><p>{{organization}}</p>',
@@ -83,6 +92,9 @@ class DuesServiceProvider extends ModuleServiceProvider
         $this->dashboard()->stat('Aidat alacağı', 'receipt', fn () => (int) app(DuesService::class)->totalOwed(), 'admin.dues', ['dues.view'], 21, 'TL, ödenmemiş');
         $this->dashboard()->stat('Bu yıl aidat', 'receipt', fn () => (int) Payment::where('purpose', 'dues')->where('status', Payment::SUCCEEDED)
             ->whereBetween('paid_at', [now()->startOfYear(), now()->endOfYear()])->sum('amount'), 'admin.dues', ['dues.view'], 22, 'TL, tahsil edilen');
+
+        // Monthly dues reminder and the last entry fee reminder, when turned on.
+        Event::listen(ScheduledNoticesDue::class, fn (ScheduledNoticesDue $event) => app(DuesService::class)->scheduledNotices($event));
 
         // An applicant whose references are in pays the entry fee before the board decides.
         Event::listen(ReferencesConfirmed::class, function (ReferencesConfirmed $event) {
