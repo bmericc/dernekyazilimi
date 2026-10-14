@@ -65,6 +65,12 @@
                             </td>
                             <td class="text-nowrap">
                                 <div class="d-flex gap-1 justify-content-end">
+                                    @if ($status === 'valid')
+                                        <form method="POST" action="{{ route('admin.id-cards.send', $card) }}">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-ghost-primary" title="Kartın bağlantısını kişinin e-postasına ve telefonuna gönder"><i class="ti ti-device-mobile-share icon"></i></button>
+                                        </form>
+                                    @endif
                                     <form method="POST" action="{{ route('admin.id-cards.renew', $card) }}" onsubmit="return confirm('QR kod yenilensin mi? Kartın eski çıktıları doğrulanmaz.')">
                                         @csrf @method('PATCH')
                                         <button type="submit" class="btn btn-sm btn-ghost-secondary" title="QR kodu yenile"><i class="ti ti-refresh icon"></i></button>

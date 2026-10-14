@@ -2,12 +2,17 @@
 
 namespace Modules\IdCard\Tests\Feature;
 
+use App\Jobs\SendTemplateSms;
+use App\Mail\TemplateMail;
 use App\Models\Contact;
 use App\Models\ContactPhoto;
+use App\Models\MailTemplate;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Modules\IdCard\Models\IdCard;
 use Modules\IdCard\Models\IdCardTemplate;
@@ -226,12 +231,44 @@ class IdCardTest extends TestCase
         $this->assertSame('https://portal.example.org/kart/'.$card->verify_token, CardView::verifyUrl($card));
     }
 
-    public function test_cards_are_linked_from_the_account_menu_not_the_main_menu(): void
+    public function test_cards_are_in_the_main_menu_for_card_holders_only(): void
     {
         $html = $this->actingAs($this->volunteer())->get('/my-infos')->assertOk()->getContent();
+        $this->assertStringContainsString('nav-link" href="'.route('id-cards').'"', $html);
 
-        $this->assertStringContainsString('dropdown-item" href="'.route('id-cards').'"', $html);
-        $this->assertStringNotContainsString('nav-link" href="'.route('id-cards').'"', $html);
+        $html = $this->actingAs(User::factory()->create())->get('/my-infos')->assertOk()->getContent();
+        $this->assertStringNotContainsString('href="'.route('id-cards').'"', $html);
+    }
+
+    public function test_the_card_is_sent_to_the_phone_as_a_personal_link(): void
+    {
+        Mail::fake();
+        Bus::fake([SendTemplateSms::class]);
+        MailTemplate::create(['key' => 'id-card.share', 'sms_enabled' => true]);
+        $user = $this->volunteer(['email' => 'ahmet@example.org', 'phone_number' => '905551112233']);
+        $this->approvePhoto($user);
+        $this->actingAs($user)->get('/my-cards')->assertOk()->assertSee('Telefonuma gönder');
+        $card = IdCard::sole();
+
+        $this->actingAs($user)->post("/my-cards/{$card->id}/send")->assertSessionHas('success-status', 'Kartınızın bağlantısı e-postanıza ve telefonunuza gönderildi.');
+        $mail = Mail::queued(TemplateMail::class, fn ($mail) => $mail->key === 'id-card.share')->sole();
+        $this->assertTrue($mail->hasTo('ahmet@example.org'));
+        Bus::assertDispatched(SendTemplateSms::class, fn ($job) => $job->phone === '905551112233' && $job->values['link'] === $mail->values['link']);
+
+        // The link opens the card without signing in.
+        $link = $mail->values['link'];
+        auth()->forgetGuards();
+        $this->get($link)->assertOk()->assertSee('Ahmet Yılmaz')->assertSee($card->number)->assertSee('data:image/', false);
+        $this->get(str_replace('signature=', 'signature=x', $link))->assertForbidden();
+
+        // A renewed QR code or a revoked card stops it.
+        $card->renewVerifyToken();
+        $this->get($link)->assertNotFound();
+
+        // Someone else's card cannot be sent; management can send any.
+        $other = $this->volunteer();
+        $this->actingAs($other)->post("/my-cards/{$card->id}/send")->assertForbidden();
+        $this->actingAs($this->cardManager())->post("/admin/id-cards/issued/{$card->id}/send")->assertSessionHas('success-status');
     }
 
     public function test_masked_names_keep_first_names_and_the_surname_initial(): void
