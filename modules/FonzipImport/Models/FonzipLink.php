@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
- * A Fonzip record (person, debt, payment, donation) and the portal record it
+ * A Fonzip record (person, debt, payment, donation, photo) and the portal record it
  * was imported into.
  */
 class FonzipLink extends Model
@@ -18,6 +18,8 @@ class FonzipLink extends Model
     public const PAYMENT = 'payment';
 
     public const DONATION = 'donation';
+
+    public const PHOTO = 'photo';
 
     protected $fillable = ['kind', 'fonzip_id', 'linkable_type', 'linkable_id'];
 

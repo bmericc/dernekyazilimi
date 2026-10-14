@@ -44,6 +44,28 @@ class FonzipClient
     }
 
     /**
+     * Download a file Fonzip links to (a profile photo); null when it cannot
+     * be had. Only http(s) addresses, at most $maxBytes.
+     */
+    public function download(string $url, int $maxBytes = 10 * 1024 * 1024): ?string
+    {
+        if (! preg_match('#^https?://#i', $url)) {
+            return null;
+        }
+
+        $this->throttle();
+        try {
+            $response = Http::withUserAgent(config('fonzip-import.user_agent'))->timeout(60)->get($url);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $body = $response->successful() ? $response->body() : '';
+
+        return $body !== '' && strlen($body) <= $maxBytes ? $body : null;
+    }
+
+    /**
      * The token's expiry, when one is held.
      */
     public function tokenExpiresAt(): ?int

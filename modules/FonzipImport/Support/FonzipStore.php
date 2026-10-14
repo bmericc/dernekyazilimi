@@ -14,6 +14,9 @@ class FonzipStore
 
     public const STATE = 'fonzip-import/state.json';
 
+    /** Downloaded profile photos, one file per Fonzip person id. */
+    public const PHOTOS = 'fonzip-import/photos';
+
     public const IDLE = 'idle';
 
     public const FETCHING = 'fetching';
@@ -61,6 +64,18 @@ class FonzipStore
     public function discard(): void
     {
         Storage::disk('local')->delete(self::SNAPSHOT);
+        Storage::disk('local')->deleteDirectory(self::PHOTOS);
+    }
+
+    /**
+     * Keep a downloaded photo; the path on the private disk.
+     */
+    public function savePhoto(string $fonzipId, string $contents, string $extension): string
+    {
+        $path = self::PHOTOS.'/'.preg_replace('/\D/', '', $fonzipId).'.'.$extension;
+        Storage::disk('local')->put($path, $contents);
+
+        return $path;
     }
 
     /**

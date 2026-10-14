@@ -45,6 +45,13 @@
             <span class="badge bg-azure-lt fs-5">Açılacak hesap: {{ $plan['accounts']['new'] ?? 0 }}</span>
             <span class="badge bg-secondary-lt fs-5">Hesabı zaten var: {{ $plan['accounts']['exists'] ?? 0 }}</span>
         @endif
+        <span class="badge bg-teal-lt fs-5">Aktarılacak profil fotoğrafı: {{ $plan['photos']['new'] ?? 0 }}</span>
+        @if ($plan['photos']['exists'] ?? 0)
+            <span class="badge bg-secondary-lt fs-5">Portalda fotoğrafı olduğu için alınmayacak: {{ $plan['photos']['exists'] }}</span>
+        @endif
+        @if ($plan['photos']['placeholder'] ?? 0)
+            <span class="badge bg-secondary-lt fs-5">Fonzip'in varsayılan resmi, alınmayacak: {{ $plan['photos']['placeholder'] }}</span>
+        @endif
         @if (config('fonzip-import.forwarding_domain'))
             <span class="badge bg-purple-lt fs-5">Yeni {{ '@'.config('fonzip-import.forwarding_domain') }} yönlendirmesi: {{ $plan['forwardings']['new'] ?? 0 }}</span>
             <span class="badge bg-secondary-lt fs-5">Hesabı olmadığı için yönlendirmesi açılmayacak: {{ $plan['forwardings']['no_account'] ?? 0 }}</span>
