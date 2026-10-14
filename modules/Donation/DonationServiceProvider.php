@@ -61,7 +61,7 @@ class DonationServiceProvider extends ModuleServiceProvider
         $menu->add('admin', 'donations', 'Bağış ayarları', 'admin.donations.settings', ['donations.manage'], 57);
 
         $menu->label('user', 'donation', 'Bağış', 'heart-handshake');
-        $menu->add('user', 'donation', 'Bağış yap', 'donations.create', [], 40);
+        $menu->add('user', 'donation', 'Bağış yap', 'donations.create', [], 40, guests: true);
         $menu->add('user', 'donation', 'Bağışlarım', 'donations.mine', [], 41, fn ($user) => $user && Donation::where('contact_id', $user->contact_id)->exists());
 
         $this->dashboard()->stat('Bu yıl bağış', 'heart-handshake', fn () => (int) Payment::where('purpose', 'donation')->where('status', Payment::SUCCEEDED)

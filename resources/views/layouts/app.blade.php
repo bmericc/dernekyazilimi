@@ -10,13 +10,14 @@
     @include('layouts.partials.google-tags-noscript')
 
     <div class="page" id="app">
+        @php($userMenu = app(\App\Modules\Menu::class)->groups('user', Auth::user()))
         <header class="navbar navbar-expand-md d-print-none">
             <div class="container-xl">
-                @auth
+                @if (Auth::check() || $userMenu)
                     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar-menu" aria-controls="navbar-menu" aria-expanded="false" aria-label="{{ __('Toggle navigation') }}">
                         <span class="navbar-toggler-icon"></span>
                     </button>
-                @endauth
+                @endif
 
                 <a class="navbar-brand pe-0 pe-md-3" href="{{ secure_url('/') }}">
                     @if ($organization->logoUrl())
@@ -46,14 +47,14 @@
             </div>
         </header>
 
-        @auth
+        @if (Auth::check() || $userMenu)
             <header class="navbar-expand-md">
                 <div class="collapse navbar-collapse" id="navbar-menu">
                     <div class="navbar">
                         <div class="container-xl">
                             <ul class="navbar-nav">
                                 @include('layouts.partials.menu', ['section' => 'user'])
-                                @if (in_array(Auth::user()->accessLevel(), [1, 2], true))
+                                @if (Auth::user() && in_array(Auth::user()->accessLevel(), [1, 2], true))
                                     <li class="nav-item d-sm-none">
                                         <a class="nav-link" href="{{ route('admin.dashboard') }}">
                                             <span class="nav-link-icon"><i class="ti ti-settings icon"></i></span>
@@ -66,7 +67,7 @@
                     </div>
                 </div>
             </header>
-        @endauth
+        @endif
 
         <div class="page-wrapper">
             <div class="page-body">
