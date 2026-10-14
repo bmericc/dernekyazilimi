@@ -6,6 +6,9 @@
     @include('layouts.partials.head')
     <style>
         html, body, .page, .page-wrapper { background: transparent !important; min-height: 0 !important; }
+        /* Tabler gives html and body the frame's height; the reported height
+           would then follow the frame and grow it without end. */
+        html, body { height: auto !important; }
         .page-body { margin: 0; padding: 4px 0; }
         .page-body > .container, .page-body > .container-xl, .page-body > .container-narrow { max-width: none; padding-left: 4px; padding-right: 4px; }
         .page-header { display: none; }
