@@ -16,7 +16,7 @@ class FonzipFetcher
     private const PAGE = 100;
 
     /** Stages in order; each pages through one listing. */
-    private const STAGES = ['meta', 'users', 'details', 'debts', 'payments', 'refunds', 'donations', 'done'];
+    private const STAGES = ['meta', 'users', 'details', 'photos', 'debts', 'payments', 'refunds', 'donations', 'done'];
 
     public function __construct(private FonzipClient $client, private FonzipStore $store) {}
 
@@ -25,6 +25,7 @@ class FonzipFetcher
      */
     public function start(): void
     {
+        $this->store->discard();
         $this->store->saveSnapshot([
             'started_at' => now()->toIso8601String(),
             'fetched_at' => null,
@@ -82,7 +83,7 @@ class FonzipFetcher
                     'values_list' => FonzipImport::USER_FIELDS,
                 ]);
                 foreach ($data['user_list'] ?? [] as $user) {
-                    $snapshot['users'][(string) $user['id']] = $user + ['detail' => null, 'tag_names' => null];
+                    $snapshot['users'][(string) $user['id']] = $user + ['detail' => null, 'tag_names' => null, 'photo' => null];
                 }
 
                 return $this->paged($snapshot, $data, 'user_list', count($snapshot['users']));
@@ -98,6 +99,20 @@ class FonzipFetcher
                         : array_values(array_filter(array_column($this->client->get("user/$id/tags")['tags'] ?? [], 'name')));
 
                     return false;
+                }
+
+                return $this->next($snapshot);
+
+            case 'photos':
+                // Fonzip is to be closed: the photo files themselves are kept.
+                foreach ($snapshot['users'] as $id => $user) {
+                    if (($user['photo'] ?? null) !== null) {
+                        continue;
+                    }
+                    $snapshot['users'][$id]['photo'] = $this->photo((string) $id, $user['profile_pic'] ?? $user['detail']['profile_pic'] ?? null);
+                    if ($snapshot['users'][$id]['photo'] !== false) {
+                        return false;
+                    }
                 }
 
                 return $this->next($snapshot);
@@ -130,6 +145,32 @@ class FonzipFetcher
         }
 
         return true;
+    }
+
+    /**
+     * Download a person's Fonzip photo; false when there is none or it is
+     * not a JPEG, PNG or WebP image.
+     *
+     * @return array{path: string, hash: string, width: int, height: int}|false
+     */
+    private function photo(string $id, mixed $url): array|false
+    {
+        if (! is_string($url) || trim($url) === '') {
+            return false;
+        }
+        $contents = $this->client->download(trim($url));
+        $info = $contents === null ? false : @getimagesizefromstring($contents);
+        $extension = $info ? (FonzipImport::PHOTO_TYPES[$info['mime']] ?? null) : null;
+        if (! $extension) {
+            return false;
+        }
+
+        return [
+            'path' => $this->store->savePhoto($id, $contents, $extension),
+            'hash' => sha1($contents),
+            'width' => $info[0],
+            'height' => $info[1],
+        ];
     }
 
     /**
@@ -173,6 +214,7 @@ class FonzipFetcher
             'meta' => 'Alan ve etiket tanımları',
             'users' => "Kişi listesi: $users kişi",
             'details' => 'Kişi ayrıntıları: '.collect($snapshot['users'])->whereNotNull('detail')->count()." / $users",
+            'photos' => 'Profil fotoğrafları: '.collect($snapshot['users'])->whereNotNull('photo')->count()." / $users",
             'debts' => 'Aidat borçları: '.count($snapshot['debts']).' / '.($snapshot['totals']['debts'] ?? '?'),
             'payments' => 'Aidat ödemeleri: '.count($snapshot['payments']).' / '.($snapshot['totals']['payments'] ?? '?'),
             'refunds' => 'Aidat iadeleri',

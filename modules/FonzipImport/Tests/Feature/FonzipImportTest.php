@@ -4,6 +4,7 @@ namespace Modules\FonzipImport\Tests\Feature;
 
 use App\Models\ConsentEvent;
 use App\Models\Contact;
+use App\Models\ContactPhoto;
 use App\Models\CustomField;
 use App\Models\Payment;
 use App\Models\Tag;
@@ -68,6 +69,10 @@ class FonzipImportTest extends TestCase
         // Registered in the portal with another address, the one Fonzip has as the second e-mail.
         $this->users[104] = $this->fonzipUser(104, 'Alan', 'Turing', 'alan@fonzip.test', null, 508, []);
         $this->users[104]['detail']['email_second'] = 'alan@portal.test';
+        // Photos: Ada's and İsmail's own; Grace and Alan have Fonzip's placeholder.
+        foreach ([101 => 'ada.png', 102 => 'ismail.png', 103 => 'bos.png', 104 => 'bos.png'] as $id => $file) {
+            $this->users[$id]['list']['profile_pic'] = "https://cdn.fonzip.test/pics/$file";
+        }
         $this->debts = [
             ['id' => 9001, 'user_id' => 101, 'amount' => 300, 'period' => '2025-01-01', 'details' => '2025 Yılı Aidatı', 'status' => 8, 'operation_date' => '2025-01-05T10:00:00Z', 'create_date' => '2025-01-05T10:00:00Z'],
             ['id' => 9002, 'user_id' => 102, 'amount' => 150, 'period' => null, 'details' => 'Giriş Aidatı', 'status' => 1, 'operation_date' => '2024-03-01T10:00:00Z', 'create_date' => '2024-03-01T10:00:00Z'],
@@ -118,6 +123,9 @@ class FonzipImportTest extends TestCase
     {
         Http::fake(function (Request $request) {
             $path = parse_url($request->url(), PHP_URL_PATH);
+            if (parse_url($request->url(), PHP_URL_HOST) === 'cdn.fonzip.test') {
+                return Http::response($this->png(['/pics/ada.png' => 1, '/pics/ismail.png' => 2, '/pics/bos.png' => 3][$path]));
+            }
             parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
 
             $body = match (true) {
@@ -144,6 +152,15 @@ class FonzipImportTest extends TestCase
 
             return is_array($body) ? Http::response($body) : $body;
         });
+    }
+
+    /** A distinct 1x1 PNG for each seed. */
+    private function png(int $seed): string
+    {
+        $chunk = fn (string $type, string $data) => pack('N', strlen($data)).$type.$data.pack('N', crc32($type.$data));
+        $pixels = gzcompress("\0".chr($seed * 40).chr(0).chr(0));
+
+        return "\x89PNG\r\n\x1a\n".$chunk('IHDR', pack('NNCCCCC', 1, 1, 8, 2, 0, 0, 0)).$chunk('IDAT', $pixels).$chunk('IEND', '');
     }
 
     private function fetchAndApply(): void
@@ -256,12 +273,41 @@ class FonzipImportTest extends TestCase
         Mail::assertNothingQueued();
     }
 
+    public function test_profile_photos_are_copied_into_the_portal(): void
+    {
+        $this->fakeFonzip();
+        // Ada has uploaded her own photo in the portal: it stays.
+        $ada = User::factory()->create(['name' => 'Ada', 'surname' => 'Lovelace', 'email' => 'ada@ornek.test', 'national_id' => $this->identity('123456789')]);
+        Storage::disk('local')->put('contact-photos/ada.jpg', 'x');
+        $own = ContactPhoto::create(['contact_id' => $ada->contact_id, 'path' => 'contact-photos/ada.jpg']);
+
+        $this->actingAs($this->owner)->post('/admin/fonzip/fetch');
+        $this->actingAs($this->owner)->get('/admin/fonzip/preview')->assertOk()
+            ->assertSee('Aktarılacak profil fotoğrafı: 1')
+            ->assertSee('Portalda fotoğrafı olduğu için alınmayacak: 1')
+            ->assertSee('varsayılan resmi, alınmayacak: 2');
+        $this->actingAs($this->owner)->post('/admin/fonzip/apply');
+
+        $ismail = Contact::where('email', 'ismail@ornek.test')->sole();
+        $photo = $ismail->approvedPhoto;
+        $this->assertNotNull($photo);
+        $this->assertSame([ContactPhoto::APPROVED, $this->owner->id], [$photo->status, $photo->reviewed_by]);
+        $this->assertSame($this->png(2), Storage::disk('local')->get($photo->path), 'The file itself is kept in the portal.');
+        $this->assertStringStartsWith(ContactPhoto::DIRECTORY.'/', $photo->path);
+
+        $this->assertSame([$own->id], ContactPhoto::where('contact_id', $ada->contact_id)->pluck('id')->all());
+        $this->assertFalse(ContactPhoto::whereIn('contact_id', Contact::whereIn('email', ['grace@ornek.test', 'alan@portal.test'])->pluck('id'))->exists());
+        $this->assertSame(1, ContactPhoto::where('status', ContactPhoto::APPROVED)->count());
+        $this->assertSame([], Storage::disk('local')->allFiles(FonzipStore::PHOTOS), 'Downloaded files are removed with the snapshot.');
+        $this->assertSame($photo->id, FonzipLink::where('kind', FonzipLink::PHOTO)->where('fonzip_id', '102')->value('linkable_id'));
+    }
+
     public function test_running_the_import_again_adds_nothing_twice(): void
     {
         $this->fakeFonzip();
         $this->fetchAndApply();
         $counts = fn () => [Contact::count(), Membership::count(), DuesCharge::count(), Payment::count(), Donation::count(), ConsentEvent::count(),
-            Tag::count(), CustomField::count(), FonzipLink::count(), \App\Models\CustomFieldValue::count(), EmailRedirects::count(), User::count()];
+            Tag::count(), CustomField::count(), FonzipLink::count(), \App\Models\CustomFieldValue::count(), EmailRedirects::count(), User::count(), ContactPhoto::count()];
         $before = $counts();
 
         $this->fetchAndApply();

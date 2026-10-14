@@ -5,6 +5,7 @@ namespace Modules\FonzipImport\Support;
 use App\Models\Cities;
 use App\Models\ConsentEvent;
 use App\Models\Contact;
+use App\Models\ContactPhoto;
 use App\Models\CustomField;
 use App\Models\CustomFieldValue;
 use App\Models\Payment;
@@ -17,6 +18,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Modules\Donation\Models\Donation;
 use Modules\Donation\Models\DonationCause;
@@ -49,7 +51,14 @@ class FonzipImport
         'membership_no', 'apply_date', 'join_date', 'tags_as_text', 'total_financial',
         'allow_comm_via_email', 'allow_comm_via_sms', 'allow_comm_via_phone',
         'allow_comm_via_email_date', 'allow_comm_via_sms_date', 'allow_comm_via_phone_date',
+        'profile_pic',
     ];
+
+    /** Photo types taken over, by MIME type, with their file extension. */
+    public const PHOTO_TYPES = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+
+    /** The same picture on this many people is Fonzip's placeholder, not a photo. */
+    private const PLACEHOLDER_SHARES = 2;
 
     /** Contact fields filled from Fonzip, with their labels. */
     public const CONTACT_FIELDS = [
@@ -87,6 +96,9 @@ class FonzipImport
     /** @var array<string, int>|null  lower-case city name => id */
     private ?array $cities = null;
 
+    /** @var array<string, true>|null  hashes of placeholder pictures */
+    private ?array $placeholders = null;
+
     public function __construct(private MembershipService $memberships, private CustomFields $customFields, private Consents $consents) {}
 
     /**
@@ -119,6 +131,7 @@ class FonzipImport
             'fields' => $this->planFields($snapshot),
             'tags' => collect($snapshot['users'])->pluck('tag_names')->flatten()->filter()->unique()->values()
                 ->mapWithKeys(fn ($name) => [$name => Tag::withTrashed()->where('name', $name)->exists()])->all(),
+            'photos' => collect($contacts)->countBy(fn ($item) => $this->photoPlan($snapshot['users'][$item['fonzip_id']] ?? [], $snapshot, $item['action'] === 'skip' ? false : ($item['contact_id'] ? Contact::find($item['contact_id']) : null)))->except([''])->all(),
             'causes' => collect($snapshot['donations'])->pluck('sub_donation_type__name')->filter()->unique()->values()
                 ->mapWithKeys(fn ($name) => [$name => DonationCause::where('name', $name)->exists()])->all(),
             'finance' => [
@@ -142,14 +155,19 @@ class FonzipImport
             Auth::onceUsingId($userId);
         }
 
-        $phases = ['setup', 'contacts', 'charges', 'payments', 'refunds', 'donations'];
-        $batch = ['contacts' => 50, 'charges' => 500, 'payments' => 500, 'refunds' => 500, 'donations' => 500];
+        $phases = ['setup', 'contacts', 'photos', 'charges', 'payments', 'refunds', 'donations'];
+        $batch = ['contacts' => 50, 'photos' => 50, 'charges' => 500, 'payments' => 500, 'refunds' => 500, 'donations' => 500];
         ['phase' => $phase, 'offset' => $offset] = $position;
 
         if ($phase === 'setup') {
             $this->setup($snapshot, $summary);
         } else {
-            $records = $phase === 'contacts' ? array_values($this->people($snapshot)) : $snapshot[$phase === 'charges' ? 'debts' : $phase];
+            $records = match ($phase) {
+                'contacts' => array_values($this->people($snapshot)),
+                'photos' => array_values($snapshot['users']),
+                'charges' => $snapshot['debts'],
+                default => $snapshot[$phase],
+            };
             foreach (array_slice($records, $offset, $batch[$phase]) as $record) {
                 $this->{'apply'.ucfirst(Str::singular($phase))}($record, $snapshot, $summary);
             }
@@ -168,7 +186,7 @@ class FonzipImport
     {
         return array_fill_keys([
             'contacts_new', 'contacts_updated', 'contacts_unchanged', 'contacts_skipped',
-            'memberships_new', 'memberships_left', 'numbers_set', 'accounts_new', 'fields_new', 'values', 'tags_attached', 'consents', 'forwardings',
+            'memberships_new', 'memberships_left', 'numbers_set', 'accounts_new', 'fields_new', 'values', 'tags_attached', 'consents', 'forwardings', 'photos',
             'charges', 'charges_matched', 'charges_skipped', 'payments', 'payments_skipped',
             'refunds', 'donations',
         ], 0);
@@ -595,6 +613,73 @@ class FonzipImport
                 $summary['forwardings']++;
             }
         });
+    }
+
+    // ---- Photos ---------------------------------------------------------
+
+    /**
+     * What happens to a person's Fonzip photo: '' none, 'placeholder'
+     * Fonzip's stand-in picture, 'skip' the person is not imported, 'linked'
+     * taken over before, 'exists' the contact has a photo of their own
+     * (theirs wins), 'new' taken over as the contact's approved photo.
+     *
+     * @param  Contact|false|null  $contact  false: the person is not imported; null: a new contact
+     */
+    private function photoPlan(array $user, array $snapshot, Contact|false|null $contact): string
+    {
+        $photo = $user['photo'] ?? null;
+        if (! is_array($photo) || ! Storage::disk('local')->exists($photo['path'])) {
+            return '';
+        }
+
+        return match (true) {
+            isset($this->placeholders($snapshot)[$photo['hash']]) => 'placeholder',
+            $contact === false => 'skip',
+            FonzipLink::where('kind', FonzipLink::PHOTO)->where('fonzip_id', (string) $user['id'])->exists() => 'linked',
+            $contact && $contact->photos()->where('status', '!=', ContactPhoto::REJECTED)->exists() => 'exists',
+            default => 'new',
+        };
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private function placeholders(array $snapshot): array
+    {
+        return $this->placeholders ??= collect($snapshot['users'])->pluck('photo.hash')->filter()->countBy()
+            ->filter(fn ($count) => $count >= self::PLACEHOLDER_SHARES)->map(fn () => true)->all();
+    }
+
+    /**
+     * The person's Fonzip photo becomes the contact's approved photo: it was
+     * the association's record already. Fonzip is closed afterwards, so the
+     * file itself is copied.
+     */
+    private function applyPhoto(array $user, array $snapshot, array &$summary): void
+    {
+        $contact = $this->linkedContact($user['id'] ?? null);
+        if (! $contact || $this->photoPlan($user, $snapshot, $contact) !== 'new') {
+            return;
+        }
+
+        $source = $user['photo']['path'];
+        $path = ContactPhoto::DIRECTORY.'/'.Str::random(40).'.'.pathinfo($source, PATHINFO_EXTENSION);
+        Storage::disk('local')->copy($source, $path);
+
+        try {
+            $this->quietly(function () use ($user, $contact, $path, &$summary) {
+                $photo = (new ContactPhoto)->forceFill([
+                    'contact_id' => $contact->id, 'path' => $path, 'status' => ContactPhoto::APPROVED,
+                    'reviewed_by' => Auth::id(), 'reviewed_at' => now(),
+                ]);
+                $photo->save();
+                FonzipLink::link(FonzipLink::PHOTO, $user['id'], $photo);
+                $summary['photos']++;
+            });
+        } catch (Throwable $e) {
+            Storage::disk('local')->delete($path);
+            throw $e;
+        }
     }
 
     private function saveContact(?Contact $contact, array $item): Contact
