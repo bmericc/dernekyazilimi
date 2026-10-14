@@ -23,10 +23,11 @@ class Menu
      * @param  array<int|string>  $roles  legacy access levels (1 owner, 2 manager) and/or
      *                                    permission keys; empty means every signed-in user
      * @param  \Closure(?Authenticatable): bool|null  $when  further condition on the user, e.g. an affiliation
+     * @param  bool  $guests  also shown to visitors who are not signed in (only items without $roles)
      */
-    public function add(string $section, string $group, string $label, string $route, array $roles = [], int $order = 100, ?\Closure $when = null): void
+    public function add(string $section, string $group, string $label, string $route, array $roles = [], int $order = 100, ?\Closure $when = null, bool $guests = false): void
     {
-        $this->items[$section][] = compact('group', 'label', 'route', 'roles', 'order', 'when');
+        $this->items[$section][] = compact('group', 'label', 'route', 'roles', 'order', 'when', 'guests');
     }
 
     /**
@@ -45,7 +46,7 @@ class Menu
     {
         $items = array_filter(
             $this->items[$section] ?? [],
-            fn (array $item) => ($item['roles'] === [] || ($user && $user->canAccess($item['roles'])))
+            fn (array $item) => ($user ? ($item['roles'] === [] || $user->canAccess($item['roles'])) : ($item['guests'] && $item['roles'] === []))
                 && ($item['when'] === null || ($item['when'])($user))
         );
 

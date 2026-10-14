@@ -43,6 +43,13 @@ class DonationTest extends TestCase
         return array_replace(['amount' => '250', 'name' => 'Ada Lovelace', 'email' => 'ada@example.org', 'method' => 'transfer'], $overrides);
     }
 
+    public function test_the_donate_link_is_in_the_menu_for_guests_too(): void
+    {
+        $this->get('/donate')->assertOk()
+            ->assertSee('href="'.route('donations.create').'"', false)
+            ->assertDontSee('href="'.route('representations.index').'"', false);
+    }
+
     public function test_without_payment_methods_the_page_says_donations_are_closed(): void
     {
         $this->get('/donate')->assertOk()->assertSee('çevrim içi bağış alınmıyor');
