@@ -46,6 +46,10 @@ class ForwardingDomainTest extends TestCase
 
         $volunteer = $this->volunteer();
         $this->actingAs($volunteer)->get('/email-redirects')->assertOk();
+        // The link sits in the account menu, next to the other personal pages.
+        $this->actingAs($volunteer)->get('/home')
+            ->assertSee('class="dropdown-item" href="'.route('email-redirects').'"', false)
+            ->assertSee('class="dropdown-item" href="'.route('create-reference-request').'"', false);
         $this->assertSame(config('mail-forwarding.domain'), app(ForwardingPolicy::class)->domainFor($volunteer));
     }
 
