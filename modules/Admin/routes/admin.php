@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\Admin\Http\Controllers\AffiliationTypeController;
 use Modules\Admin\Http\Controllers\AgreementAdminController;
+use Modules\Admin\Http\Controllers\MailTemplateController;
 use Modules\Admin\Http\Controllers\ContactAffiliationController;
 use Modules\Admin\Http\Controllers\ContactConsentController;
 use Modules\Admin\Http\Controllers\ContactController;
@@ -72,6 +73,14 @@ Route::middleware('permission:agreements.manage')->group(function () {
     Route::get('/agreements/{agreement}/edit', [AgreementAdminController::class, 'edit'])->name('agreements.edit');
     Route::put('/agreements/{agreement}', [AgreementAdminController::class, 'update'])->name('agreements.update');
     Route::delete('/agreements/{agreement}/draft', [AgreementAdminController::class, 'discardDraft'])->name('agreements.draft.destroy');
+});
+
+Route::middleware('permission:mail-templates.manage')->group(function () {
+    Route::get('/mail-templates', [MailTemplateController::class, 'index'])->name('mail-templates');
+    Route::get('/mail-templates/{key}', [MailTemplateController::class, 'edit'])->where('key', '[a-z0-9.-]+')->name('mail-templates.edit');
+    Route::put('/mail-templates/{key}', [MailTemplateController::class, 'update'])->where('key', '[a-z0-9.-]+')->name('mail-templates.update');
+    Route::delete('/mail-templates/{key}', [MailTemplateController::class, 'reset'])->where('key', '[a-z0-9.-]+')->name('mail-templates.reset');
+    Route::post('/mail-templates/{key}/test', [MailTemplateController::class, 'test'])->where('key', '[a-z0-9.-]+')->middleware('throttle:10,1')->name('mail-templates.test');
 });
 
 Route::middleware('permission:data-deletion.manage')->group(function () {

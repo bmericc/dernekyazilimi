@@ -51,7 +51,7 @@ class LegalRepresentationTest extends TestCase
     {
         $user = User::factory()->create();
         $representation = LegalRepresentation::where('city', 'Antalya')->firstOrFail();
-        Mail::shouldReceive('raw')->once()->andThrow(new \RuntimeException('Mail service unavailable'));
+        Mail::shouldReceive('to')->once()->andThrow(new \RuntimeException('Mail service unavailable'));
 
         $this->actingAs($user)->post(route('representations.consent.store', $representation), [
             'contact_consent' => '1',

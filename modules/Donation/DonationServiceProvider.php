@@ -31,6 +31,13 @@ class DonationServiceProvider extends ModuleServiceProvider
 
     protected function bootModule(Menu $menu, Slots $slots): void
     {
+        $this->mailTemplates()->group('donation', 'Bağış', 50);
+        $this->mailTemplates()->register('donation.thanks', 'Bağış teşekkürü', 'donation',
+            'Bağışınız için teşekkürler',
+            '<p>Merhaba {{name}},</p><p>{{date}} tarihli {{amount}} tutarındaki bağışınız ulaştı. Desteğiniz için çok teşekkür ederiz.</p><p>Referans: {{reference}}</p><p>{{organization}}</p>',
+            ['name' => 'Bağışçının adı', 'date' => 'Ödeme tarihi', 'amount' => 'Tutar', 'reference' => 'Ödemenin referans kodu'],
+            'Bağışçı (tahsil olunca)');
+
         $this->permissions()->group('donations', 'Bağışlar', 55);
         $this->trash()->register('donation-cause', \Modules\Donation\Models\DonationCause::class, 'Bağış amacı');
         $this->permissions()->register('donations.view', 'Bağışları görebilsin', 'donations', 55);

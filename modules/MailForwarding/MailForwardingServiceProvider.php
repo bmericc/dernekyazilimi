@@ -27,6 +27,13 @@ class MailForwardingServiceProvider extends ModuleServiceProvider
 
     protected function bootModule(Menu $menu, Slots $slots): void
     {
+        $this->mailTemplates()->group('mail-forwarding', 'E-posta yönlendirme', 60);
+        $this->mailTemplates()->register('mail-forwarding.welcome', 'Yönlendirme etkinleşti', 'mail-forwarding',
+            '{{domain}} e-postanız aktif edildi',
+            '<p>Sayın {{name}},</p><p>{{alias}} e-posta adresinizin {{email}} adresine yönlendirilmesi tamamlandı.</p><p>{{organization}}</p>',
+            ['name' => 'Ad soyad', 'alias' => 'Derneğin verdiği adres', 'email' => 'Yönlendirilen kişisel adres', 'domain' => 'Adresin alan adı (ör. Penguen.org.tr)'],
+            'Yönlendirme adresi (yeni adres çalışıyor mu diye)');
+
         User::resolveRelationUsing('activeEmailRedirect', fn (User $user) => $user->hasOne(EmailRedirects::class)->where('status', 1));
         // A person may hold one address per domain (e.g. volunteer and member).
         User::resolveRelationUsing('activeEmailRedirects', fn (User $user) => $user->hasMany(EmailRedirects::class)->where('status', 1)->orderBy('id'));

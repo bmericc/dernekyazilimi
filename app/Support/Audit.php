@@ -30,6 +30,7 @@ class Audit
         \App\Models\Setting::class => 'Kurum ayarı',
         \App\Models\Agreement::class => 'Sözleşme',
         \App\Models\AgreementVersion::class => 'Sözleşme sürümü',
+        \App\Models\MailTemplate::class => 'E-posta şablonu',
         \App\Models\ContactPhoto::class => 'Fotoğraf',
         \App\Models\Tag::class => 'Etiket',
         \App\Models\CustomField::class => 'Özel alan',

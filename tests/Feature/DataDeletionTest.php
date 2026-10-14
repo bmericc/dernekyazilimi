@@ -33,7 +33,7 @@ class DataDeletionTest extends TestCase
     {
         return collect(app('mailer')->getSymfonyTransport()->messages())
             ->filter(fn ($sent) => collect($sent->getOriginalMessage()->getTo())->contains(fn ($to) => $to->getAddress() === $address))
-            ->map(fn ($sent) => $sent->getOriginalMessage()->getTextBody())
+            ->map(fn ($sent) => $sent->getOriginalMessage()->getHtmlBody())
             ->values()->all();
     }
 

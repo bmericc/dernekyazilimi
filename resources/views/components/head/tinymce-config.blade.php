@@ -37,10 +37,23 @@
                 });
             });
 
+            // Email templates: link addresses may be placeholders; keep them as typed.
             tinymce.init({
                 license_key: 'gpl',
                 promotion: false,
-                selector: '.wysiwyg:not([data-upload-url])',
+                selector: '.wysiwyg[data-template]',
+                plugins: 'code table lists link fullscreen preview',
+                menubar: 'edit view insert format tools table help',
+                toolbar: "undo redo | blocks | bold italic underline | align numlist bullist | link | table | forecolor backcolor removeformat | code fullscreen preview",
+                toolbar_sticky: true,
+                convert_urls: false,
+                entity_encoding: 'raw',
+            });
+
+            tinymce.init({
+                license_key: 'gpl',
+                promotion: false,
+                selector: '.wysiwyg:not([data-upload-url]):not([data-template])',
                 plugins: 'code table lists link fullscreen preview directionality',
                 menubar: 'edit view insert format tools table help',
                 toolbar: "undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | align numlist bullist | link | table | lineheight outdent indent| forecolor backcolor removeformat | code fullscreen preview | ltr rtl",

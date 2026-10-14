@@ -22,6 +22,12 @@ class ModulesServiceProvider extends ServiceProvider
         $this->app->singleton(Menu::class);
         $this->app->singleton(Slots::class);
         $this->app->singleton(Dashboard::class);
+        $this->app->singleton(\App\Modules\MailTemplates::class, function () {
+            $templates = new \App\Modules\MailTemplates();
+            \App\Mail\CoreMailTemplates::register($templates);
+
+            return $templates;
+        });
         $this->app->singleton(Permissions::class, function () {
             $permissions = new Permissions();
             $permissions->group('panel', 'Yönetim paneli', 1);

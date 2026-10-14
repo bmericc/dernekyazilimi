@@ -2,6 +2,7 @@
 
 namespace Modules\Membership\Mail;
 
+use App\Mail\Concerns\UsesMailTemplate;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -10,7 +11,7 @@ use Modules\Membership\Models\MembershipApplication;
 
 class ApplicationReady extends Mailable implements ShouldQueue
 {
-    use Queueable, SerializesModels;
+    use Queueable, SerializesModels, UsesMailTemplate;
 
     public function __construct(public MembershipApplication $application)
     {
@@ -18,6 +19,10 @@ class ApplicationReady extends Mailable implements ShouldQueue
 
     public function build(): self
     {
-        return $this->subject('Karar bekleyen üyelik başvurusu: '.$this->application->reference_no)->view('membership::emails.application-ready');
+        return $this->template('membership.application-ready', [
+            'applicant' => $this->application->contact->display_name,
+            'application_no' => $this->application->reference_no,
+            'admin_url' => route('admin.membership-applications.show', $this->application),
+        ]);
     }
 }

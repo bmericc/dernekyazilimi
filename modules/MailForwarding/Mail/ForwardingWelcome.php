@@ -2,6 +2,7 @@
 
 namespace Modules\MailForwarding\Mail;
 
+use App\Mail\Concerns\UsesMailTemplate;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -9,7 +10,7 @@ use Illuminate\Queue\SerializesModels;
 
 class ForwardingWelcome extends Mailable
 {
-    use Queueable, SerializesModels;
+    use Queueable, SerializesModels, UsesMailTemplate;
 
     private $data;
 
@@ -28,10 +29,13 @@ class ForwardingWelcome extends Mailable
      *
      * @return $this
      */
-    public function build()
+    public function build(): self
     {
-        return $this->subject(ucfirst(substr(strrchr((string) $this->data->alias, '@') ?: '@'.config('mail-forwarding.domain'), 1))." e-postanız aktif edildi")
-                    ->view('mail-forwarding::emails.welcome')
-                    ->with(['data' => $this->data]);
+        return $this->template('mail-forwarding.welcome', [
+            'name' => trim($this->data->name.' '.$this->data->surname),
+            'alias' => $this->data->alias,
+            'email' => $this->data->email,
+            'domain' => ucfirst(substr(strrchr((string) $this->data->alias, '@') ?: '@'.config('mail-forwarding.domain'), 1)),
+        ]);
     }
 }

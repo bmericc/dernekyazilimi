@@ -2,6 +2,7 @@
 
 namespace Modules\Membership\Mail;
 
+use App\Mail\Concerns\UsesMailTemplate;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -10,7 +11,7 @@ use Modules\Membership\Models\MembershipReference;
 
 class ReferenceInvitation extends Mailable implements ShouldQueue
 {
-    use Queueable, SerializesModels;
+    use Queueable, SerializesModels, UsesMailTemplate;
 
     public function __construct(public MembershipReference $reference, public string $link)
     {
@@ -18,6 +19,14 @@ class ReferenceInvitation extends Mailable implements ShouldQueue
 
     public function build(): self
     {
-        return $this->subject($this->reference->applicant->display_name.' sizi üyelik başvurusunda referans gösterdi')->view('membership::emails.reference-invitation');
+        $reference = $this->reference;
+
+        return $this->template('membership.reference-invitation', [
+            'name' => $reference->referee->display_name,
+            'applicant' => $reference->applicant->display_name,
+            'application_no' => $reference->application->reference_no,
+            'link' => $this->link,
+            'expires' => $reference->expires_at->format('d.m.Y'),
+        ]);
     }
 }

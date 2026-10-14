@@ -39,6 +39,7 @@ class AdminServiceProvider extends ModuleServiceProvider
         $this->permissions()->register('settings.manage', 'Kurum ayarlarını (ad, logo, iletişim, ana sayfa) düzenleyebilsin', 'settings', 89);
         $this->permissions()->register('fields.manage', 'Etiketleri ve özel alanları tanımlayabilsin', 'settings', 89);
         $this->permissions()->register('agreements.manage', 'Sözleşmeleri düzenleyip yayınlayabilsin, kabulleri görebilsin', 'settings', 89);
+        $this->permissions()->register('mail-templates.manage', 'Sistemin gönderdiği e-postaların metinlerini düzenleyebilsin', 'settings', 89);
         $this->permissions()->register('affiliations.manage', 'Sıfat türlerini düzenleyebilsin', 'settings', 90);
         $this->permissions()->register('trash.restore', 'Silinen kayıtları görüp geri getirebilsin', 'settings', 92);
         $this->permissions()->register('roles.manage', 'Rolleri, yetkileri ve rol şablonlarını düzenleyebilsin', 'settings', 91);
@@ -64,6 +65,7 @@ class AdminServiceProvider extends ModuleServiceProvider
         $menu->add('admin', 'settings', 'Özel alanlar', 'admin.custom-fields', ['fields.manage'], 89);
         $menu->add('admin', 'settings', 'Etiketler', 'admin.tags', ['fields.manage'], 89);
         $menu->add('admin', 'settings', 'Sözleşmeler', 'admin.agreements', ['agreements.manage'], 89);
+        $menu->add('admin', 'settings', 'E-posta şablonları', 'admin.mail-templates', ['mail-templates.manage'], 89);
         $menu->add('admin', 'settings', 'Sıfatlar', 'admin.affiliation-types', ['affiliations.manage'], 90);
         $menu->add('admin', 'settings', 'Roller ve yetkiler', 'admin.roles', ['roles.manage'], 91);
         $menu->add('admin', 'settings', 'Silinenler', 'admin.trash', ['trash.restore'], 95);

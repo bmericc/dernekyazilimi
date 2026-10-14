@@ -3,6 +3,8 @@
 namespace Modules\Seminar\Mail;
 
 use Modules\Seminar\Models\SeminarRequests;
+use App\Mail\Concerns\UsesMailTemplate;
+use Modules\Seminar\Mail\Concerns\SeminarValues;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -10,7 +12,7 @@ use Illuminate\Queue\SerializesModels;
 
 class SeminarRequestNotification extends Mailable implements ShouldQueue
 {
-    use Queueable, SerializesModels;
+    use Queueable, SerializesModels, UsesMailTemplate, SeminarValues;
 
     public function __construct(public SeminarRequests $seminarRequest)
     {
@@ -18,7 +20,6 @@ class SeminarRequestNotification extends Mailable implements ShouldQueue
 
     public function build(): self
     {
-        return $this->subject('Yeni seminer talebi')
-            ->view('seminar::emails.request_notification');
+        return $this->template('seminar.request-notification', $this->requestValues($this->seminarRequest));
     }
 }

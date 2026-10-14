@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Mail\Concerns\UsesMailTemplate;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -9,7 +10,7 @@ use Illuminate\Queue\SerializesModels;
 
 class Welcome extends Mailable implements ShouldQueue
 {
-    use Queueable, SerializesModels;
+    use Queueable, SerializesModels, UsesMailTemplate;
 
     private $data;
 
@@ -30,8 +31,9 @@ class Welcome extends Mailable implements ShouldQueue
      */
     public function build()
     {
-        return $this->subject(app(\App\Support\Organization::class)->name().' portalına hoş geldiniz')
-                    ->view('emails.welcome')
-                    ->with(['data' => $this->data]);
+        return $this->template('account.welcome', [
+            'name' => trim($this->data->name.' '.$this->data->surname),
+            'email' => $this->data->email,
+        ]);
     }
 }
