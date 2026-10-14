@@ -29,11 +29,7 @@ class IdCardServiceProvider extends ModuleServiceProvider
         $this->trash()->register('id-card-template', \Modules\IdCard\Models\IdCardTemplate::class);
         $this->permissions()->register('id-cards.manage', 'Kart şablonlarını düzenleyebilsin, kartları iptal edebilsin', 'id-cards', 40);
 
-        // In the site menu bar, for people who hold an affiliation with a card.
-        $menu->label('user', 'id-card', null, 'id-badge-2');
-        $menu->add('user', 'id-card', 'Kimlik kartlarım', 'id-cards', [], 15, fn ($user) => $user?->contact_id
-            && \App\Models\ContactAffiliation::where('contact_id', $user->contact_id)->active()
-                ->whereIn('affiliation_type_id', IdCardTemplate::where('is_active', true)->select('affiliation_type_id'))->exists());
+        $slots->push('account.menu', 'id-card::partials.account-menu', 20);
 
         $this->mailTemplates()->group('id-card', 'Kimlik kartı', 45);
         $this->mailTemplates()->register('id-card.share', 'Dijital kimlik kartı bağlantısı', 'id-card',

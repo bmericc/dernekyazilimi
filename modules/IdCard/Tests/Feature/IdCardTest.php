@@ -231,13 +231,12 @@ class IdCardTest extends TestCase
         $this->assertSame('https://portal.example.org/kart/'.$card->verify_token, CardView::verifyUrl($card));
     }
 
-    public function test_cards_are_in_the_main_menu_for_card_holders_only(): void
+    public function test_cards_are_linked_from_the_account_menu_not_the_main_menu(): void
     {
         $html = $this->actingAs($this->volunteer())->get('/my-infos')->assertOk()->getContent();
-        $this->assertStringContainsString('nav-link" href="'.route('id-cards').'"', $html);
 
-        $html = $this->actingAs(User::factory()->create())->get('/my-infos')->assertOk()->getContent();
-        $this->assertStringNotContainsString('href="'.route('id-cards').'"', $html);
+        $this->assertStringContainsString('dropdown-item" href="'.route('id-cards').'"', $html);
+        $this->assertStringNotContainsString('nav-link" href="'.route('id-cards').'"', $html);
     }
 
     public function test_the_card_is_sent_to_the_phone_as_a_personal_link(): void
