@@ -15,7 +15,8 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // $schedule->command('inspire')->hourly();
+        // Birthday greetings and reminders; each is off until turned on in its settings.
+        $schedule->command('notices:send')->dailyAt('10:00')->withoutOverlapping();
     }
 
     /**

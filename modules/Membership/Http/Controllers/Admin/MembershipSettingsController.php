@@ -25,6 +25,8 @@ class MembershipSettingsController extends Controller
             'reference_days' => ['required', 'integer', 'between:1,90'],
             'letter' => ['nullable', 'string', 'max:20000'],
             'instructions' => ['nullable', 'string', 'max:20000'],
+            'identity_reminder_days' => ['nullable', 'integer', 'between:1,365'],
+            'photo_reminder_days' => ['nullable', 'integer', 'between:1,365'],
         ], [], ['references_required' => 'Gereken referans sayısı', 'reference_limit_total' => 'Toplam referans sınırı', 'reference_limit_yearly' => 'Yıllık referans sınırı', 'reference_days' => 'Davet süresi', 'letter' => 'Dilekçe metni', 'instructions' => 'Yönergeler']);
 
         $settings->save([
@@ -38,6 +40,8 @@ class MembershipSettingsController extends Controller
             'membership_photo_choice' => $request->boolean('photo_choice') ? '1' : '0',
             'membership_application_letter' => trim($sanitizer->sanitizePage($data['letter'] ?? '')) ?: null,
             'membership_application_instructions' => trim($sanitizer->sanitizePage($data['instructions'] ?? '')) ?: null,
+            'membership_identity_reminder_days' => isset($data['identity_reminder_days']) ? (string) $data['identity_reminder_days'] : null,
+            'membership_photo_reminder_days' => isset($data['photo_reminder_days']) ? (string) $data['photo_reminder_days'] : null,
         ]);
         $this->set_log('change', 'Üyelik başvurusu ayarları güncellendi');
 

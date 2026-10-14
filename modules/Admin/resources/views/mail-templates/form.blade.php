@@ -43,6 +43,25 @@
                         <textarea id="body" name="body" rows="18" data-template class="wysiwyg form-control @error('body') is-invalid @enderror">{{ old('body', $source['body']) }}</textarea>
                         @error('body')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                     </div>
+                    @if ($template['sms'] !== null)
+                        <hr>
+                        <label class="form-check form-switch mb-2">
+                            <input type="hidden" name="sms_enabled" value="0">
+                            <input type="checkbox" class="form-check-input" name="sms_enabled" value="1" @checked(old('sms_enabled', $source['sms_enabled']))>
+                            <span class="form-check-label">E-postayla birlikte SMS de gönder</span>
+                        </label>
+                        <label for="sms" class="form-label">SMS metni</label>
+                        <textarea id="sms" name="sms" rows="4" maxlength="1000" class="form-control @error('sms') is-invalid @enderror" data-sms-length>{{ old('sms', $source['sms']) }}</textarea>
+                        @error('sms')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        <div class="form-hint">Düz metin; kısa kodlar e-postadakiyle aynı. Kişinin kayıtlı telefonuna gider. Kısa kodlar dolmadan <span data-sms-count>0</span> karakter; 160 karakteri (Türkçe karakterle 70) aşan SMS birden çok mesaj sayılır.</div>
+                        <script>
+                            (function () {
+                                var field = document.querySelector('[data-sms-length]'), count = document.querySelector('[data-sms-count]');
+                                function update() { count.textContent = field.value.length; }
+                                field.addEventListener('input', update); update();
+                            })();
+                        </script>
+                    @endif
                 </div>
                 <div class="card-footer d-flex gap-2">
                     <button type="submit" class="btn btn-primary">Kaydet</button>

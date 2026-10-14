@@ -4,7 +4,7 @@
 <div class="container-xl">
     <div class="page-header mb-3">
         <h2 class="page-title">E-posta şablonları</h2>
-        <div class="text-secondary mt-1">Sistemin gönderdiği e-postalar. Her şablonun anahtarı ve kullanabileceği kısa kodlar sabittir; konusu ve içeriği düzenlenebilir. Düzenlenmemiş şablon varsayılan metinle gider.</div>
+        <div class="text-secondary mt-1">Sistemin gönderdiği e-postalar. Her şablonun anahtarı ve kullanabileceği kısa kodlar sabittir; konusu ve içeriği düzenlenebilir. Düzenlenmemiş şablon varsayılan metinle gider. SMS'i olan şablonlarda SMS ayrıca açılır; açıkken e-postayla birlikte kişinin kayıtlı telefonuna gider.</div>
     </div>
 
     @include('admin::partials.status')
@@ -22,6 +22,9 @@
                                 <td class="text-secondary small">{{ $template['recipient'] }}</td>
                                 <td><code>{{ $template['key'] }}</code></td>
                                 <td>
+                                    @if ($template['sms'] !== null)
+                                        <span class="badge {{ in_array($template['key'], $smsOn, true) ? 'bg-green-lt' : 'bg-secondary-lt' }}">SMS {{ in_array($template['key'], $smsOn, true) ? 'açık' : 'kapalı' }}</span>
+                                    @endif
                                     @if (isset($edited[$template['key']]))
                                         <span class="badge bg-blue-lt" title="{{ $edited[$template['key']]?->format('d.m.Y H:i') }}">Düzenlendi</span>
                                     @else

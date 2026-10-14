@@ -19,11 +19,16 @@ class DonationThanks extends Mailable implements ShouldQueue
 
     public function build(): self
     {
-        return $this->template('donation.thanks', [
-            'name' => $this->payment->payer_name,
-            'date' => $this->payment->paid_at?->format('d.m.Y'),
-            'amount' => $this->payment->formattedAmount(),
-            'reference' => $this->payment->reference,
-        ]);
+        return $this->template('donation.thanks', self::values($this->payment));
+    }
+
+    public static function values(Payment $payment): array
+    {
+        return [
+            'name' => $payment->payer_name,
+            'date' => $payment->paid_at?->format('d.m.Y'),
+            'amount' => $payment->formattedAmount(),
+            'reference' => $payment->reference,
+        ];
     }
 }

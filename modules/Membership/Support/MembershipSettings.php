@@ -67,6 +67,27 @@ class MembershipSettings
      * Ask foreign applicants for their foreign identity and residence
      * documents (section 2 of the form).
      */
+    /**
+     * Days between reminders to active members missing their TC identity
+     * number or birth date (needed for e-Devlet); null: off.
+     */
+    public function identityReminderDays(): ?int
+    {
+        $days = (int) $this->organization->get('membership_identity_reminder_days', '0');
+
+        return $days > 0 ? $days : null;
+    }
+
+    /**
+     * Days between reminders to active members without a photo; null: off.
+     */
+    public function photoReminderDays(): ?int
+    {
+        $days = (int) $this->organization->get('membership_photo_reminder_days', '0');
+
+        return $days > 0 ? $days : null;
+    }
+
     public function askForeignFields(): bool
     {
         return $this->organization->get('membership_foreign_fields', '1') === '1';

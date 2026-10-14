@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Event;
 use Modules\Membership\Models\Membership;
 use Modules\Membership\Models\MembershipApplication;
 use Modules\Membership\Support\ApplicationService;
+use Modules\Membership\Support\MembershipService;
 
 /**
  * Membership records: member number, status (applicant, member, suspended,
@@ -30,14 +31,14 @@ class MembershipServiceProvider extends ModuleServiceProvider
     {
         $this->mailTemplates()->group('membership', 'Üyelik', 30);
         $this->mailTemplates()->register('membership.application-received', 'Başvuru alındı: süreç bilgisi', 'membership',
-            'Üyelik başvurunuz alındı ({{application_no}})',
-            '<p>Merhaba {{name}},</p><p>{{organization}} üyelik başvurunuz <strong>{{application_no}}</strong> numarasıyla alındı. Bundan sonraki adımlar:</p>{{steps}}<p>Sorularınız için {{contact_email}} adresine yazabilirsiniz.</p><p>{{organization}}</p>',
+            '{{organization}} üyelik başvurunuz işleme alındı',
+            '<p>Sayın {{name}},</p><p>{{organization}} üyelik başvurunuzun ({{application_no}}) işleme alındığını size bildirmekten memnuniyet duyuyoruz. Bu aşamadan sonra süreç aşağıdaki gibi işleyecek:</p>{{steps}}<p>Her şey tamamlandığında hoş geldiniz e-postası alacaksınız. Sorularınız için {{contact_email}} adresine yazabilirsiniz.</p><p>Saygılarımızla<br>{{organization}}</p>',
             ['name' => 'Adayın adı', 'application_no' => 'Başvuru no', 'steps' => 'Derneğin ayarlarına göre (referans, giriş aidatı) sonraki adımların listesi', 'references_required' => 'Gereken referans sayısı', 'entry_fee' => 'Giriş aidatı tutarı (alınıyorsa)', 'annual_fee' => 'Yıllık aidat tutarı', 'application_url' => 'Adayın portaldaki başvuru sayfası (hesabı varsa)'],
             'Aday (başvuru alınınca; web formundan ya da yönetimden girilince)', 10);
         $this->mailTemplates()->register('membership.reference-invitation', 'Referans daveti', 'membership',
-            '{{applicant}} sizi üyelik başvurusunda referans gösterdi',
-            '<p>Merhaba {{name}},</p><p><strong>{{applicant}}</strong>, {{organization}} üyelik başvurusunda ({{application_no}}) sizi referans olarak gösterdi.</p><p>Referans olmak, bu kişiyi tanıdığınızı ve derneğe üye olmasını desteklediğinizi beyan etmektir. Onaylıyorsanız aşağıdaki bağlantıyı açıp "Kabul ediyorum" düğmesine basın; giriş yapmanız gerekmez:</p><p><a href="{{link}}">{{link}}</a></p><p>Bağlantı {{expires}} tarihine kadar geçerlidir ve size özeldir; başkasıyla paylaşmayın. Referans olmak istemiyorsanız aynı sayfadan bildirebilirsiniz.</p><p>{{organization}}</p>',
-            ['name' => 'Referans üyenin adı', 'applicant' => 'Adayın adı', 'application_no' => 'Başvuru no', 'link' => 'Yanıt bağlantısı', 'expires' => 'Bağlantının son geçerlilik tarihi'],
+            'Üyelik referansınız - {{applicant}}',
+            '<p>Sayın {{name}},</p><p>{{submitted_at}} tarihli üyelik formuyla <strong>{{applicant}}</strong> sizi referans göstererek {{organization}} üyeliğine başvurdu ({{application_no}}).</p><p>{{applicant}} adlı kişiye referans olmayı onaylıyorsanız {{expires}} tarihine kadar aşağıdaki bağlantıyı açıp "Kabul ediyorum" düğmesine basın; giriş yapmanız gerekmez:</p><p><a href="{{link}}">{{link}}</a></p><p>Referans olmak istemiyorsanız aynı sayfadan bildirebilirsiniz. Bağlantı size özeldir; başkasıyla paylaşmayın.</p><p>Saygılarımızla<br>{{organization}}</p>',
+            ['name' => 'Referans üyenin adı', 'applicant' => 'Adayın adı', 'application_no' => 'Başvuru no', 'submitted_at' => 'Başvuru tarihi', 'link' => 'Yanıt bağlantısı', 'expires' => 'Bağlantının son geçerlilik tarihi'],
             'Referans gösterilen üye', 20);
         $this->mailTemplates()->register('membership.reference-declined', 'Referans reddetti', 'membership',
             'Referans yanıtı: {{application_no}}',
@@ -50,10 +51,23 @@ class MembershipServiceProvider extends ModuleServiceProvider
             ['applicant' => 'Adayın adı', 'application_no' => 'Başvuru no', 'admin_url' => 'Yönetimdeki başvuru sayfası'],
             'Bildirim adresi (kurum ayarları)', 50);
         $this->mailTemplates()->register('membership.approved', 'Başvuru kabul edildi: hoş geldiniz', 'membership',
-            '{{organization_short}} üyeliğine hoş geldiniz',
-            '<p>Merhaba {{name}},</p><p>{{organization}} ailesine hoş geldiniz! {{application_no}} numaralı üyelik başvurunuz yönetim kurulunda kabul edildi.</p><p>Üye numaranız: <strong>{{member_number}}</strong><br>Üyelik başlangıç tarihiniz: {{joined_at}}</p><p>Derneğin çalışmalarına katılmak, duyuruları takip etmek ve bilgilerinizi güncellemek için portalı kullanabilirsiniz: <a href="{{portal_url}}">{{portal_url}}</a></p><p>{{organization}}</p>',
+            '{{organization}} ailesine hoş geldiniz',
+            '<p>Sayın {{name}},</p><p>{{organization}} ailesine hoş geldiniz. Üyeliğiniz <strong>{{member_number}}</strong> numarası ile kabul edilmiştir (üyelik başlangıcı {{joined_at}}).</p><p>Bilgilerinizi güncellemek ve profil fotoğrafınızı yüklemek için portala giriş yapabilirsiniz: <a href="{{portal_url}}">{{portal_url}}</a></p><p>Saygılarımızla<br>{{organization}}</p>',
             ['name' => 'Yeni üyenin adı', 'application_no' => 'Başvuru no', 'member_number' => 'Üye no', 'joined_at' => 'Katılma tarihi'],
-            'Yeni üye', 60);
+            'Yeni üye', 60,
+            sms: 'Sayın {{name}}, {{organization}} ailesine hoş geldiniz. Üyeliğiniz {{member_number}} numarası ile kabul edilmiştir.');
+        $this->mailTemplates()->register('membership.identity-missing', 'Kimlik bilgisi eksik (e-Devlet)', 'membership',
+            'Dernek üyeliğinizin e-Devlet\'te görünmemesi',
+            '<p>Sayın {{name}},</p><p>Sistemde kayıtlı olan ad soyad, doğum tarihi ve T.C. kimlik numarası bilgilerinizde eksikler olduğu için dernek üyeliğinizi e-Devlet\'e aktaramıyoruz. Portala giriş yapıp bilgilerinizi güncellemenizi rica ediyoruz: <a href="{{profile_url}}">{{profile_url}}</a></p><p>Eksik bilgiler: {{missing}}</p><p>Saygılarımızla<br>{{organization}}</p>',
+            ['name' => 'Üyenin adı', 'missing' => 'Eksik bilgiler (ör. T.C. kimlik no, doğum tarihi)', 'profile_url' => 'Portaldaki bilgilerim sayfası'],
+            'T.C. kimlik no ya da doğum tarihi eksik aktif üye (üyelik ayarlarındaki aralıkla)', 80,
+            sms: 'Sayın {{name}}, kayıtlı ad soyad, doğum tarihi ve T.C. kimlik numarası bilgilerinizde eksikler olduğu için dernek üyeliğinizi e-Devlet\'e aktaramıyoruz. Portala giriş yapıp bilgilerinizi güncellemenizi rica ediyoruz: {{profile_url}}');
+        $this->mailTemplates()->register('membership.photo-missing', 'Profil fotoğrafı eksik', 'membership',
+            'Profil fotoğrafı yüklemeniz gerekmektedir',
+            '<p>Sayın {{name}},</p><p>Üye kimlik kartınızın hazırlanabilmesi için portaldaki profil sayfanızdan en az 500x500 piksel boyutunda bir profil fotoğrafı yüklemeniz gerekmektedir: <a href="{{photo_url}}">{{photo_url}}</a></p><p>Saygılarımızla<br>{{organization}}</p>',
+            ['name' => 'Üyenin adı', 'photo_url' => 'Portaldaki fotoğraf yükleme sayfası'],
+            'Onaylı ya da bekleyen fotoğrafı olmayan aktif üye (üyelik ayarlarındaki aralıkla)', 85,
+            sms: 'Sayın {{name}}, üye kimlik kartınızın hazırlanabilmesi için profil fotoğrafı yüklemeniz gerekmektedir: {{photo_url}}');
         $this->mailTemplates()->register('membership.rejected', 'Başvuru reddedildi', 'membership',
             'Üyelik başvurunuz sonuçlandı',
             '<p>Merhaba {{name}},</p><p>{{application_no}} numaralı üyelik başvurunuz kabul edilmedi.</p><p>Açıklama: {{reason}}</p><p>{{organization}}</p>',
@@ -99,6 +113,9 @@ class MembershipServiceProvider extends ModuleServiceProvider
 
         // KVKK deletion: the membership record stays (the association must
         // keep its member register) but ends; the contact is anonymized by the core.
+        // Reminders to members with missing identity details or photo, when turned on.
+        Event::listen(\App\Events\ScheduledNoticesDue::class, fn (\App\Events\ScheduledNoticesDue $event) => app(MembershipService::class)->scheduledNotices($event));
+
         Event::listen(ContactAnonymized::class, function (ContactAnonymized $event) {
             Membership::where('contact_id', $event->contact->id)->get()->each(fn (Membership $membership) => $membership->forceFill([
                 'status' => $membership->isActive() ? Membership::LEFT : $membership->status,

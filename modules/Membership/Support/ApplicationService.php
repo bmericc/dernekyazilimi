@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use App\Mail\TemplateMail;
+use App\Support\Notifier;
 use Modules\Membership\Events\ApplicationApproved;
 use Modules\Membership\Events\ReferencesConfirmed;
 use Modules\Membership\Models\MembershipFee;
@@ -378,9 +379,9 @@ class ApplicationService
 
     private function notifyApplicant(MembershipApplication $application, bool $approved): void
     {
-        if ($email = $this->applicantEmail($application)) {
-            $this->mail($email, new ApplicationDecided($application, $approved));
-        }
+        app(Notifier::class)->send($approved ? 'membership.approved' : 'membership.rejected', ApplicationDecided::values($application),
+            $this->applicantEmail($application), $application->answer('phone') ?? $application->contact?->phone, $application->contact,
+            mailable: new ApplicationDecided($application, $approved));
     }
 
     private function mail(string $to, $mailable): void

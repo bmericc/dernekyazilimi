@@ -36,6 +36,7 @@ class DuesStatement extends Mailable implements ShouldQueue
             'charges' => new HtmlString($charges),
             'link' => $this->link,
             'days' => DuesService::LINK_DAYS,
+            'date' => today()->format('d.m.Y'),
         ]);
     }
 }

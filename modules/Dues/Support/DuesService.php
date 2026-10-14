@@ -2,12 +2,14 @@
 
 namespace Modules\Dues\Support;
 
+use App\Events\ScheduledNoticesDue;
 use App\Mail\TemplateMail;
 use App\Models\BankAccount;
 use App\Models\Contact;
 use App\Models\ContactAffiliation;
 use App\Models\Payment;
 use App\Models\PaymentGateway;
+use App\Support\Notifier;
 use App\Support\Payments\Payments;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -16,6 +18,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\HtmlString;
 use Modules\Dues\Mail\DuesStatement;
 use Modules\Dues\Models\DuesCharge;
 use Modules\Dues\Models\DuesExemption;
@@ -237,17 +240,63 @@ class DuesService
             return false;
         }
 
-        if ($email = $application->user?->email ?? $application->answer('email') ?? $contact->email) {
-            $this->mail($email, new TemplateMail('dues.entry-fee', [
-                'name' => $contact->display_name,
-                'application_no' => $application->reference_no,
-                'amount' => MembershipFee::format($open->remaining()),
-                'link' => $this->link($contact),
-                'days' => self::LINK_DAYS,
-            ]));
-        }
+        app(Notifier::class)->send('dues.entry-fee', [
+            'name' => $contact->display_name,
+            'application_no' => $application->reference_no,
+            'amount' => MembershipFee::format($open->remaining()),
+            'link' => $this->link($contact),
+            'days' => self::LINK_DAYS,
+        ], $application->user?->email ?? $application->answer('email') ?? $contact->email, $application->answer('phone') ?? $contact->phone, $contact);
 
         return true;
+    }
+
+    /**
+     * Daily (notices:send): the monthly reminder to members who owe, on the
+     * day set in the dues settings, and the last reminder to applicants who
+     * have not paid the entry fee after the set number of days.
+     */
+    public function scheduledNotices(ScheduledNoticesDue $event): void
+    {
+        $settings = $this->settings;
+
+        if ($settings->autoReminderDay() === today()->day) {
+            $this->withBalance(Contact::query()->select('contacts.*'))
+                ->whereIn('contacts.id', Membership::whereIn('status', [Membership::ACTIVE, Membership::SUSPENDED])->select('contact_id'))
+                // Written into the SQL as a number: a bound float goes as text, and SQLite then compares number < text.
+                ->whereRaw($this->balanceSql().' >= '.sprintf('%.2F', $settings->autoReminderMinimum()))
+                ->each(function (Contact $contact) use ($event) {
+                    $account = $this->account($contact);
+                    $event->notify($contact, 'dues.reminder', [
+                        'name' => $contact->display_name,
+                        'balance' => MembershipFee::format(max(0, $account->balance())),
+                        'charges' => new HtmlString('<ul>'.$account->open()->map(fn (DuesCharge $charge) => '<li>'.e($charge->label()).': '.e(MembershipFee::format($charge->remaining())).'</li>')->implode('').'</ul>'),
+                        'link' => $this->link($contact),
+                        'days' => self::LINK_DAYS,
+                        'date' => today()->format('d.m.Y'),
+                    ], $contact->email, $contact->phone, today()->startOfMonth(), informational: false);
+                });
+        }
+
+        if ($days = $settings->entryFeeReminderDays()) {
+            MembershipApplication::where('status', MembershipApplication::FEE_PENDING)->with('contact')->each(function (MembershipApplication $application) use ($event, $days, $settings) {
+                $contact = $application->contact;
+                $charge = $contact ? $this->openEntryCharge($contact) : null;
+                if (! $charge || $charge->created_at->gt(now()->subDays($days))) {
+                    return;
+                }
+
+                // Once per charge: not again to someone reminded after it was made.
+                $event->notify($contact, 'dues.entry-fee-reminder', [
+                    'name' => $contact->display_name,
+                    'application_no' => $application->reference_no,
+                    'amount' => MembershipFee::format($charge->remaining()),
+                    'deadline' => today()->addDays($settings->entryFeeDeadlineDays())->format('d.m.Y'),
+                    'link' => $this->link($contact),
+                    'days' => self::LINK_DAYS,
+                ], $application->user?->email ?? $application->answer('email') ?? $contact->email, $application->answer('phone') ?? $contact->phone, $charge->created_at, informational: false);
+            });
+        }
     }
 
     /**
@@ -364,13 +413,19 @@ class DuesService
         }
 
         $account = $this->account($contact);
+        $balance = MembershipFee::format(max(0, $account->balance()));
+        $link = $this->link($contact);
         Mail::to($contact->email)->send(new DuesStatement(
             $contact,
-            MembershipFee::format(max(0, $account->balance())),
+            $balance,
             $account->open()->map(fn (DuesCharge $charge) => ['label' => $charge->label(), 'remaining' => MembershipFee::format($charge->remaining())])->all(),
-            $this->link($contact),
+            $link,
             $reminder,
         ));
+
+        if ($reminder) {
+            app(Notifier::class)->sms('dues.reminder', ['name' => $contact->display_name, 'balance' => $balance, 'link' => $link, 'days' => self::LINK_DAYS, 'date' => today()->format('d.m.Y')], $contact->phone);
+        }
 
         return true;
     }

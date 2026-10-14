@@ -25,6 +25,32 @@
                 <div class="form-hint">Örneğin onursal üyelik. Sıfat türleri <a href="{{ route('admin.affiliation-types') }}">sıfat türleri</a> sayfasında tanımlanır. Askıdaki üyelere de yıllık aidat yazılmaz.</div>
             </div>
 
+            <h3 class="mt-4">Otomatik hatırlatmalar</h3>
+            <p class="text-secondary">Her gün 10:00'da çalışır; boş bırakılan hatırlatma gönderilmez. Metinler <a href="{{ route('admin.mail-templates') }}">e-posta şablonlarındadır</a>.</p>
+            <div class="row">
+                <div class="col-md-3 mb-3">
+                    <label class="form-label" for="auto_reminder_day">Borç hatırlatması (ayın kaçında)</label>
+                    <input id="auto_reminder_day" type="number" min="1" max="28" name="auto_reminder_day" class="form-control @error('auto_reminder_day') is-invalid @enderror" value="{{ old('auto_reminder_day', $settings->autoReminderDay()) }}" placeholder="Kapalı">
+                    @error('auto_reminder_day')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label" for="auto_reminder_min">En az borç (TL)</label>
+                    <input id="auto_reminder_min" type="number" min="0.01" step="0.01" name="auto_reminder_min" class="form-control @error('auto_reminder_min') is-invalid @enderror" value="{{ old('auto_reminder_min', $settings->autoReminderMinimum()) }}">
+                    @error('auto_reminder_min')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label" for="entry_fee_reminder_days">Giriş aidatı son uyarısı (istekten kaç gün sonra)</label>
+                    <input id="entry_fee_reminder_days" type="number" min="1" max="365" name="entry_fee_reminder_days" class="form-control @error('entry_fee_reminder_days') is-invalid @enderror" value="{{ old('entry_fee_reminder_days', $settings->entryFeeReminderDays()) }}" placeholder="Kapalı">
+                    @error('entry_fee_reminder_days')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label" for="entry_fee_deadline_days">Son uyarıda verilen süre (gün)</label>
+                    <input id="entry_fee_deadline_days" type="number" min="1" max="365" name="entry_fee_deadline_days" class="form-control @error('entry_fee_deadline_days') is-invalid @enderror" value="{{ old('entry_fee_deadline_days', $settings->entryFeeDeadlineDays()) }}">
+                    @error('entry_fee_deadline_days')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+            </div>
+            <div class="form-hint mb-3">Borç hatırlatması borcu en az bu tutar olan üyeye ayda bir gider (e-posta, şablonda SMS açıksa SMS). Giriş aidatı son uyarısı başvuru başına bir kez gider; süre dolunca başvuruyu yönetim kurulu değerlendirir.</div>
+
             <div class="mb-3"><label class="form-label" for="intro">Aidat sayfası metni</label><textarea id="intro" name="intro" rows="6" class="form-control wysiwyg">{{ old('intro', $settings->intro()) }}</textarea></div>
         </div>
         <div class="card-footer text-end"><button type="submit" class="btn btn-primary">Kaydet</button></div>

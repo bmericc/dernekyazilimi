@@ -15,7 +15,8 @@ use Illuminate\Support\Facades\Storage;
  *   php artisan db:seed --class=LkdOrganizationSeeder --force
  *
  * Only settings that are still empty are filled, so values edited in the
- * admin panel are kept. LKD's agreements are seeded too (LkdAgreementSeeder).
+ * admin panel are kept. LKD's agreements are seeded too (LkdAgreementSeeder), and the SMS of
+ * the emails LKD sent by SMS on Fonzip is turned on (LkdMailTemplateSeeder).
  */
 class LkdOrganizationSeeder extends Seeder
 {
@@ -86,5 +87,6 @@ class LkdOrganizationSeeder extends Seeder
         }
 
         $this->call(LkdAgreementSeeder::class);
+        $this->call(LkdMailTemplateSeeder::class);
     }
 }

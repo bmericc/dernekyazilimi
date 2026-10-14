@@ -31,10 +31,13 @@ class MailTemplates
     /**
      * @param  array<string, string>  $placeholders  name => description, without the common ones
      * @param  string|null  $recipient  who receives it, shown to management
+     * @param  string|null  $sms  default text of the SMS sent along with the email; null when
+     *                            this email has no SMS. The SMS goes out only once management
+     *                            turns it on for the template.
      */
-    public function register(string $key, string $label, string $group, string $subject, string $body, array $placeholders = [], ?string $recipient = null, int $order = 100): void
+    public function register(string $key, string $label, string $group, string $subject, string $body, array $placeholders = [], ?string $recipient = null, int $order = 100, ?string $sms = null): void
     {
-        $this->templates[$key] = compact('key', 'label', 'group', 'subject', 'body', 'placeholders', 'recipient', 'order');
+        $this->templates[$key] = compact('key', 'label', 'group', 'subject', 'body', 'placeholders', 'recipient', 'order', 'sms');
     }
 
     public function has(string $key): bool
@@ -89,20 +92,42 @@ class MailTemplates
     }
 
     /**
-     * Current subject and body: the edited text, else the default.
+     * Current subject, body and SMS: the edited text, else the default.
      *
-     * @return array{subject: string, body: string, edited: bool}
+     * @return array{subject: string, body: string, edited: bool, sms: ?string, sms_enabled: bool}
      */
     public function source(string $key): array
     {
         $template = $this->templates[$key] ?? throw new \InvalidArgumentException("Unknown mail template [$key].");
         $row = $this->edited($key);
+        $sms = $row?->sms ?: $template['sms'];
 
         return [
             'subject' => $row?->subject ?: $template['subject'],
             'body' => $row?->body ?: $template['body'],
-            'edited' => (bool) ($row?->subject || $row?->body),
+            'edited' => (bool) ($row?->subject || $row?->body || $row?->sms),
+            'sms' => $sms,
+            'sms_enabled' => $sms !== null && (bool) $row?->sms_enabled,
         ];
+    }
+
+    /**
+     * The SMS text with the placeholders filled, or null when this template
+     * sends no SMS (none defined, or not turned on).
+     *
+     * @param  array<string, string|int|float|HtmlString|null>  $values
+     */
+    public function renderSms(string $key, array $values = []): ?string
+    {
+        $source = $this->source($key);
+        if (! $source['sms_enabled']) {
+            return null;
+        }
+
+        $values += $this->commonValues();
+        $text = $this->replace($source['sms'], fn ($value) => trim(strip_tags($value instanceof HtmlString ? $value->toHtml() : (string) $value)), $values);
+
+        return trim(preg_replace('/[ \t]+/', ' ', $text));
     }
 
     /**

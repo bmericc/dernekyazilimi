@@ -43,7 +43,11 @@ class OrganizationSettingsController extends Controller
 
     public function edit(Organization $organization, SiteApi $siteApi): View
     {
-        return view('admin::settings.organization', ['organization' => $organization, 'siteApi' => $siteApi]);
+        return view('admin::settings.organization', [
+            'organization' => $organization,
+            'siteApi' => $siteApi,
+            'affiliationTypes' => \App\Models\AffiliationType::orderBy('name')->get(),
+        ]);
     }
 
     /**
@@ -78,6 +82,8 @@ class OrganizationSettingsController extends Controller
                 }
             }],
             'home_content' => ['nullable', 'string', 'max:100000'],
+            'birthday_types' => ['nullable', 'array'],
+            'birthday_types.*' => ['integer', 'exists:affiliation_types,id'],
             'logo' => ['nullable', 'file', 'image', 'mimes:png,jpeg,webp', 'max:2048'],
             'favicon' => ['nullable', 'file', 'mimes:png,ico', 'max:512'],
         ], [], $this->attributes());
@@ -88,6 +94,7 @@ class OrganizationSettingsController extends Controller
         $values['primary_color'] = isset($values['primary_color']) ? strtolower($values['primary_color']) : null;
         $values['frame_ancestors'] = trim(implode("\n", preg_split('/\s+/', trim((string) ($data['frame_ancestors'] ?? ''))))) ?: null;
         $values['home_content'] = trim($sanitizer->sanitizePage($data['home_content'] ?? '')) ?: null;
+        $values['birthday_greeting_types'] = implode(',', array_map('intval', $data['birthday_types'] ?? [])) ?: null;
 
         foreach (['logo' => 'logo_path', 'favicon' => 'favicon_path'] as $field => $key) {
             $old = $organization->get($key);

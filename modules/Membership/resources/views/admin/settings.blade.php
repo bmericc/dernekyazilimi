@@ -50,6 +50,21 @@
             </label>
             <div class="form-hint mb-3">Giriş aidatı ve yıllık aidat tutarları <a href="{{ route('admin.membership-fees') }}">Aidatlar</a> sayfasında yıl yıl girilir.</div>
 
+            <h3 class="mt-4">Üyelere otomatik hatırlatmalar</h3>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label" for="identity_reminder_days">Kimlik bilgisi eksik (kaç günde bir)</label>
+                    <input id="identity_reminder_days" type="number" min="1" max="365" name="identity_reminder_days" class="form-control @error('identity_reminder_days') is-invalid @enderror" value="{{ old('identity_reminder_days', $settings->identityReminderDays()) }}" placeholder="Kapalı">
+                    @error('identity_reminder_days')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label" for="photo_reminder_days">Profil fotoğrafı eksik (kaç günde bir)</label>
+                    <input id="photo_reminder_days" type="number" min="1" max="365" name="photo_reminder_days" class="form-control @error('photo_reminder_days') is-invalid @enderror" value="{{ old('photo_reminder_days', $settings->photoReminderDays()) }}" placeholder="Kapalı">
+                    @error('photo_reminder_days')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+            </div>
+            <div class="form-hint mb-3">Her gün 10:00'da bakılır: T.C. kimlik no ya da doğum tarihi eksik (e-Devlet'e aktarılamayan) ve onaylı ya da bekleyen fotoğrafı olmayan aktif üyelere bu aralıkla hatırlatma gider. Boş: gönderilmez. Metinler <a href="{{ route('admin.mail-templates') }}">e-posta şablonlarındadır</a>.</div>
+
             <h3 class="mt-4">Form</h3>
             <label class="form-check mb-2">
                 <input type="checkbox" class="form-check-input" name="foreign_fields" value="1" @checked(old('foreign_fields', $settings->askForeignFields()))>

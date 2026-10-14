@@ -157,4 +157,40 @@ class MembershipService
             $active->each(fn ($affiliation) => $affiliation->update(['ended_at' => $date]));
         }
     }
+
+    /**
+     * Daily (notices:send): active members whose identity details or photo
+     * are missing get a reminder, at most once in the interval set in the
+     * membership settings.
+     */
+    public function scheduledNotices(\App\Events\ScheduledNoticesDue $event): void
+    {
+        $settings = app(MembershipSettings::class);
+        $members = fn () => Contact::whereIn('id', Membership::active()->select('contact_id'));
+
+        if ($days = $settings->identityReminderDays()) {
+            $members()->where(fn ($query) => $query->whereNull('identity_number')->orWhere('identity_number', '')->orWhereNull('birthday'))
+                ->each(function (Contact $contact) use ($event, $days) {
+                    $missing = array_filter([
+                        blank($contact->identity_number) ? 'T.C. kimlik no' : null,
+                        $contact->birthday === null ? 'doğum tarihi' : null,
+                    ]);
+                    $event->notify($contact, 'membership.identity-missing', [
+                        'name' => $contact->display_name,
+                        'missing' => implode(', ', $missing),
+                        'profile_url' => route('my-infos'),
+                    ], $contact->email, $contact->phone, now()->subDays($days), informational: false);
+                });
+        }
+
+        if ($days = $settings->photoReminderDays()) {
+            $members()->whereDoesntHave('photos', fn ($query) => $query->whereIn('status', [\App\Models\ContactPhoto::APPROVED, \App\Models\ContactPhoto::PENDING]))
+                ->each(function (Contact $contact) use ($event, $days) {
+                    $event->notify($contact, 'membership.photo-missing', [
+                        'name' => $contact->display_name,
+                        'photo_url' => route('my-infos').'#photo',
+                    ], $contact->email, $contact->phone, now()->subDays($days), informational: false);
+                });
+        }
+    }
 }
