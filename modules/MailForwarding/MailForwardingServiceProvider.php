@@ -35,8 +35,7 @@ class MailForwardingServiceProvider extends ModuleServiceProvider
             $this->commands([Console\aliasTest::class, Console\emailTest::class]);
         }
 
-        $menu->label('user', 'account', 'E-posta', 'mail');
-        $menu->add('user', 'account', 'panel.email_forwarding', 'email-redirects', [], 10, fn ($user) => app(ForwardingPolicy::class)->eligible($user));
+        $slots->push('account.menu', 'mail-forwarding::partials.account-menu', 10);
 
         $this->permissions()->group('mail-forwarding', 'E-posta yönlendirme', 50);
         $this->permissions()->register('forwarding.manage', 'Dernek e-posta adresinin kimlere verileceğini ayarlayabilsin', 'mail-forwarding', 50);
