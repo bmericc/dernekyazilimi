@@ -20,6 +20,7 @@ class LkdMailTemplateSeeder extends Seeder
         'dues.entry-fee-reminder',
         'dues.reminder',
         'donation.thanks',
+        'id-card.share',
     ];
 
     public function run(): void

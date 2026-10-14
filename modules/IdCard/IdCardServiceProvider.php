@@ -29,7 +29,19 @@ class IdCardServiceProvider extends ModuleServiceProvider
         $this->trash()->register('id-card-template', \Modules\IdCard\Models\IdCardTemplate::class);
         $this->permissions()->register('id-cards.manage', 'Kart şablonlarını düzenleyebilsin, kartları iptal edebilsin', 'id-cards', 40);
 
-        $slots->push('account.menu', 'id-card::partials.account-menu', 20);
+        // In the site menu bar, for people who hold an affiliation with a card.
+        $menu->label('user', 'id-card', null, 'id-badge-2');
+        $menu->add('user', 'id-card', 'Kimlik kartlarım', 'id-cards', [], 15, fn ($user) => $user?->contact_id
+            && \App\Models\ContactAffiliation::where('contact_id', $user->contact_id)->active()
+                ->whereIn('affiliation_type_id', IdCardTemplate::where('is_active', true)->select('affiliation_type_id'))->exists());
+
+        $this->mailTemplates()->group('id-card', 'Kimlik kartı', 45);
+        $this->mailTemplates()->register('id-card.share', 'Dijital kimlik kartı bağlantısı', 'id-card',
+            '{{organization}} dijital kimlik kartınız',
+            '<p>Sayın {{name}},</p><p>{{card_name}} kartınızı ({{number}}) aşağıdaki bağlantıyı tıklayarak açabilir ve telefonunuza kaydedebilirsiniz. Kartınızı yanınızda taşımak için sayfayı telefonunuzun ana ekranına ekleyin ya da ekran görüntüsünü alın.</p><p><a href="{{link}}">{{link}}</a></p><p>Bağlantı kişisel veri güvenliğiniz için size özeldir ve {{days}} gün geçerlidir; başkasıyla paylaşmayın. Bu e-postayı telefonunuzda açmanız önerilir.</p><p>Saygılarımızla<br>{{organization}}</p>',
+            ['name' => 'Kart sahibinin adı', 'card_name' => 'Kartın adı (ör. Üye Kimlik Kartı)', 'number' => 'Kart no', 'link' => 'Kartı giriş yapmadan açan kişisel bağlantı', 'days' => 'Bağlantının geçerlilik süresi (gün)'],
+            'Kart sahibi ("Telefonuma gönder" ya da yönetim gönderince)', 10,
+            sms: 'Sn {{name}}, {{organization_short}} dijital kimlik kartınızı telefonunuza kaydetmek için tıklayın: {{link}}');
 
         $menu->label('admin', 'id-card', 'Kimlik kartları', 'id-badge-2');
         $menu->add('admin', 'id-card', 'Kart şablonları', 'admin.id-cards', ['id-cards.manage'], 40);

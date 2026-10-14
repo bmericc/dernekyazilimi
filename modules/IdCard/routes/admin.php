@@ -16,4 +16,5 @@ Route::middleware('permission:id-cards.manage')->prefix('id-cards')->name('id-ca
     Route::patch('/issued/{card}/revoke', [IssuedCardController::class, 'revoke'])->name('.revoke');
     Route::patch('/issued/{card}/restore', [IssuedCardController::class, 'restore'])->name('.restore');
     Route::patch('/issued/{card}/renew', [IssuedCardController::class, 'renew'])->name('.renew');
+    Route::post('/issued/{card}/send', [IssuedCardController::class, 'send'])->middleware('throttle:30,1')->name('.send');
 });

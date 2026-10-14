@@ -73,7 +73,11 @@
                                 @if ($card->revoked_at)
                                     <span class="text-danger">Bu kart iptal edildi{{ $card->revoked_reason ? ': '.$card->revoked_reason : '' }}.</span>
                                 @else
-                                    <button type="button" class="btn btn-primary" onclick="printIdCard('id-card-{{ $card->id }}')"><i class="ti ti-printer icon"></i> Yazdır / PDF olarak kaydet</button>
+                                    <form method="POST" action="{{ route('id-cards.send', $card) }}">
+                                        @csrf
+                                        <button type="submit" class="btn btn-primary" title="Kartı telefonda açacağınız kişisel bağlantı e-postanıza (ve SMS açıksa telefonunuza) gelir"><i class="ti ti-device-mobile-share icon"></i> Telefonuma gönder</button>
+                                    </form>
+                                    <button type="button" class="btn btn-outline-primary" onclick="printIdCard('id-card-{{ $card->id }}')"><i class="ti ti-printer icon"></i> Yazdır / PDF olarak kaydet</button>
                                     <a href="{{ \Modules\IdCard\Support\CardView::verifyUrl($card) }}" target="_blank" rel="noopener" class="btn btn-outline-secondary"><i class="ti ti-shield-check icon"></i> Doğrulama sayfası</a>
                                     <form method="POST" action="{{ route('id-cards.renew', $card) }}" class="ms-auto" onsubmit="return confirm('QR kod yenilensin mi? Kartın eski çıktıları ve ekran görüntüleri artık doğrulanmaz.')">
                                         @csrf

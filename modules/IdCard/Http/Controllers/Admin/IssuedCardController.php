@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Modules\IdCard\Models\IdCard;
 use Modules\IdCard\Models\IdCardTemplate;
+use Modules\IdCard\Support\CardShare;
 
 class IssuedCardController extends Controller
 {
@@ -57,5 +58,20 @@ class IssuedCardController extends Controller
         $this->set_log('change', "Kimlik kartı QR kodu yenilendi: {$card->number}");
 
         return back()->with('success-status', "{$card->number} numaralı kartın QR kodu yenilendi.");
+    }
+
+    /**
+     * Send the card's personal link to the holder's email and phone.
+     */
+    public function send(IdCard $card, CardShare $share): RedirectResponse
+    {
+        abort_unless($card->isValid(), 403);
+
+        $channels = $share->send($card);
+        $this->set_log('other', "Kimlik kartı bağlantısı gönderildi: {$card->number}");
+
+        return back()->with($channels ? 'success-status' : 'danger-status', $channels
+            ? "{$card->number} numaralı kartın bağlantısı gönderildi (".implode(', ', array_map(fn ($channel) => $channel === 'sms' ? 'SMS' : 'e-posta', $channels)).').'
+            : 'Kişinin geçerli bir e-posta adresi yok.');
     }
 }
