@@ -10,7 +10,7 @@ use Modules\Membership\Http\Controllers\Admin\MembershipSettingsController;
 Route::middleware('permission:memberships.view')->group(function () {
     Route::get('/memberships', [MembershipController::class, 'index'])->name('memberships');
     Route::get('/membership-applications', [ApplicationAdminController::class, 'index'])->name('membership-applications');
-    Route::get('/membership-applications/{application}', [ApplicationAdminController::class, 'show'])->name('membership-applications.show');
+    Route::get('/membership-applications/{application}', [ApplicationAdminController::class, 'show'])->whereNumber('application')->name('membership-applications.show');
     Route::get('/membership-applications/{application}/pdf', [ApplicationAdminController::class, 'pdf'])->name('membership-applications.pdf');
 });
 
@@ -19,6 +19,8 @@ Route::middleware('permission:memberships.manage')->group(function () {
     Route::put('/memberships/{membership}', [MembershipController::class, 'update'])->whereNumber('membership')->name('memberships.update');
     Route::patch('/memberships/{membership}/status', [MembershipController::class, 'status'])->whereNumber('membership')->name('memberships.status');
     Route::post('/memberships/{membership}/events', [MembershipController::class, 'event'])->whereNumber('membership')->name('memberships.events.store');
+    Route::get('/membership-applications/create', [ApplicationAdminController::class, 'create'])->name('membership-applications.create');
+    Route::post('/membership-applications', [ApplicationAdminController::class, 'store'])->name('membership-applications.store');
     Route::patch('/membership-applications/{application}/signed-form', [ApplicationAdminController::class, 'signedForm'])->name('membership-applications.signed-form');
     Route::patch('/membership-applications/{application}/approve', [ApplicationAdminController::class, 'approve'])->name('membership-applications.approve');
     Route::patch('/membership-applications/{application}/reject', [ApplicationAdminController::class, 'reject'])->name('membership-applications.reject');

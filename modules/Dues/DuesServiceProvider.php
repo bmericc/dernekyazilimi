@@ -15,6 +15,7 @@ use Modules\Dues\Mail\DuesPaymentReceived;
 use Modules\Dues\Models\DuesExemption;
 use Modules\Dues\Support\DuesService;
 use Modules\Membership\Events\ApplicationApproved;
+use Modules\Membership\Events\ReferencesConfirmed;
 use Modules\Membership\Models\Membership;
 use Modules\Membership\Models\MembershipFee;
 use Throwable;
@@ -50,6 +51,17 @@ class DuesServiceProvider extends ModuleServiceProvider
             '<p>Merhaba {{name}},</p><p>{{organization}} üyelik aidatınızdan ödenmemiş <strong>{{balance}}</strong> bulunuyor.</p>{{charges}}<p>Hareketlerinizi görmek ve ödeme yapmak için: <a href="{{link}}">{{link}}</a></p><p>Bu bağlantı size özeldir ve {{days}} gün geçerlidir; başkasıyla paylaşmayın.</p><p>{{organization}}</p>',
             ['name' => 'Üyenin adı', 'balance' => 'Güncel borç', 'charges' => 'Ödenmemiş borçların listesi', 'link' => 'Kişiye özel ödeme bağlantısı', 'days' => 'Bağlantının geçerlilik süresi (gün)'],
             'Borçlu üye (yönetim hatırlatma gönderince)', 30);
+        // Steps of the membership application that the dues module carries out.
+        $this->mailTemplates()->register('dues.entry-fee', 'Giriş aidatı ödeme isteği', 'membership',
+            'Üyelik başvurunuz: giriş aidatı',
+            '<p>Merhaba {{name}},</p><p>{{application_no}} numaralı üyelik başvurunuzun yönetim kurulunda değerlendirilebilmesi için <strong>{{amount}}</strong> giriş aidatını ödemeniz gerekiyor.</p><p>Kartla ya da havaleyle ödemek için: <a href="{{link}}">{{link}}</a></p><p>Bu bağlantı size özeldir ve {{days}} gün geçerlidir; süresi dolarsa {{contact_email}} adresinden bize yazabilirsiniz.</p><p>Ödemeniz ulaştığında başvurunuz ilk yönetim kurulu toplantısında değerlendirilir.</p><p>{{organization}}</p>',
+            ['name' => 'Adayın adı', 'application_no' => 'Başvuru no', 'amount' => 'Giriş aidatı tutarı', 'link' => 'Kişiye özel ödeme bağlantısı', 'days' => 'Bağlantının geçerlilik süresi (gün)'],
+            'Aday (referanslar tamamlanınca; giriş aidatı alınıyorsa)', 40);
+        $this->mailTemplates()->register('dues.new-member', 'Yeni üyeye yıllık aidat bilgisi', 'membership',
+            '{{year_of_dues}} yılı üyelik aidatınız',
+            '<p>Merhaba {{name}},</p><p>Üyeliğiniz başladı. {{year_of_dues}} yılı üyelik aidatınız <strong>{{annual_fee}}</strong>; yıl içinde dilediğiniz zaman ödeyebilirsiniz.</p><p>Şimdi ödemek isterseniz kartla ya da havaleyle: <a href="{{link}}">{{link}}</a> (bağlantı size özeldir ve {{days}} gün geçerlidir).</p><p>Güncel aidat borcunuz: {{balance}}</p><p>{{organization}}</p>',
+            ['name' => 'Yeni üyenin adı', 'year_of_dues' => 'Aidat yılı', 'annual_fee' => 'Yıllık aidat tutarı', 'balance' => 'Güncel aidat borcu', 'link' => 'Kişiye özel ödeme bağlantısı', 'days' => 'Bağlantının geçerlilik süresi (gün)'],
+            'Yeni üye (kabulde, yıllık aidat borcu yazılınca)', 65);
 
         $this->permissions()->group('dues', 'Üyelik aidatları', 25);
         $this->trash()->register('dues-exemption', \Modules\Dues\Models\DuesExemption::class, 'Aidat muafiyeti');
@@ -72,12 +84,21 @@ class DuesServiceProvider extends ModuleServiceProvider
         $this->dashboard()->stat('Bu yıl aidat', 'receipt', fn () => (int) Payment::where('purpose', 'dues')->where('status', Payment::SUCCEEDED)
             ->whereBetween('paid_at', [now()->startOfYear(), now()->endOfYear()])->sum('amount'), 'admin.dues', ['dues.view'], 22, 'TL, tahsil edilen');
 
-        // A new member owes the entry fee and the joining year's dues.
+        // An applicant whose references are in pays the entry fee before the board decides.
+        Event::listen(ReferencesConfirmed::class, function (ReferencesConfirmed $event) {
+            $event->awaitingEntryFee = app(DuesService::class)->requestEntryFee($event->application);
+        });
+
+        // A new member owes the joining year's dues (and the entry fee if not charged yet).
         Event::listen(ApplicationApproved::class, fn (ApplicationApproved $event) => app(DuesService::class)->chargeNewMember($event->application));
 
         Event::listen(PaymentSucceeded::class, function (PaymentSucceeded $event) {
             $payment = $event->payment;
-            if ($payment->purpose !== 'dues' || ! $payment->payer_email || ! $payment->contact) {
+            if ($payment->purpose !== 'dues' || ! $payment->contact) {
+                return;
+            }
+            app(DuesService::class)->settleEntryFee($payment->contact);
+            if (! $payment->payer_email) {
                 return;
             }
             try {

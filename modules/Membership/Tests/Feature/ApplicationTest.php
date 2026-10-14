@@ -117,11 +117,11 @@ class ApplicationTest extends TestCase
         $firstReference = MembershipReference::where('referee_contact_id', $first->contact_id)->sole();
         $url = $links[$firstReference->id];
 
-        // Only the invited member, signed in, can answer.
-        $this->actingAs($second)->get($url)->assertOk()->assertSee('başka bir üyeye');
-        $this->actingAs($first)->get(str_replace(substr($url, -10), 'xxxxxxxxxx', $url))->assertOk()->assertSee('geçerli değil');
-        $this->actingAs($first)->get($url)->assertOk()->assertSee('Kabul ediyorum');
-        $this->actingAs($first)->post($url, ['answer' => 'accept'])->assertRedirect();
+        // The secret link alone is enough: the member answers without signing in.
+        auth()->forgetGuards();
+        $this->get(str_replace(substr($url, -10), 'xxxxxxxxxx', $url))->assertOk()->assertSee('geçerli değil');
+        $this->get($url)->assertOk()->assertSee('Kabul ediyorum');
+        $this->post($url, ['answer' => 'accept'])->assertRedirect();
         $this->assertSame(MembershipReference::ACCEPTED, $firstReference->fresh()->status);
         $this->assertSame(MembershipApplication::REFERENCES_PENDING, $application->fresh()->status);
 

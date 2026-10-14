@@ -3,8 +3,15 @@
 @section('content')
 <div class="container-xl">
     <div class="page-header mb-3">
-        <h2 class="page-title">Üyelik başvuruları</h2>
-        <div class="text-secondary mt-1">Referansları tamamlanan başvurular "Karar bekliyor" sekmesine düşer.</div>
+        <div class="row align-items-center">
+            <div class="col">
+                <h2 class="page-title">Üyelik başvuruları</h2>
+                <div class="text-secondary mt-1">Referansları tamamlanan başvuru, giriş aidatı alınıyorsa ödenene kadar "Giriş aidatı bekleniyor", sonra "Karar bekliyor" sekmesindedir.</div>
+            </div>
+            @if (Auth::user()->hasPermission('memberships.manage'))
+                <div class="col-auto"><a href="{{ route('admin.membership-applications.create') }}" class="btn btn-primary"><i class="ti ti-plus icon"></i> Başvuru gir</a></div>
+            @endif
+        </div>
     </div>
 
     @include('admin::partials.status')
