@@ -11,8 +11,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/membership/application/pdf', [ApplicationController::class, 'pdf'])->name('membership.application.pdf');
     Route::delete('/membership/application', [ApplicationController::class, 'withdraw'])->name('membership.application.withdraw');
     Route::put('/membership/references/{reference}/replace', [ApplicationController::class, 'replace'])->middleware('throttle:10,1')->name('membership.references.replace');
-
-    // Opened from the invitation email; the member must be signed in.
-    Route::get('/membership/references/{reference}/{token}', [ReferenceResponseController::class, 'show'])->name('membership.references.show');
-    Route::post('/membership/references/{reference}/{token}', [ReferenceResponseController::class, 'respond'])->middleware('throttle:10,1')->name('membership.references.respond');
 });
+
+// Opened from the invitation email: the secret link is enough, no sign-in.
+Route::get('/membership/references/{reference}/{token}', [ReferenceResponseController::class, 'show'])->name('membership.references.show');
+Route::post('/membership/references/{reference}/{token}', [ReferenceResponseController::class, 'respond'])->middleware('throttle:10,1')->name('membership.references.respond');

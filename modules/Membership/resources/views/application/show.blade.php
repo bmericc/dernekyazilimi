@@ -50,6 +50,11 @@
                 <div class="card">
                     <div class="card-header"><h3 class="card-title">Sonraki adımlar</h3></div>
                     <div class="card-body">
+                        @if ($application->status === \Modules\Membership\Models\MembershipApplication::FEE_PENDING)
+                            <div class="alert alert-info">Referanslarınız başvurunuzu onayladı. Başvurunuzun yönetim kuruluna gelmesi için giriş aidatını ödeyin; ödeme bağlantısı e-postanıza gönderildi.
+                                @if (Route::has('dues.mine'))<a href="{{ route('dues.mine') }}">Aidat sayfasından da ödeyebilirsiniz.</a>@endif
+                            </div>
+                        @endif
                         @if ($settings->instructions($application->submitted_at->year))
                             <div class="markdown">{!! $settings->instructions($application->submitted_at->year) !!}</div>
                         @else

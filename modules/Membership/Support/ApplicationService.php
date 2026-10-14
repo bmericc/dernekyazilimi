@@ -9,8 +9,12 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
+use App\Mail\TemplateMail;
 use Modules\Membership\Events\ApplicationApproved;
+use Modules\Membership\Events\ReferencesConfirmed;
+use Modules\Membership\Models\MembershipFee;
 use Modules\Membership\Mail\ApplicationDecided;
 use Modules\Membership\Mail\ApplicationReady;
 use Modules\Membership\Mail\ReferenceDeclined;
@@ -42,14 +46,23 @@ class ApplicationService
             return 'Üyelik başvuruları şu anda kapalı.';
         }
 
-        $membership = Membership::where('contact_id', $user->contact_id)->first();
+        return $this->contactBlocker($user->syncContact());
+    }
+
+    /**
+     * Why this person cannot have a new application, whoever enters it
+     * (also management, with applications closed); null when they can.
+     */
+    public function contactBlocker(Contact $contact): ?string
+    {
+        $membership = Membership::where('contact_id', $contact->id)->first();
         if ($membership?->isActive()) {
             return 'Zaten üyesiniz.';
         }
         if ($membership?->status === Membership::SUSPENDED) {
             return 'Üyeliğiniz askıda; lütfen dernekle iletişime geçin.';
         }
-        if ($this->openApplication($user)) {
+        if ($this->openApplicationFor($contact)) {
             return 'Değerlendirmede olan bir başvurunuz var.';
         }
 
@@ -58,8 +71,13 @@ class ApplicationService
 
     public function openApplication(User $user): ?MembershipApplication
     {
-        return MembershipApplication::where('contact_id', $user->contact_id)
-            ->whereIn('status', [MembershipApplication::REFERENCES_PENDING, MembershipApplication::READY])
+        return $user->contact_id ? $this->openApplicationFor($user->syncContact()) : null;
+    }
+
+    public function openApplicationFor(Contact $contact): ?MembershipApplication
+    {
+        return MembershipApplication::where('contact_id', $contact->id)
+            ->whereIn('status', MembershipApplication::OPEN)
             ->latest('id')->first();
     }
 
@@ -102,39 +120,128 @@ class ApplicationService
     }
 
     /**
+     * A new application: from the applicant's own form, or entered by
+     * management from a form that came in on paper or by email.
+     *
      * @param  array<string, mixed>  $data  validated form answers
      * @param  Contact[]  $referees
      */
-    public function submit(User $user, array $data, array $referees): MembershipApplication
+    public function submit(Contact $contact, ?User $user, array $data, array $referees, ?Carbon $submittedAt = null): MembershipApplication
     {
-        return DB::transaction(function () use ($user, $data, $referees) {
-            $contact = $user->syncContact();
+        $application = DB::transaction(function () use ($contact, $user, $data, $referees, $submittedAt) {
             $contact->update(['gender' => $data['gender'] ?? $contact->gender]);
             $membership = Membership::firstOrNew(['contact_id' => $contact->id]);
-            $membership->fill(['status' => Membership::APPLICANT, 'applied_at' => today()])->save();
+            $membership->fill(['status' => Membership::APPLICANT, 'applied_at' => ($submittedAt ?? today())->toDateString()])->save();
 
             $application = MembershipApplication::create([
                 'membership_id' => $membership->id,
                 'contact_id' => $contact->id,
-                'user_id' => $user->id,
+                'user_id' => $user?->id ?? $contact->user?->id,
                 'reference_no' => $this->nextReferenceNo(),
-                'status' => $this->settings->referencesRequired() > 0 ? MembershipApplication::REFERENCES_PENDING : MembershipApplication::READY,
+                'status' => MembershipApplication::REFERENCES_PENDING,
                 'data' => $data,
-                'submitted_at' => now(),
+                'submitted_at' => $submittedAt ?? now(),
             ]);
 
-            $this->memberships->event($membership, 'applied', today(), 'Başvuru '.$application->reference_no);
+            $this->memberships->event($membership, 'applied', ($submittedAt ?? today())->copy()->startOfDay(), 'Başvuru '.$application->reference_no);
+
+            if ($email = $this->applicantEmail($application)) {
+                $this->mail($email, new TemplateMail('membership.application-received', $this->applicantValues($application)));
+            }
 
             foreach (array_values($referees) as $index => $referee) {
                 $this->invite($application, $referee, $index + 1);
             }
 
-            if ($application->status === MembershipApplication::READY) {
-                $this->notifyManagement($application);
+            if ($this->settings->referencesRequired() === 0) {
+                $this->confirmReferences($application);
             }
 
             return $application;
         });
+
+        return $application->fresh();
+    }
+
+    /**
+     * The references are in: on to the entry fee when a module collects
+     * one, else to the board.
+     */
+    public function confirmReferences(MembershipApplication $application): void
+    {
+        $event = new ReferencesConfirmed($application);
+        event($event);
+
+        if ($event->awaitingEntryFee) {
+            $application->update(['status' => MembershipApplication::FEE_PENDING]);
+            $this->memberships->event($application->membership, 'note', today(), 'Referanslar tamamlandı; giriş aidatı bekleniyor');
+
+            return;
+        }
+
+        $application->update(['status' => MembershipApplication::READY]);
+        $this->notifyManagement($application);
+    }
+
+    /**
+     * The entry fee is paid (or waived): the application goes to the board.
+     */
+    public function entryFeeSettled(MembershipApplication $application): void
+    {
+        if ($application->status !== MembershipApplication::FEE_PENDING) {
+            return;
+        }
+
+        $application->update(['status' => MembershipApplication::READY]);
+        $this->memberships->event($application->membership, 'note', today(), 'Giriş aidatı ödendi; karar bekliyor');
+        $this->notifyManagement($application);
+    }
+
+    public function applicantEmail(MembershipApplication $application): ?string
+    {
+        return $application->user?->email ?? $application->answer('email') ?? $application->contact?->email;
+    }
+
+    /**
+     * Placeholder values about the applicant, for the emails sent to them.
+     *
+     * @return array<string, string|null>
+     */
+    public function applicantValues(MembershipApplication $application): array
+    {
+        $fee = $this->settings->fees($application->submitted_at->year);
+
+        return [
+            'name' => $application->contact?->display_name,
+            'application_no' => $application->reference_no,
+            'references_required' => (string) $this->settings->referencesRequired(),
+            'entry_fee' => $this->settings->chargesEntryFee() ? MembershipFee::format($fee?->entry_fee) : null,
+            'annual_fee' => MembershipFee::format($fee?->annual_fee),
+            'application_url' => $application->user_id ? route('membership.application') : null,
+            'steps' => new HtmlString('<ol>'.collect($this->steps($fee))->map(fn (string $step) => '<li>'.e($step).'</li>')->implode('').'</ol>'),
+        ];
+    }
+
+    /**
+     * What happens after applying, for this installation: references and
+     * the entry fee only when the association asks for them.
+     *
+     * @return string[]
+     */
+    private function steps(?MembershipFee $fee): array
+    {
+        $steps = [];
+        if (($required = $this->settings->referencesRequired()) > 0) {
+            $steps[] = "Referans gösterdiğiniz {$required} üyeye onay bağlantısı gönderildi; hepsi onayladığında size haber veririz.";
+        }
+        // The dues module collects the entry fee; without it the step does not happen.
+        if ($this->settings->chargesEntryFee() && (float) $fee?->entry_fee > 0 && app(\App\Modules\ModuleManager::class)->enabled('dues')) {
+            $steps[] = 'Giriş aidatını ('.MembershipFee::format($fee->entry_fee).') ödemeniz için size kişisel bir ödeme bağlantısı gönderilir.';
+        }
+        $steps[] = 'Başvurunuz ilk yönetim kurulu toplantısında değerlendirilir.';
+        $steps[] = 'Kabul edilirseniz üye numaranız ve yıllık aidat bilgisi e-postayla size bildirilir.';
+
+        return $steps;
     }
 
     public function invite(MembershipApplication $application, Contact $referee, int $position): MembershipReference
@@ -184,7 +291,7 @@ class ApplicationService
             $application = $reference->application;
 
             if (! $accepted) {
-                $email = $application->user?->email ?? $application->contact->email;
+                $email = $this->applicantEmail($application);
                 $email && $this->mail($email, new ReferenceDeclined($reference));
 
                 return;
@@ -192,8 +299,7 @@ class ApplicationService
 
             $accepted = $application->references()->where('status', MembershipReference::ACCEPTED)->count();
             if ($application->status === MembershipApplication::REFERENCES_PENDING && $accepted >= $this->settings->referencesRequired()) {
-                $application->update(['status' => MembershipApplication::READY]);
-                $this->notifyManagement($application);
+                $this->confirmReferences($application);
             }
         });
     }
@@ -272,7 +378,7 @@ class ApplicationService
 
     private function notifyApplicant(MembershipApplication $application, bool $approved): void
     {
-        if ($email = $application->user?->email ?? $application->contact->email) {
+        if ($email = $this->applicantEmail($application)) {
             $this->mail($email, new ApplicationDecided($application, $approved));
         }
     }

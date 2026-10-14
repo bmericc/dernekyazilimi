@@ -15,6 +15,9 @@ class MembershipApplication extends Model
 
     public const REFERENCES_PENDING = 'references_pending';
 
+    /** References confirmed; the entry fee is charged and not paid yet. */
+    public const FEE_PENDING = 'fee_pending';
+
     public const READY = 'ready';
 
     public const APPROVED = 'approved';
@@ -23,8 +26,12 @@ class MembershipApplication extends Model
 
     public const WITHDRAWN = 'withdrawn';
 
+    /** Still under way: not decided nor withdrawn. */
+    public const OPEN = [self::REFERENCES_PENDING, self::FEE_PENDING, self::READY];
+
     public const STATUSES = [
         self::REFERENCES_PENDING => 'Referans teyidi bekleniyor',
+        self::FEE_PENDING => 'Giriş aidatı bekleniyor',
         self::READY => 'Karar bekliyor',
         self::APPROVED => 'Kabul edildi',
         self::REJECTED => 'Reddedildi',
@@ -33,6 +40,7 @@ class MembershipApplication extends Model
 
     public const STATUS_COLORS = [
         self::REFERENCES_PENDING => 'yellow',
+        self::FEE_PENDING => 'orange',
         self::READY => 'blue',
         self::APPROVED => 'green',
         self::REJECTED => 'red',
@@ -89,7 +97,7 @@ class MembershipApplication extends Model
 
     public function isOpen(): bool
     {
-        return in_array($this->status, [self::REFERENCES_PENDING, self::READY], true);
+        return in_array($this->status, self::OPEN, true);
     }
 
     public function statusLabel(): string

@@ -110,9 +110,13 @@
                 <div class="card mt-3">
                     <div class="card-header"><h3 class="card-title">Kabul et</h3></div>
                     <div class="card-body">
-                        @if ($a->status !== \Modules\Membership\Models\MembershipApplication::READY)
-                            <div class="alert alert-warning">Referans teyitleri tamamlanmadı.</div>
-                        @endif
+                        @if ($a->status === \Modules\Membership\Models\MembershipApplication::REFERENCES_PENDING)
+                            <div class="alert alert-warning mb-0">Referans teyitleri tamamlanmadı; kabul referanslardan sonra yapılabilir.</div>
+                        @elseif ($a->status === \Modules\Membership\Models\MembershipApplication::FEE_PENDING)
+                            <div class="alert alert-warning mb-0">Giriş aidatı henüz ödenmedi; adaya ödeme bağlantısı e-postayla gönderildi. Elden ya da bildirimsiz havaleyle ödendiyse
+                                @if (Auth::user()->hasPermission('contacts.view') && $a->contact && ! $a->contact->trashed())<a href="{{ route('admin.contacts.show', $a->contact) }}">kişi sayfasındaki</a>@else kişi sayfasındaki @endif
+                                "Aidat" bölümünden ödemeyi kaydedin; başvuru kendiliğinden "Karar bekliyor"a geçer.</div>
+                        @else
                         <form method="POST" action="{{ route('admin.membership-applications.approve', $a) }}">
                             @csrf @method('PATCH')
                             <div class="mb-2"><label class="form-label" for="number">Üye no</label><input id="number" name="number" class="form-control @error('number') is-invalid @enderror" value="{{ old('number', $a->membership?->number) }}" placeholder="Boş bırakılırsa numarasız kalır">
@@ -125,6 +129,7 @@
                             </div>
                             <button type="submit" class="btn btn-success" onclick="return confirm('Başvuru kabul edilip kişi üye yapılacak. Emin misiniz?')">Kabul et, üye yap</button>
                         </form>
+                        @endif
                     </div>
                 </div>
 

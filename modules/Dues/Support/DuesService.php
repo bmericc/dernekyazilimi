@@ -2,6 +2,7 @@
 
 namespace Modules\Dues\Support;
 
+use App\Mail\TemplateMail;
 use App\Models\BankAccount;
 use App\Models\Contact;
 use App\Models\ContactAffiliation;
@@ -21,7 +22,9 @@ use Modules\Dues\Models\DuesExemption;
 use Modules\Membership\Models\Membership;
 use Modules\Membership\Models\MembershipApplication;
 use Modules\Membership\Models\MembershipFee;
+use Modules\Membership\Support\ApplicationService;
 use Modules\Membership\Support\MembershipSettings;
+use Throwable;
 
 /**
  * Dues: charging members (yearly in bulk, the entry fee on acceptance, or
@@ -96,6 +99,11 @@ class DuesService
     public function cancel(DuesCharge $charge, ?string $note): void
     {
         $charge->update(['cancelled_at' => now(), 'cancel_note' => $note]);
+
+        // A waived entry fee lets a waiting application go on.
+        if ($charge->kind === DuesCharge::ENTRY) {
+            $this->settleEntryFee($charge->contact);
+        }
     }
 
     public function restore(DuesCharge $charge): void
@@ -174,8 +182,10 @@ class DuesService
     }
 
     /**
-     * A new member: the entry fee (when the association charges one) and the
-     * full yearly dues of the joining year.
+     * A new member: the entry fee (when the association charges one and it
+     * was not charged at the application already) and the full yearly dues
+     * of the joining year; the yearly dues are told by email with the
+     * payment link.
      */
     public function chargeNewMember(MembershipApplication $application): void
     {
@@ -187,11 +197,87 @@ class DuesService
             return;
         }
 
-        if ($this->membershipSettings->chargesEntryFee() && (float) $fee->entry_fee > 0) {
+        if ($this->membershipSettings->chargesEntryFee() && (float) $fee->entry_fee > 0 && ! $this->hasEntryCharge($contact)) {
             $this->charge($contact, DuesCharge::ENTRY, $year, $fee->entry_fee);
         }
-        if ((float) $fee->annual_fee > 0 && ! $this->exemption($contact, $year, $membership)) {
-            $this->charge($contact, DuesCharge::ANNUAL, $year, $fee->annual_fee);
+        if ((float) $fee->annual_fee > 0 && ! $this->exemption($contact, $year, $membership)
+            && $this->charge($contact, DuesCharge::ANNUAL, $year, $fee->annual_fee)
+            && ($email = $application->user?->email ?? $contact->email)) {
+            $this->mail($email, new TemplateMail('dues.new-member', [
+                'name' => $contact->display_name,
+                'year_of_dues' => (string) $year,
+                'annual_fee' => MembershipFee::format($fee->annual_fee),
+                'balance' => MembershipFee::format(max(0, $this->account($contact)->balance())),
+                'link' => $this->link($contact),
+                'days' => self::LINK_DAYS,
+            ]));
+        }
+    }
+
+    /**
+     * The references of an application are in: charge the entry fee and
+     * send the applicant the payment link. True while it is unpaid, so the
+     * application waits for it.
+     */
+    public function requestEntryFee(MembershipApplication $application): bool
+    {
+        $year = now()->year;
+        $fee = MembershipFee::forYear($year);
+        if (! $this->membershipSettings->chargesEntryFee() || ! $fee || (float) $fee->entry_fee <= 0) {
+            return false;
+        }
+
+        $contact = $application->contact;
+        if (! $this->hasEntryCharge($contact)) {
+            $this->charge($contact, DuesCharge::ENTRY, $year, $fee->entry_fee);
+        }
+
+        $open = $this->openEntryCharge($contact);
+        if (! $open) {
+            return false;
+        }
+
+        if ($email = $application->user?->email ?? $application->answer('email') ?? $contact->email) {
+            $this->mail($email, new TemplateMail('dues.entry-fee', [
+                'name' => $contact->display_name,
+                'application_no' => $application->reference_no,
+                'amount' => MembershipFee::format($open->remaining()),
+                'link' => $this->link($contact),
+                'days' => self::LINK_DAYS,
+            ]));
+        }
+
+        return true;
+    }
+
+    /**
+     * After a payment or a cancelled charge: an application waiting for
+     * the entry fee goes on to the board once nothing of it is owed.
+     */
+    public function settleEntryFee(Contact $contact): void
+    {
+        $application = app(ApplicationService::class)->openApplicationFor($contact);
+        if ($application?->status === MembershipApplication::FEE_PENDING && ! $this->openEntryCharge($contact)) {
+            app(ApplicationService::class)->entryFeeSettled($application);
+        }
+    }
+
+    private function hasEntryCharge(Contact $contact): bool
+    {
+        return DuesCharge::where('contact_id', $contact->id)->where('kind', DuesCharge::ENTRY)->whereNull('cancelled_at')->exists();
+    }
+
+    private function openEntryCharge(Contact $contact): ?DuesCharge
+    {
+        return $this->account($contact)->open()->first(fn (DuesCharge $charge) => $charge->kind === DuesCharge::ENTRY && ! $charge->isCancelled());
+    }
+
+    private function mail(string $to, $mailable): void
+    {
+        try {
+            Mail::to($to)->send($mailable);
+        } catch (Throwable $e) {
+            report($e);
         }
     }
 
