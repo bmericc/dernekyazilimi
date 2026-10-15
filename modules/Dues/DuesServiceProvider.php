@@ -3,6 +3,7 @@
 namespace Modules\Dues;
 
 use App\Events\ContactAnonymized;
+use App\Models\Contact;
 use App\Events\PaymentSucceeded;
 use App\Events\ScheduledNoticesDue;
 use App\Models\Payment;
@@ -12,6 +13,7 @@ use App\Modules\Slots;
 use App\Support\Payments\Payments;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\HtmlString;
 use Modules\Dues\Mail\DuesPaymentReceived;
 use Modules\Dues\Models\DuesExemption;
 use Modules\Dues\Support\DuesService;
@@ -86,6 +88,21 @@ class DuesServiceProvider extends ModuleServiceProvider
         $menu->add('admin', 'dues', 'Aidat ayarları', 'admin.dues.settings', ['dues.settings'], 27);
 
         $menu->add('user', 'membership', 'Aidat', 'dues.mine', [], 32, fn ($user) => $user && Membership::where('contact_id', $user->contact_id)->exists());
+
+        // Bulk messages: members by balance, and their balance and payment link in the text.
+        // The amount goes into the SQL as a number: a bound float goes as text, and SQLite then compares number < text.
+        $this->audiences()->criterion('dues_min', 'Aidat borcu en az (TL)', 'number',
+            fn ($query, float $amount) => $query->whereRaw(app(DuesService::class)->balanceSql().' >= '.sprintf('%.2F', max(0.01, $amount))), [], 50,
+            'Ör. 480 yazılırsa 480 TL ve üzeri borcu olanlar. 0 yazılırsa borcu olan herkes.');
+        $this->audiences()->criterion('dues_max', 'Aidat borcu en çok (TL)', 'number',
+            fn ($query, float $amount) => $query->whereRaw(app(DuesService::class)->balanceSql().' <= '.sprintf('%.2F', $amount)), [], 51);
+        $this->audiences()->placeholder('dues_balance', 'Güncel aidat borcu (ör. 480,00 TL)',
+            fn (Contact $contact) => MembershipFee::format(max(0, app(DuesService::class)->account($contact)->balance())), 50);
+        $this->audiences()->placeholder('dues_charges', 'Ödenmemiş aidat borçlarının listesi',
+            fn (Contact $contact) => new HtmlString('<ul>'.app(DuesService::class)->account($contact)->open()
+                ->map(fn ($charge) => '<li>'.e($charge->label()).': '.e(MembershipFee::format($charge->remaining())).'</li>')->implode('').'</ul>'), 51);
+        $this->audiences()->placeholder('dues_link', 'Kişiye özel aidat ödeme bağlantısı ('.DuesService::LINK_DAYS.' gün geçerli)',
+            fn (Contact $contact) => app(DuesService::class)->link($contact), 52);
 
         $slots->push('admin.contacts.show', 'dues::partials.contact-card', 11);
 

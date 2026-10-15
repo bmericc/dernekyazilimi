@@ -105,6 +105,20 @@ class MembershipServiceProvider extends ModuleServiceProvider
         $this->customFields()->group('membership', 'Üyelik', 25);
 
         // The member number now comes from the membership record.
+        // Bulk messages: recipients by membership.
+        $member = fn (Builder $query, \Closure $where) => $query->whereIn('contacts.id', $where(Membership::query())->select('contact_id'));
+        $this->audiences()->criterion('membership_status', 'Üyelik durumu', 'multi',
+            fn (Builder $query, array $statuses) => $member($query, fn ($memberships) => $memberships->whereIn('status', $statuses)),
+            Membership::STATUSES, 40);
+        $this->audiences()->criterion('membership_joined', 'Üyeliğe katılma yılı', 'range',
+            fn (Builder $query, array $years) => $member($query, fn ($memberships) => $memberships
+                ->when($years['from'], fn ($memberships, $from) => $memberships->where('joined_at', '>=', $from.'-01-01'))
+                ->when($years['to'], fn ($memberships, $to) => $memberships->where('joined_at', '<', ($to + 1).'-01-01'))),
+            [], 41, 'Ör. yalnız 2025 yılında katılanlar için iki kutuya da 2025 yazın.');
+        $this->audiences()->criterion('membership_no_number', 'Üye numarası olmayanlar', 'flag',
+            fn (Builder $query) => $member($query, fn ($memberships) => $memberships->whereNull('number')->orWhere('number', '')), [], 42,
+            'Üyelik kaydı olup numarası yazılmamış kişiler; durumu da seçmek isteyebilirsiniz.');
+
         $this->contactFields()->register('member_number', 'Üye no', fn (Contact $contact) => Membership::where('contact_id', $contact->id)->value('number'), 20);
 
         $this->dashboard()->stat('Aktif üye', 'id', fn () => Membership::active()->count(), 'admin.memberships', ['memberships.view'], 9);

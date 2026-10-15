@@ -124,8 +124,18 @@ class MailTemplates
             return null;
         }
 
+        return $this->fillSms($source['sms'], $values);
+    }
+
+    /**
+     * Plain SMS text with the placeholders filled (HTML values lose their tags).
+     *
+     * @param  array<string, string|int|float|HtmlString|null>  $values
+     */
+    public function fillSms(string $text, array $values): string
+    {
         $values += $this->commonValues();
-        $text = $this->replace($source['sms'], fn ($value) => trim(strip_tags($value instanceof HtmlString ? $value->toHtml() : (string) $value)), $values);
+        $text = $this->replace($text, fn ($value) => trim(strip_tags($value instanceof HtmlString ? $value->toHtml() : (string) $value)), $values);
 
         return trim(preg_replace('/[ \t]+/', ' ', $text));
     }

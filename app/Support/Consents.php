@@ -48,6 +48,17 @@ class Consents
     }
 
     /**
+     * Ids of the contacts whose consent in force on the channel is granted,
+     * as a subquery (for bulk sends; allows() asks one contact at a time).
+     */
+    public function grantedQuery(string $channel): \Illuminate\Database\Eloquent\Builder
+    {
+        return ConsentEvent::query()->select('contact_id')
+            ->where('channel', $channel)->where('granted', true)
+            ->whereIn('id', ConsentEvent::selectRaw('max(id)')->where('channel', $channel)->groupBy('contact_id'));
+    }
+
+    /**
      * @param  array<string, bool>  $channels  channel => granted; channels left out are unchanged
      * @return int number of changes recorded
      */

@@ -45,6 +45,7 @@ class ModulesServiceProvider extends ServiceProvider
             $trash->register('affiliation', \App\Models\ContactAffiliation::class);
             $trash->register('payment-gateway', \App\Models\PaymentGateway::class);
             $trash->register('bank-account', \App\Models\BankAccount::class);
+            $trash->register('bulk-message', \App\Models\BulkMessage::class, 'Toplu gönderim taslağı');
 
             return $trash;
         });
@@ -82,6 +83,27 @@ class ModulesServiceProvider extends ServiceProvider
             });
 
             return $fields;
+        });
+
+        $this->app->singleton(\App\Modules\Audiences::class, function () {
+            $audiences = new \App\Modules\Audiences();
+            $audiences->criterion('affiliation', 'Sıfat (sürmekte olan)', 'multi',
+                fn ($query, array $keys) => $query->whereHas('affiliations', fn ($query) => $query->active()->whereHas('type', fn ($query) => $query->whereIn('key', $keys))),
+                fn () => \App\Models\AffiliationType::orderBy('sort')->pluck('name', 'key')->all(), 10);
+            $audiences->criterion('tag', 'Etiket', 'multi',
+                fn ($query, array $ids) => $query->whereHas('tags', fn ($query) => $query->whereIn('tags.id', $ids)),
+                fn () => \App\Models\Tag::orderBy('name')->pluck('name', 'id')->all(), 20);
+            $audiences->criterion('city', 'İl', 'multi', fn ($query, array $plates) => $query->whereIn('city_id', $plates),
+                fn () => Cities::orderBy('city_name')->pluck('city_name', 'city_plate_no')->all(), 25);
+            $audiences->criterion('type', 'Kayıt türü', 'select', fn ($query, string $type) => $query->where('type', $type),
+                [Contact::TYPE_PERSON => 'Kişi', Contact::TYPE_ORGANIZATION => 'Kurum'], 30);
+            $audiences->criterion('gender', 'Cinsiyet', 'select', fn ($query, string $gender) => $query->where('gender', $gender), Contact::GENDERS, 31);
+            $audiences->criterion('account', 'Portal hesabı', 'select',
+                fn ($query, string $value) => $value === 'yes' ? $query->whereHas('user') : $query->whereDoesntHave('user'),
+                ['yes' => 'Hesabı olanlar', 'no' => 'Hesabı olmayanlar'], 32);
+            $audiences->placeholder('name', 'Kişinin adı soyadı (kurumda kurum adı)', fn (Contact $contact) => $contact->display_name, 1);
+
+            return $audiences;
         });
 
         $modules = $this->app->make(ModuleManager::class);

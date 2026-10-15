@@ -12,6 +12,7 @@ use Modules\Admin\Http\Controllers\CustomFieldController;
 use Modules\Admin\Http\Controllers\TagController;
 use Modules\Admin\Http\Controllers\TrashController;
 use Modules\Admin\Http\Controllers\BankAccountController;
+use Modules\Admin\Http\Controllers\BulkMessageController;
 use Modules\Admin\Http\Controllers\PaymentAdminController;
 use Modules\Admin\Http\Controllers\PaymentGatewayController;
 use Modules\Admin\Http\Controllers\DashboardController;
@@ -42,6 +43,20 @@ Route::middleware('permission:contacts.manage')->group(function () {
 Route::middleware('permission:contacts.view')->group(function () {
     Route::get('/contacts', [ContactController::class, 'index'])->name('contacts');
     Route::get('/contacts/{contact}', [ContactController::class, 'show'])->name('contacts.show');
+});
+
+Route::middleware('permission:bulk-messages.send')->group(function () {
+    Route::get('/bulk-messages', [BulkMessageController::class, 'index'])->name('bulk-messages');
+    Route::get('/bulk-messages/create', [BulkMessageController::class, 'create'])->name('bulk-messages.create');
+    Route::post('/bulk-messages', [BulkMessageController::class, 'store'])->name('bulk-messages.store');
+    Route::get('/bulk-messages/{bulkMessage}', [BulkMessageController::class, 'show'])->name('bulk-messages.show');
+    Route::get('/bulk-messages/{bulkMessage}/edit', [BulkMessageController::class, 'edit'])->name('bulk-messages.edit');
+    Route::put('/bulk-messages/{bulkMessage}', [BulkMessageController::class, 'update'])->name('bulk-messages.update');
+    Route::delete('/bulk-messages/{bulkMessage}', [BulkMessageController::class, 'destroy'])->name('bulk-messages.destroy');
+    Route::post('/bulk-messages/{bulkMessage}/test', [BulkMessageController::class, 'test'])->middleware('throttle:10,1')->name('bulk-messages.test');
+    Route::post('/bulk-messages/{bulkMessage}/start', [BulkMessageController::class, 'start'])->name('bulk-messages.start');
+    Route::post('/bulk-messages/{bulkMessage}/cancel', [BulkMessageController::class, 'cancel'])->name('bulk-messages.cancel');
+    Route::post('/bulk-messages/{bulkMessage}/resume', [BulkMessageController::class, 'resume'])->name('bulk-messages.resume');
 });
 
 Route::middleware('permission:settings.manage')->group(function () {

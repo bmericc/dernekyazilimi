@@ -30,6 +30,7 @@ class AdminServiceProvider extends ModuleServiceProvider
         $this->permissions()->register('contacts.view', 'Kişi ve kurumları görebilsin', 'contacts', 10);
         $this->permissions()->register('contacts.manage', 'Kişi ve kurum ekleyip düzenleyebilsin, sıfat verebilsin', 'contacts', 11);
         $this->permissions()->register('photos.review', 'Profil fotoğraflarını onaylayıp reddedebilsin', 'contacts', 12);
+        $this->permissions()->register('bulk-messages.send', 'Ölçüte uyan kişilere toplu e-posta ve SMS gönderebilsin', 'contacts', 14);
         $this->permissions()->register('data-deletion.manage', 'KVKK veri silme taleplerini onaylayıp reddedebilsin', 'contacts', 13);
         $this->permissions()->group('payments', 'Ödemeler', 60);
         $this->permissions()->register('payments.view', 'Ödemeleri görebilsin', 'payments', 60);
@@ -47,6 +48,7 @@ class AdminServiceProvider extends ModuleServiceProvider
         $menu->label('admin', 'contacts', 'Kişi & Kurumlar', 'address-book');
         $menu->add('admin', 'contacts', 'Kişi & Kurumlar', 'admin.contacts', ['contacts.view'], 5);
         $menu->add('admin', 'contacts', 'Kişi / kurum ekle', 'admin.contacts.create', ['contacts.manage'], 6);
+        $menu->add('admin', 'contacts', 'Toplu e-posta / SMS', 'admin.bulk-messages', ['bulk-messages.send'], 7);
         $menu->add('admin', 'contacts', 'Fotoğraf onayı', 'admin.photos', ['photos.review'], 7);
         $menu->add('admin', 'contacts', 'Veri silme talepleri', 'admin.data-deletions', ['data-deletion.manage'], 8);
 
