@@ -84,6 +84,14 @@ abstract class ModuleServiceProvider extends ServiceProvider
     }
 
     /**
+     * Recipient criteria and per-recipient placeholders of bulk messages.
+     */
+    protected function audiences(): Audiences
+    {
+        return $this->app->make(Audiences::class);
+    }
+
+    /**
      * Custom field groups: a module registers the groups its fields belong to.
      */
     protected function customFields(): \App\Support\CustomFields
