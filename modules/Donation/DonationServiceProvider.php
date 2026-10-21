@@ -3,6 +3,7 @@
 namespace Modules\Donation;
 
 use App\Events\ContactAnonymized;
+use App\Events\PaymentFailed;
 use App\Events\PaymentSucceeded;
 use App\Models\Payment;
 use App\Modules\Menu;
@@ -10,11 +11,13 @@ use App\Modules\ModuleServiceProvider;
 use App\Modules\Slots;
 use App\Support\Notifier;
 use App\Support\Payments\Payments;
+use App\Support\Turnstile;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
 use Modules\Donation\Mail\DonationThanks;
 use Modules\Donation\Models\Donation;
 use Modules\Donation\Models\DonationCause;
+use Modules\Donation\Support\CardGuard;
 use Modules\Donation\Support\DonationService;
 use Modules\Donation\Support\DonationSettings;
 use Throwable;
@@ -39,6 +42,11 @@ class DonationServiceProvider extends ModuleServiceProvider
             ['name' => 'Bağışçının adı', 'date' => 'Ödeme tarihi', 'amount' => 'Tutar', 'reference' => 'Ödemenin referans kodu'],
             'Bağışçı (tahsil olunca)',
             sms: 'Sayın {{name}}, {{amount}} tutarındaki bağışınız ulaştı. {{organization}} faaliyetleri için çok değerli ve anlamlı olan desteğiniz için çok teşekkür ederiz.');
+        $this->mailTemplates()->register('donation.card-paused', 'Kartla bağış durduruldu', 'donation',
+            'Kartla bağış durduruldu',
+            '<p>Son bir saatte {{failures}} kart ödemesi reddedildiği için {{organization}} bağış formlarında kartla bağış kendiliğinden durduruldu. Bu çoğu zaman çalıntı kartların bağış formunda denendiğini gösterir.</p><p>Havale ile bağış açık. Bağışları ve ödeme sağlayıcısının panelini inceledikten sonra kartla bağışı <a href="{{settings_url}}">bağış ayarlarından</a> yeniden açabilirsiniz.</p>',
+            ['failures' => 'Son bir saatte reddedilen kart sayısı', 'settings_url' => 'Bağış ayarları sayfasının adresi'],
+            'Kurumun bildirim adresi');
 
         $this->permissions()->group('donations', 'Bağışlar', 55);
         $this->trash()->register('donation-cause', \Modules\Donation\Models\DonationCause::class, 'Bağış amacı');
@@ -61,6 +69,8 @@ class DonationServiceProvider extends ModuleServiceProvider
                 'intro' => $settings->intro(),
                 'causes' => DonationCause::active()->get()->map(fn (DonationCause $cause) => ['id' => $cause->id, 'name' => $cause->name])->all(),
                 'methods' => collect($methods)->map(fn ($label, $key) => ['key' => $key, 'label' => $label])->values()->all(),
+                // The site shows the widget and sends its answer as "turnstile".
+                'turnstile_site_key' => app(Turnstile::class)->enabled() ? app(Turnstile::class)->siteKey() : null,
             ];
         });
 
@@ -83,6 +93,8 @@ class DonationServiceProvider extends ModuleServiceProvider
             }
             app(Notifier::class)->send('donation.thanks', DonationThanks::values($payment), $payment->payer_email, $payment->payer_phone ?? $payment->contact?->phone, $payment->contact, mailable: new DonationThanks($payment));
         });
+
+        Event::listen(PaymentFailed::class, fn (PaymentFailed $event) => app(CardGuard::class)->failed($event->payment));
 
         // KVKK deletion: amounts stay for the accounts; the donor's details go.
         // (Payments keep the payer as the legal record of the collection.)

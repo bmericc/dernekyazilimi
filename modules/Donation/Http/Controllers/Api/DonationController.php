@@ -27,6 +27,7 @@ class DonationController extends Controller
         }
 
         $data = $request->validate($service->rules($methods), [], DonationService::ATTRIBUTES);
+        $service->guard($data, $request->input('turnstile'), $request->ip());
         $payment = $service->submit($data, null);
         $result = route('donations.show', ['uuid' => $payment->uuid, 'in-iframe' => 1]);
 

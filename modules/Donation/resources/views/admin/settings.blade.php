@@ -18,6 +18,15 @@
                 <div class="col-md-3 mb-3"><label class="form-label" for="minimum">En az tutar (TL)</label><input id="minimum" type="number" name="minimum" class="form-control @error('minimum') is-invalid @enderror" value="{{ old('minimum', $settings->minimum()) }}">@error('minimum')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
             </div>
             <label class="form-check form-switch mb-3"><input type="checkbox" class="form-check-input" name="fixed_only" value="1" @checked(old('fixed_only', $settings->fixedOnly()))><span class="form-check-label">Yalnız bu tutarlar seçilebilsin</span><span class="form-hint">Bağışçı serbest tutar yazamaz. Bazı ödeme kuruluşları sanal POS onayı için bunu ister.</span></label>
+            <fieldset class="form-fieldset">
+                <div class="form-label">Kart dolandırıcılığına karşı</div>
+                <label class="form-check form-switch mb-3"><input type="checkbox" class="form-check-input" name="card_paused" value="1" @checked(old('card_paused', $settings->cardPaused()))><span class="form-check-label">Kartla bağış durduruldu</span><span class="form-hint">Havale açık kalır. Aşağıdaki sınır aşılınca kendiliğinden açılır ve bildirim adresine e-posta gider; inceledikten sonra kapatın.</span></label>
+                <div class="row">
+                    <div class="col-md-6 mb-3"><label class="form-label" for="card_hourly_limit">Bir saatte en çok kart ödemesi</label><input id="card_hourly_limit" type="number" name="card_hourly_limit" class="form-control @error('card_hourly_limit') is-invalid @enderror" value="{{ old('card_hourly_limit', $settings->cardHourlyLimit()) }}">@error('card_hourly_limit')<div class="invalid-feedback">{{ $message }}</div>@enderror<div class="form-hint">Bütün site için; aşılınca yeni kart ödemesi bir sonraki saate kadar başlatılmaz.</div></div>
+                    <div class="col-md-6 mb-3"><label class="form-label" for="card_failure_limit">Kartla bağışı durduran ret sayısı (bir saatte)</label><input id="card_failure_limit" type="number" name="card_failure_limit" class="form-control @error('card_failure_limit') is-invalid @enderror" value="{{ old('card_failure_limit', $settings->cardFailureLimit()) }}">@error('card_failure_limit')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                </div>
+                <div class="form-hint">İnsan doğrulaması (Cloudflare Turnstile) {{ app(\App\Support\Turnstile::class)->enabled() ? 'açık' : 'kapalı: .env dosyasına TURNSTILE_SITE_KEY ve TURNSTILE_SECRET_KEY eklenince açılır' }}.</div>
+            </fieldset>
             <div class="mb-3"><label class="form-label" for="intro">Bağış sayfası metni</label><textarea id="intro" name="intro" rows="6" class="form-control wysiwyg">{{ old('intro', $settings->intro()) }}</textarea></div>
             <div class="mb-3"><label class="form-label" for="thanks">Teşekkür metni (başarılı ödemeden sonra)</label><textarea id="thanks" name="thanks" rows="4" class="form-control wysiwyg">{{ old('thanks', $settings->thanks()) }}</textarea></div>
         </div>

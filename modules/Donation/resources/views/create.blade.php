@@ -69,12 +69,20 @@
 
                 <x-agreement-checkbox key="kvkk" />
                 @include('payments.terms', ['purpose' => 'donation'])
+
+                @if ($turnstile->enabled())
+                    <div class="cf-turnstile mt-3" data-sitekey="{{ $turnstile->siteKey() }}" data-language="tr"></div>
+                    @error('turnstile')<div class="text-danger small">{{ $message }}</div>@enderror
+                @endif
             </div>
             <div class="card-footer text-end"><button type="submit" class="btn btn-primary">Bağış yap</button></div>
         </form>
     @endif
 </div>
 
+@if ($methods && $turnstile->enabled())
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+@endif
 <script>
     document.querySelectorAll('[data-amount]').forEach(function (button) {
         button.addEventListener('click', function () { document.getElementById('amount').value = button.dataset.amount; });
