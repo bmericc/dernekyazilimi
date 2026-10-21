@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@php($organization = old('type', $contact->type) === 'organization')
+@php($isOrganization = old('type', $contact->type) === 'organization')
 @php($readOnly = $contact->exists && $contact->user)
 
 @section('content')
@@ -25,17 +25,17 @@
                 <div class="form-label">Kayıt türü</div>
                 <div>
                     <label class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="type" value="person" data-contact-type @checked(! $organization)>
+                        <input class="form-check-input" type="radio" name="type" value="person" data-contact-type @checked(! $isOrganization)>
                         <span class="form-check-label">Kişi</span>
                     </label>
                     <label class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="type" value="organization" data-contact-type @checked($organization)>
+                        <input class="form-check-input" type="radio" name="type" value="organization" data-contact-type @checked($isOrganization)>
                         <span class="form-check-label">Kurum</span>
                     </label>
                 </div>
             </div>
 
-            <div class="row" data-for-type="person" @if ($organization) hidden @endif>
+            <div class="row" data-for-type="person" @if ($isOrganization) hidden @endif>
                 <div class="col-md-6 mb-3">
                     <label for="first_name" class="form-label required">Ad</label>
                     <input id="first_name" name="first_name" class="form-control @error('first_name') is-invalid @enderror" value="{{ old('first_name', $contact->first_name) }}" maxlength="255">
@@ -48,7 +48,7 @@
                 </div>
             </div>
 
-            <div class="mb-3" data-for-type="organization" @unless ($organization) hidden @endunless>
+            <div class="mb-3" data-for-type="organization" @unless ($isOrganization) hidden @endunless>
                 <label for="organization_name" class="form-label required">Kurum adı</label>
                 <input id="organization_name" name="organization_name" class="form-control @error('organization_name') is-invalid @enderror" value="{{ old('organization_name', $contact->organization_name) }}" maxlength="255">
                 @error('organization_name')<div class="invalid-feedback">{{ $message }}</div>@enderror
@@ -57,18 +57,18 @@
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label for="identity_number" class="form-label">
-                        <span data-for-type="person" @if ($organization) hidden @endif>TC kimlik no</span>
-                        <span data-for-type="organization" @unless ($organization) hidden @endunless>Vergi no</span>
+                        <span data-for-type="person" @if ($isOrganization) hidden @endif>TC kimlik no</span>
+                        <span data-for-type="organization" @unless ($isOrganization) hidden @endunless>Vergi no</span>
                     </label>
                     <input id="identity_number" name="identity_number" inputmode="numeric" class="form-control @error('identity_number') is-invalid @enderror" value="{{ old('identity_number', $contact->identity_number) }}" maxlength="11">
                     @error('identity_number')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
-                <div class="col-md-6 mb-3" data-for-type="person" @if ($organization) hidden @endif>
+                <div class="col-md-6 mb-3" data-for-type="person" @if ($isOrganization) hidden @endif>
                     <label for="contact_birthday" class="form-label">Doğum tarihi</label>
                     <input id="contact_birthday" name="birthday" type="date" class="form-control @error('birthday') is-invalid @enderror" value="{{ old('birthday', $contact->birthday?->toDateString()) }}">
                     @error('birthday')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
-                <div class="col-md-6 mb-3" data-for-type="person" @if ($organization) hidden @endif>
+                <div class="col-md-6 mb-3" data-for-type="person" @if ($isOrganization) hidden @endif>
                     <label for="contact_gender" class="form-label">Cinsiyet</label>
                     <select id="contact_gender" name="gender" class="form-select @error('gender') is-invalid @enderror">
                         <option value="">—</option>

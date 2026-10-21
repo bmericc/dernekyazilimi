@@ -114,6 +114,15 @@ class ContactTest extends TestCase
         $this->assertNull($contact->fresh()->gender);
     }
 
+    public function test_the_admin_contact_form_opens(): void
+    {
+        $owner = User::factory()->create(['role' => 1]);
+        $contact = Contact::create(['type' => 'person', 'first_name' => 'Alan', 'last_name' => 'Turing']);
+
+        $this->actingAs($owner)->get('/admin/contacts/create')->assertOk();
+        $this->actingAs($owner)->get("/admin/contacts/{$contact->id}/edit")->assertOk()->assertSee('Turing');
+    }
+
     public function test_the_gender_migration_takes_what_is_already_known(): void
     {
         $fromApplication = Contact::create(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
