@@ -23,7 +23,9 @@ class DonationSettingsController extends Controller
             'minimum' => ['required', 'integer', 'between:1,100000'],
             'intro' => ['nullable', 'string', 'max:20000'],
             'thanks' => ['nullable', 'string', 'max:20000'],
-        ], ['amounts.regex' => 'Tutarları virgülle ayırarak yazın (ör. 100, 250, 500).'], ['amounts' => 'Önerilen tutarlar', 'minimum' => 'En az tutar']);
+            'card_hourly_limit' => ['nullable', 'integer', 'between:1,10000'],
+            'card_failure_limit' => ['nullable', 'integer', 'between:1,10000'],
+        ], ['amounts.regex' => 'Tutarları virgülle ayırarak yazın (ör. 100, 250, 500).'], ['amounts' => 'Önerilen tutarlar', 'minimum' => 'En az tutar', 'card_hourly_limit' => 'Bir saatte en çok kart ödemesi', 'card_failure_limit' => 'Ret sayısı']);
 
         $settings->save([
             'donation_open' => $request->boolean('open') ? '1' : '0',
@@ -32,6 +34,9 @@ class DonationSettingsController extends Controller
             'donation_minimum' => (string) $data['minimum'],
             'donation_intro' => trim($sanitizer->sanitizePage($data['intro'] ?? '')) ?: null,
             'donation_thanks' => trim($sanitizer->sanitizePage($data['thanks'] ?? '')) ?: null,
+            'donation_card_paused' => $request->boolean('card_paused') ? '1' : '0',
+            'donation_card_hourly_limit' => (string) ($data['card_hourly_limit'] ?? $settings->cardHourlyLimit()),
+            'donation_card_failure_limit' => (string) ($data['card_failure_limit'] ?? $settings->cardFailureLimit()),
         ]);
         $this->set_log('change', 'Bağış ayarları güncellendi');
 

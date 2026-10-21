@@ -10,10 +10,12 @@ use App\Models\PaymentGateway;
 use App\Models\User;
 use App\Support\Agreements;
 use App\Support\Payments\Payments;
+use App\Support\Turnstile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Modules\Donation\Models\Donation;
 
 class DonationService
@@ -21,7 +23,7 @@ class DonationService
     /** Names of the donation form's fields in validation messages. */
     public const ATTRIBUTES = ['amount' => 'Tutar', 'cause_id' => 'Bağış amacı', 'name' => 'Ad soyad', 'email' => 'E-posta', 'phone' => 'Telefon', 'message' => 'Mesaj', 'method' => 'Ödeme yöntemi', 'payment_terms' => 'Ödeme koşulları'];
 
-    public function __construct(private Payments $payments, private DonationSettings $settings, private Agreements $agreements)
+    public function __construct(private Payments $payments, private DonationSettings $settings, private Agreements $agreements, private Turnstile $turnstile, private CardGuard $guard)
     {
     }
 
@@ -49,14 +51,15 @@ class DonationService
     }
 
     /**
-     * Card gateways and whether transfer is possible, for the donation form.
+     * Card gateways (none while card donations are stopped) and whether
+     * transfer is possible, for the donation form.
      *
      * @return array<string, string> method key => label ("gateway:<id>" or "transfer")
      */
     public function methods(): array
     {
         $methods = [];
-        $gateways = PaymentGateway::for('donation');
+        $gateways = $this->settings->cardPaused() ? collect() : PaymentGateway::for('donation');
         foreach ($gateways as $gateway) {
             $methods['gateway:'.$gateway->id] = $gateways->count() > 1 ? 'Kredi / banka kartı ('.$gateway->name.')' : 'Kredi / banka kartı';
         }
@@ -65,6 +68,23 @@ class DonationService
         }
 
         return $methods;
+    }
+
+    /**
+     * Before anything is recorded: the human check, and for a card the
+     * site's hourly ceiling of card payments.
+     *
+     * @throws ValidationException
+     */
+    public function guard(array $data, ?string $token, ?string $ip): void
+    {
+        if (! $this->turnstile->verify($token, $ip)) {
+            throw ValidationException::withMessages([Turnstile::FIELD => 'Güvenlik doğrulaması tamamlanamadı. Lütfen sayfayı yenileyip yeniden deneyin.']);
+        }
+
+        if ($data['method'] !== 'transfer' && ! $this->guard->allowsStart()) {
+            throw ValidationException::withMessages(['method' => 'Kartla bağış şu anda alınamıyor. Lütfen biraz sonra yeniden deneyin ya da havale ile bağış yapın.']);
+        }
     }
 
     /**

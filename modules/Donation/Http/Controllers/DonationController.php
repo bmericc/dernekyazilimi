@@ -9,6 +9,7 @@ use App\Models\Payment;
 use App\Models\PaymentGateway;
 use App\Support\Agreements;
 use App\Support\Payments\Payments;
+use App\Support\Turnstile;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -32,6 +33,7 @@ class DonationController extends Controller
             'settings' => $settings,
             'methods' => $settings->open() ? $service->methods() : [],
             'causes' => DonationCause::active()->get(),
+            'turnstile' => app(Turnstile::class),
             'defaults' => ['name' => $user ? trim($user->name.' '.$user->surname) : null, 'email' => $user?->email, 'phone' => $user?->phone_number],
         ]);
     }
@@ -42,6 +44,7 @@ class DonationController extends Controller
         abort_unless($settings->open() && $methods, 404);
 
         $data = $request->validate($service->rules($methods), [], DonationService::ATTRIBUTES);
+        $service->guard($data, $request->input('cf-turnstile-response'), $request->ip());
 
         $payment = $service->submit($data, Auth::user());
         if (Auth::check()) {

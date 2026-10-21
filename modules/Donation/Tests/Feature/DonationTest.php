@@ -227,4 +227,76 @@ class DonationTest extends TestCase
             ->assertSee('bağışınız alındı')->assertDontSee('navbar-brand');
         $this->get(route('donations.show', ['uuid' => $payment->uuid, 'in-iframe' => 1]))->assertOk()->assertSee($payment->reference)->assertSee('Örnek Bankası');
     }
+
+    public function test_with_turnstile_keys_a_donation_needs_the_human_check(): void
+    {
+        $this->account();
+        config(['services.turnstile.site_key' => 'site-key', 'services.turnstile.secret_key' => 'secret']);
+        Http::fake(['challenges.cloudflare.com/*' => fn ($request) => Http::response(['success' => $request['response'] === 'good'])]);
+
+        $this->get('/donate')->assertOk()->assertSee('data-sitekey="site-key"', false)->assertSee('turnstile/v0/api.js', false);
+        $this->post('/donate', $this->form())->assertSessionHasErrors('turnstile');
+        $this->post('/donate', $this->form(['cf-turnstile-response' => 'bad']))->assertSessionHasErrors('turnstile');
+        $this->assertSame(0, Payment::count());
+
+        $this->post('/donate', $this->form(['cf-turnstile-response' => 'good']))->assertSessionHasNoErrors();
+        $this->assertSame(1, Payment::count());
+
+        // The web site shows the widget with the key from the config and sends its answer as "turnstile".
+        app(\App\Support\Organization::class)->save(['frame_ancestors' => 'https://www.ornek.org.tr']);
+        $headers = ['X-Api-Key' => app(\App\Support\SiteApi::class)->generateKey(), 'X-Site-Url' => 'https://www.ornek.org.tr', 'X-Client-Ip' => '203.0.113.7'];
+        $this->withHeaders($headers)->getJson('/api/site/config')->assertJsonPath('donation.turnstile_site_key', 'site-key');
+        $this->withHeaders($headers)->postJson('/api/site/donations', $this->form())->assertUnprocessable()->assertJsonValidationErrors('turnstile');
+        $this->withHeaders($headers)->postJson('/api/site/donations', $this->form(['turnstile' => 'good']))->assertCreated();
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'siteverify') && $request['remoteip'] === '203.0.113.7');
+    }
+
+    public function test_card_payments_stop_at_the_hourly_ceiling_of_the_whole_site(): void
+    {
+        $this->account();
+        $gateway = $this->gateway();
+        app(\App\Support\Organization::class)->save(['donation_card_hourly_limit' => '2']);
+        Http::fake(['*/checkoutform/initialize/*' => Http::response(['status' => 'success', 'token' => 'tok', 'paymentPageUrl' => 'https://sandbox.iyzico/pay'])]);
+
+        $this->post('/donate', $this->form(['method' => 'gateway:'.$gateway->id]))->assertRedirect('https://sandbox.iyzico/pay');
+        $this->post('/donate', $this->form(['method' => 'gateway:'.$gateway->id]))->assertRedirect('https://sandbox.iyzico/pay');
+        $this->post('/donate', $this->form(['method' => 'gateway:'.$gateway->id]))->assertSessionHasErrors('method');
+        $this->assertSame(2, Payment::count());
+
+        // Transfer is not limited.
+        $this->post('/donate', $this->form())->assertSessionHasNoErrors();
+        $this->assertSame(3, Payment::count());
+    }
+
+    public function test_too_many_refused_cards_stop_card_donations_and_tell_management(): void
+    {
+        $this->account();
+        $gateway = $this->gateway();
+        app(\App\Support\Organization::class)->save(['donation_card_failure_limit' => '2', 'notification_email' => 'yk@example.org']);
+        Http::fake([
+            '*/checkoutform/initialize/*' => Http::sequence()->push(['status' => 'success', 'token' => 'tok1', 'paymentPageUrl' => 'https://sandbox.iyzico/pay'])
+                ->push(['status' => 'success', 'token' => 'tok2', 'paymentPageUrl' => 'https://sandbox.iyzico/pay']),
+            '*/checkoutform/auth/ecom/detail' => Http::response(['status' => 'success', 'paymentStatus' => 'FAILURE', 'errorMessage' => 'Kart reddedildi']),
+        ]);
+
+        foreach (['tok1', 'tok2'] as $token) {
+            $this->post('/donate', $this->form(['method' => 'gateway:'.$gateway->id]));
+            $this->post(route('payments.callback', $gateway), ['token' => $token]);
+        }
+
+        $this->assertSame(2, Payment::where('status', Payment::FAILED)->count());
+        $this->assertTrue(app(\Modules\Donation\Support\DonationSettings::class)->cardPaused());
+        Mail::assertQueued(\App\Mail\TemplateMail::class, fn ($mail) => $mail->key === 'donation.card-paused' && $mail->hasTo('yk@example.org'));
+
+        // Only transfer is offered, on the portal and to the web site.
+        $this->get('/donate')->assertOk()->assertSee('Havale / EFT')->assertDontSee('Kredi / banka kartı');
+        $this->post('/donate', $this->form(['method' => 'gateway:'.$gateway->id]))->assertSessionHasErrors('method');
+
+        // Management opens card donations again.
+        $owner = User::factory()->create(['role' => 1]);
+        $this->actingAs($owner)->get('/admin/donations/settings')->assertOk()->assertSee('name="card_paused"', false);
+        $this->actingAs($owner)->put('/admin/donations/settings', ['open' => '1', 'minimum' => 10, 'card_hourly_limit' => 30, 'card_failure_limit' => 10])->assertSessionHasNoErrors();
+        $this->assertFalse(app(\Modules\Donation\Support\DonationSettings::class)->cardPaused());
+        $this->get('/donate')->assertSee('Kredi / banka kartı');
+    }
 }
