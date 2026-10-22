@@ -10,6 +10,7 @@
     @include('admin::partials.status')
 
     <form method="GET" class="card card-body mb-3">
+        <x-sort-inputs />
         <div class="row g-2">
             <div class="col-md-6">
                 <input name="q" value="{{ $search }}" class="form-control" placeholder="Ad, soyad veya kart no">
@@ -33,10 +34,10 @@
             <table class="table table-vcenter card-table" data-no-datatable>
                 <thead>
                     <tr>
-                        <th>Kart no</th>
-                        <th>Kişi</th>
-                        <th>Kart</th>
-                        <th>Verilme</th>
+                        <x-sort-header column="number">Kart no</x-sort-header>
+                        <x-sort-header column="contact">Kişi</x-sort-header>
+                        <x-sort-header column="template">Kart</x-sort-header>
+                        <x-sort-header column="issued" first="desc">Verilme</x-sort-header>
                         <th>Durum</th>
                         <th class="w-1"></th>
                     </tr>

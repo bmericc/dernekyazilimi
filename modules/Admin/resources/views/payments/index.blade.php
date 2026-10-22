@@ -14,6 +14,7 @@
     @endif
 
     <form method="GET" class="row g-2 mb-3">
+        <x-sort-inputs />
         <div class="col-md-3"><input name="q" value="{{ $filters['q'] ?? '' }}" class="form-control" placeholder="Referans, ad veya e-posta"></div>
         <div class="col-md-2"><select name="status" class="form-select"><option value="">Her durum</option>@foreach (\App\Models\Payment::STATUSES as $key => $label)<option value="{{ $key }}" @selected(($filters['status'] ?? '') === $key)>{{ $label }}</option>@endforeach</select></div>
         <div class="col-md-2"><select name="method" class="form-select"><option value="">Her yöntem</option>@foreach (\App\Models\Payment::METHODS as $key => $label)<option value="{{ $key }}" @selected(($filters['method'] ?? '') === $key)>{{ $label }}</option>@endforeach</select></div>
@@ -25,7 +26,7 @@
         <div class="card-header"><h3 class="card-title">Tahsil edilen toplam: {{ (new \App\Models\Payment(['amount' => $total, 'currency' => config('payments.currency')]))->formattedAmount() }}</h3></div>
         <div class="table-responsive">
             <table class="table table-vcenter card-table" data-no-datatable>
-                <thead><tr><th>Referans</th><th>Tarih</th><th>Ödeyen</th><th>Amaç</th><th>Yöntem</th><th class="text-end">Tutar</th><th>Durum</th></tr></thead>
+                <thead><tr><x-sort-header column="reference">Referans</x-sort-header><x-sort-header column="date" first="desc">Tarih</x-sort-header><x-sort-header column="payer">Ödeyen</x-sort-header><x-sort-header column="purpose">Amaç</x-sort-header><x-sort-header column="method">Yöntem</x-sort-header><x-sort-header column="amount" first="desc" class="text-end">Tutar</x-sort-header><x-sort-header column="status">Durum</x-sort-header></tr></thead>
                 <tbody>
                     @forelse ($payments as $payment)
                         <tr>

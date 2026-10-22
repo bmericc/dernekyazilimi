@@ -27,6 +27,7 @@
 
     <form method="GET" class="mb-3 d-flex gap-2">
         <input type="hidden" name="status" value="{{ $status }}">
+        <x-sort-inputs />
         <input name="q" value="{{ $search }}" class="form-control" placeholder="Üye no, ad, soyad veya e-posta">
         <button type="submit" class="btn btn-primary">Ara</button>
     </form>
@@ -34,7 +35,7 @@
     <div class="card">
         <div class="table-responsive">
             <table class="table table-vcenter card-table" data-no-datatable>
-                <thead><tr><th>Üye no</th><th>Ad soyad</th><th>Katılma</th><th>Durum</th></tr></thead>
+                <thead><tr><x-sort-header column="number">Üye no</x-sort-header><x-sort-header column="name">Ad soyad</x-sort-header><x-sort-header column="joined" first="desc">Katılma</x-sort-header><x-sort-header column="status">Durum</x-sort-header></tr></thead>
                 <tbody>
                     @forelse ($memberships as $membership)
                         <tr>

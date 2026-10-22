@@ -4,6 +4,7 @@ namespace Modules\Membership\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Contact;
+use App\Support\TableSort;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -25,7 +26,12 @@ class MembershipController extends Controller
                 ->when($search !== '', fn ($query) => $query->where(fn ($query) => $query
                     ->where('number', 'like', "%{$search}%")
                     ->orWhereHas('contact', fn ($query) => $query->where('first_name', 'like', "%{$search}%")->orWhere('last_name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%"))))
-                ->orderByRaw('number is null')->orderByRaw('cast(number as unsigned)')->orderBy('id')
+                ->tap(TableSort::by($request, [
+                    'number' => fn ($query, $direction) => $query->orderByRaw('number is null')->orderByRaw('cast(number as unsigned) '.$direction),
+                    'name' => fn ($query, $direction) => $query->orderBy(Contact::withTrashed()->select('first_name')->whereColumn('contacts.id', 'memberships.contact_id'), $direction)->orderBy(Contact::withTrashed()->select('last_name')->whereColumn('contacts.id', 'memberships.contact_id'), $direction),
+                    'joined' => 'joined_at',
+                    'status' => 'status',
+                ], fn ($query) => $query->orderByRaw('number is null')->orderByRaw('cast(number as unsigned)')->orderBy('id')))
                 ->paginate(50)
                 ->withQueryString(),
             'counts' => Membership::selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status'),

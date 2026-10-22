@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\BankAccount;
 use App\Models\Contact;
 use App\Models\Payment;
+use App\Support\TableSort;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -28,7 +30,14 @@ class DonationAdminController extends Controller
             ->when($cause, fn ($query) => $query->where('cause_id', $cause));
 
         return view('donation::admin.index', [
-            'donations' => (clone $query)->latest('id')->paginate(30)->withQueryString(),
+            'donations' => (clone $query)->tap(TableSort::by($request, [
+                'date' => fn ($query, $direction) => $query->orderByRaw('coalesce(('.($paidAt = $this->paymentColumn('paid_at'))->toSql().'), donations.created_at) '.$direction, $paidAt->getBindings()),
+                'donor' => 'donor_name',
+                'cause' => fn ($query, $direction) => $query->orderBy(DonationCause::withTrashed()->select('name')->whereColumn('donation_causes.id', 'donations.cause_id'), $direction),
+                'method' => fn ($query, $direction) => $query->orderBy($this->paymentColumn('method'), $direction),
+                'amount' => fn ($query, $direction) => $query->orderBy($this->paymentColumn('amount'), $direction),
+                'status' => fn ($query, $direction) => $query->orderBy($this->paymentColumn('status'), $direction),
+            ], fn ($query) => $query->latest('id')))->paginate(30)->withQueryString(),
             'total' => Payment::where('purpose', 'donation')->where('status', Payment::SUCCEEDED)->whereYear('paid_at', $year)
                 ->when($cause, fn ($query) => $query->whereIn('payable_id', Donation::where('cause_id', $cause)->select('id')))->sum('amount'),
             'causes' => DonationCause::orderBy('name')->get(),
@@ -60,5 +69,13 @@ class DonationAdminController extends Controller
         $this->set_log('create', "Bağış kaydedildi ({$payment->reference}, {$payment->formattedAmount()})");
 
         return back()->with('success-status', "Bağış kaydedildi ({$payment->reference}).");
+    }
+
+    /**
+     * A column of the donation's latest payment, for ordering the list.
+     */
+    private function paymentColumn(string $column): Builder
+    {
+        return Payment::select($column)->whereColumn('payable_id', 'donations.id')->where('payable_type', (new Donation)->getMorphClass())->latest('id')->limit(1);
     }
 }

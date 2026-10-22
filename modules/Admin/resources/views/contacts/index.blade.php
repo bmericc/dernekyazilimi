@@ -21,6 +21,7 @@
     <div class="card">
         <div class="card-body border-bottom">
             <form method="GET" class="row g-2">
+                <x-sort-inputs />
                 <div class="col-md-4">
                     <input type="search" name="q" value="{{ $filters['search'] }}" class="form-control" placeholder="Ad, kurum, e-posta, telefon veya kimlik no" aria-label="Ara">
                 </div>
@@ -58,9 +59,9 @@
             <table class="table table-vcenter card-table" data-no-datatable>
                 <thead>
                     <tr>
-                        <th>Ad / Kurum</th>
-                        <th>E-posta</th>
-                        <th>Telefon</th>
+                        <x-sort-header column="name">Ad / Kurum</x-sort-header>
+                        <x-sort-header column="email">E-posta</x-sort-header>
+                        <x-sort-header column="phone">Telefon</x-sort-header>
                         <th>Sıfatlar</th>
                         <th>Hesap</th>
                     </tr>

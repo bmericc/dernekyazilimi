@@ -4,6 +4,7 @@ namespace Modules\Correspondence\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Support\HtmlSanitizer;
+use App\Support\TableSort;
 use BahriCanli\EYazisma\Guid;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,7 +34,12 @@ class LetterController extends Controller
                 ->when($status, fn ($query) => $query->where('status', $status))
                 ->when($year, fn ($query) => $query->where(fn ($query) => $query->where('number_year', $year)->orWhere(fn ($query) => $query->whereNull('number_year')->whereYear('created_at', $year))))
                 ->when($search !== '', fn ($query) => $query->where(fn ($query) => $query->where('subject', 'like', "%{$search}%")->orWhere('document_no', 'like', "%{$search}%")))
-                ->orderByRaw('number_year is null desc')->orderByDesc('number_year')->orderByDesc('number')->orderByDesc('id')
+                ->tap(TableSort::by($request, [
+                    'number' => fn ($query, $direction) => $query->orderByRaw('number_year is null '.$direction)->orderBy('number_year', $direction)->orderBy('number', $direction),
+                    'date' => fn ($query, $direction) => $query->orderByRaw('coalesce(document_date, created_at) '.$direction),
+                    'subject' => 'subject',
+                    'status' => 'status',
+                ], fn ($query) => $query->orderByRaw('number_year is null desc')->orderByDesc('number_year')->orderByDesc('number')->orderByDesc('id')))
                 ->paginate(30)->withQueryString(),
             'status' => $status,
             'year' => $year,

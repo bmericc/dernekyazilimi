@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BankAccount;
 use App\Models\Payment;
 use App\Support\Payments\Payments;
+use App\Support\TableSort;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -30,7 +31,15 @@ class PaymentAdminController extends Controller
                 ->where('reference', 'like', '%'.strtoupper($q).'%')->orWhere('payer_name', 'like', "%$q%")->orWhere('payer_email', 'like', "%$q%")));
 
         return view('admin::payments.index', [
-            'payments' => (clone $query)->latest('id')->paginate(30)->withQueryString(),
+            'payments' => (clone $query)->tap(TableSort::by($request, [
+                'reference' => 'reference',
+                'date' => fn ($query, $direction) => $query->orderByRaw('coalesce(paid_at, created_at) '.$direction),
+                'payer' => 'payer_name',
+                'purpose' => 'purpose',
+                'method' => 'method',
+                'amount' => 'amount',
+                'status' => 'status',
+            ], fn ($query) => $query->latest('id')))->paginate(30)->withQueryString(),
             'total' => (clone $query)->where('status', Payment::SUCCEEDED)->sum('amount'),
             'pendingTransfers' => Payment::where('status', Payment::PENDING)->where('method', Payment::TRANSFER)->count(),
             'filters' => $filters,

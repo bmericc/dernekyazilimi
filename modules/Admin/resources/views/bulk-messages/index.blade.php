@@ -19,7 +19,7 @@
     <div class="card">
         <div class="table-responsive">
             <table class="table table-vcenter card-table" data-no-datatable>
-                <thead><tr><th>Gönderim</th><th>Kanal</th><th>Alıcı</th><th>Durum</th><th>Oluşturan</th><th>Tarih</th></tr></thead>
+                <thead><tr><x-sort-header column="title">Gönderim</x-sort-header><th>Kanal</th><x-sort-header column="total" first="desc">Alıcı</x-sort-header><x-sort-header column="status">Durum</x-sort-header><x-sort-header column="creator">Oluşturan</x-sort-header><x-sort-header column="date" first="desc">Tarih</x-sort-header></tr></thead>
                 <tbody>
                     @forelse ($messages as $message)
                         <tr>

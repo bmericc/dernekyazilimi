@@ -5,6 +5,7 @@ namespace Modules\Membership\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Contact;
 use App\Support\IdentityCheck;
+use App\Support\TableSort;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -65,7 +66,13 @@ class ApplicationAdminController extends Controller
         return view('membership::admin.applications.index', [
             'applications' => MembershipApplication::with(['contact', 'references'])
                 ->when(array_key_exists((string) $status, MembershipApplication::STATUSES), fn ($query) => $query->where('status', $status))
-                ->latest('id')->paginate(25)->withQueryString(),
+                ->tap(TableSort::by($request, [
+                    'reference' => 'reference_no',
+                    'name' => fn ($query, $direction) => $query->orderBy(Contact::withTrashed()->select('first_name')->whereColumn('contacts.id', 'membership_applications.contact_id'), $direction)->orderBy(Contact::withTrashed()->select('last_name')->whereColumn('contacts.id', 'membership_applications.contact_id'), $direction),
+                    'date' => 'submitted_at',
+                    'signed' => 'signed_form_received_at',
+                    'status' => 'status',
+                ], fn ($query) => $query->latest('id')))->paginate(25)->withQueryString(),
             'counts' => MembershipApplication::selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status'),
             'status' => $status,
         ]);

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ProcessLogs;
 use App\Models\User;
 use App\Support\Audit;
+use App\Support\TableSort;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -31,7 +32,13 @@ class ProcessLogController extends Controller
             ->when($filters['by'], fn ($query, $by) => $query->where('process_by', $by))
             ->when($filters['from'], fn ($query, $from) => $query->where('created_at', '>=', $from->startOfDay()))
             ->when($filters['to'], fn ($query, $to) => $query->where('created_at', '<=', $to->endOfDay()))
-            ->latest('id')
+            ->tap(TableSort::by($request, [
+                'time' => 'created_at',
+                'process' => 'process',
+                'subject' => fn ($query, $direction) => $query->orderBy('subject_type', $direction)->orderBy('subject_id', $direction),
+                'by' => fn ($query, $direction) => $query->orderBy(User::select('name')->whereColumn('users.id', 'process_logs.process_by'), $direction)->orderBy(User::select('surname')->whereColumn('users.id', 'process_logs.process_by'), $direction),
+                'ip' => 'request_ip',
+            ], fn ($query) => $query->latest('id')))
             ->paginate(50)
             ->withQueryString();
 
