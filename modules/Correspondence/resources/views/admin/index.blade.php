@@ -18,6 +18,7 @@
     @include('admin::partials.status')
 
     <form method="GET" class="row g-2 mb-3">
+        <x-sort-inputs />
         <div class="col-md-5"><input type="search" name="q" value="{{ $search }}" class="form-control" placeholder="Konu ya da sayı"></div>
         <div class="col-md-2"><input type="number" name="year" value="{{ $year }}" class="form-control" placeholder="Yıl"></div>
         <div class="col-md-3"><select name="status" class="form-select"><option value="">Her durum</option>@foreach (\Modules\Correspondence\Models\Letter::STATUSES as $key => $label)<option value="{{ $key }}" @selected($status === $key)>{{ $label }}</option>@endforeach</select></div>
@@ -27,7 +28,7 @@
     <div class="card">
         <div class="table-responsive">
             <table class="table table-vcenter card-table" data-no-datatable>
-                <thead><tr><th>Sayı</th><th>Tarih</th><th>Konu</th><th>Alıcı</th><th>Durum</th></tr></thead>
+                <thead><tr><x-sort-header column="number" first="desc">Sayı</x-sort-header><x-sort-header column="date" first="desc">Tarih</x-sort-header><x-sort-header column="subject">Konu</x-sort-header><th>Alıcı</th><x-sort-header column="status">Durum</x-sort-header></tr></thead>
                 <tbody>
                     @forelse ($letters as $letter)
                         <tr>

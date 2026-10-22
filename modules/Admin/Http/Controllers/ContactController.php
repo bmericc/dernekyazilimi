@@ -5,6 +5,7 @@ namespace Modules\Admin\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\AffiliationType;
 use App\Models\Contact;
+use App\Support\TableSort;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -31,7 +32,11 @@ class ContactController extends Controller
             ->when(in_array($type, [Contact::TYPE_PERSON, Contact::TYPE_ORGANIZATION], true), fn ($query) => $query->where('type', $type))
             ->when($affiliation, fn ($query) => $query->whereHas('affiliations', fn ($query) => $query->active()->ofType($affiliation)))
             ->when($tag, fn ($query) => $query->whereHas('tags', fn ($query) => $query->whereKey($tag)))
-            ->orderBy('organization_name')->orderBy('first_name')->orderBy('last_name')
+            ->tap(TableSort::by($request, [
+                'name' => fn ($query, $direction) => $query->orderBy('organization_name', $direction)->orderBy('first_name', $direction)->orderBy('last_name', $direction),
+                'email' => 'email',
+                'phone' => 'phone',
+            ], fn ($query) => $query->orderBy('organization_name')->orderBy('first_name')->orderBy('last_name')))
             ->paginate(25)
             ->withQueryString();
 

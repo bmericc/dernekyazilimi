@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BankAccount;
 use App\Models\Contact;
 use App\Models\Payment;
+use App\Support\TableSort;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -36,7 +37,13 @@ class DuesAdminController extends Controller
             ->when($q !== '', fn ($query) => $query->where(fn ($query) => $query
                 ->where('first_name', 'like', "%{$q}%")->orWhere('last_name', 'like', "%{$q}%")->orWhere('email', 'like', "%{$q}%")
                 ->orWhereIn('contacts.id', Membership::where('number', $q)->select('contact_id'))))
-            ->orderByRaw($service->balanceSql().' desc')->orderBy('last_name')
+            ->tap(TableSort::by($request, [
+                'number' => fn ($query, $direction) => $query->orderBy(Membership::selectRaw('cast(number as unsigned)')->whereColumn('contact_id', 'contacts.id')->limit(1), $direction),
+                'name' => fn ($query, $direction) => $query->orderBy('first_name', $direction)->orderBy('last_name', $direction),
+                'charged' => 'dues_charged',
+                'paid' => 'dues_paid',
+                'balance' => fn ($query, $direction) => $query->orderByRaw($service->balanceSql().' '.$direction),
+            ], fn ($query) => $query->orderByRaw($service->balanceSql().' desc')->orderBy('last_name')))
             ->paginate(50)->withQueryString();
 
         return view('dues::admin.index', [

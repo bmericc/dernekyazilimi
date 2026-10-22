@@ -24,6 +24,7 @@
     </div>
 
     <form method="GET" class="row g-2 mb-3">
+        <x-sort-inputs />
         <div class="col-md-3"><select name="filter" class="form-select"><option value="debtors" @selected($filter === 'debtors')>Borcu olanlar</option><option value="credit" @selected($filter === 'credit')>Alacaklı olanlar</option><option value="all" @selected($filter === 'all')>Bütün üyeler</option></select></div>
         <div class="col-md-6"><input name="q" value="{{ $q }}" class="form-control" placeholder="Ad, soyad, e-posta ya da üye no"></div>
         <div class="col-md-3"><button type="submit" class="btn btn-primary w-100">Süz</button></div>
@@ -32,7 +33,7 @@
     <div class="card">
         <div class="table-responsive">
             <table class="table table-vcenter card-table" data-no-datatable>
-                <thead><tr><th>Üye no</th><th>Ad soyad</th><th class="text-end">Tahakkuk</th><th class="text-end">Ödenen</th><th class="text-end">Bakiye</th></tr></thead>
+                <thead><tr><x-sort-header column="number">Üye no</x-sort-header><x-sort-header column="name">Ad soyad</x-sort-header><x-sort-header column="charged" first="desc" class="text-end">Tahakkuk</x-sort-header><x-sort-header column="paid" first="desc" class="text-end">Ödenen</x-sort-header><x-sort-header column="balance" first="desc" class="text-end">Bakiye</x-sort-header></tr></thead>
                 <tbody>
                     @forelse ($contacts as $contact)
                         @php($balance = round($contact->dues_charged - $contact->dues_paid, 2))

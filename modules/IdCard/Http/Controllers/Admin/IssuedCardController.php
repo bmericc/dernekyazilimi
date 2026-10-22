@@ -3,6 +3,8 @@
 namespace Modules\IdCard\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Contact;
+use App\Support\TableSort;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -23,7 +25,12 @@ class IssuedCardController extends Controller
                 ->orWhereHas('contact', fn ($query) => $query
                     ->where('first_name', 'like', "%{$search}%")
                     ->orWhere('last_name', 'like', "%{$search}%"))))
-            ->latest('id')
+            ->tap(TableSort::by($request, [
+                'number' => 'number',
+                'contact' => fn ($query, $direction) => $query->orderBy(Contact::withTrashed()->select('first_name')->whereColumn('contacts.id', 'id_cards.contact_id'), $direction)->orderBy(Contact::withTrashed()->select('last_name')->whereColumn('contacts.id', 'id_cards.contact_id'), $direction),
+                'template' => fn ($query, $direction) => $query->orderBy(IdCardTemplate::withTrashed()->select('name')->whereColumn('id_card_templates.id', 'id_cards.id_card_template_id'), $direction),
+                'issued' => 'created_at',
+            ], fn ($query) => $query->latest('id')))
             ->paginate(25)
             ->withQueryString();
 

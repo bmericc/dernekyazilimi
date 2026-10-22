@@ -27,7 +27,7 @@
     <div class="card">
         <div class="table-responsive">
             <table class="table table-vcenter card-table" data-no-datatable>
-                <thead><tr><th>Başvuru no</th><th>Ad soyad</th><th>Tarih</th><th>Referanslar</th><th>İmzalı form</th><th>Durum</th></tr></thead>
+                <thead><tr><x-sort-header column="reference">Başvuru no</x-sort-header><x-sort-header column="name">Ad soyad</x-sort-header><x-sort-header column="date" first="desc">Tarih</x-sort-header><th>Referanslar</th><x-sort-header column="signed" first="desc">İmzalı form</x-sort-header><x-sort-header column="status">Durum</x-sort-header></tr></thead>
                 <tbody>
                     @forelse ($applications as $application)
                         <tr>

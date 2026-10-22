@@ -5,10 +5,12 @@ namespace Modules\Admin\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\BulkMessage;
 use App\Models\BulkMessageRecipient;
+use App\Models\User;
 use App\Modules\Audiences;
 use App\Modules\MailTemplates;
 use App\Support\BulkMessaging;
 use App\Support\HtmlSanitizer;
+use App\Support\TableSort;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,10 +24,16 @@ use Throwable;
  */
 class BulkMessageController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
         return view('admin::bulk-messages.index', [
-            'messages' => BulkMessage::with('creator')->latest('id')->paginate(25),
+            'messages' => BulkMessage::with('creator')->tap(TableSort::by($request, [
+                'title' => fn ($query, $direction) => $query->orderByRaw("coalesce(nullif(subject, ''), sms) ".$direction),
+                'total' => 'total',
+                'status' => 'status',
+                'creator' => fn ($query, $direction) => $query->orderBy(User::select('name')->whereColumn('users.id', 'bulk_messages.created_by'), $direction),
+                'date' => fn ($query, $direction) => $query->orderByRaw('coalesce(started_at, created_at) '.$direction),
+            ], fn ($query) => $query->latest('id')))->paginate(25)->withQueryString(),
         ]);
     }
 

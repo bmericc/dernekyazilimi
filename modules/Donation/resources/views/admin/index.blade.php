@@ -12,6 +12,7 @@
     @include('admin::partials.status')
 
     <form method="GET" class="row g-2 mb-3">
+        <x-sort-inputs />
         <div class="col-md-2"><input type="number" name="year" value="{{ $year }}" class="form-control"></div>
         <div class="col-md-3"><select name="status" class="form-select"><option value="">Her durum</option>@foreach (\App\Models\Payment::STATUSES as $key => $label)<option value="{{ $key }}" @selected($status === $key)>{{ $label }}</option>@endforeach</select></div>
         <div class="col-md-4"><select name="cause" class="form-select"><option value="">Her amaç</option>@foreach ($causes as $item)<option value="{{ $item->id }}" @selected($cause == $item->id)>{{ $item->name }}</option>@endforeach</select></div>
@@ -22,7 +23,7 @@
         <div class="card-header"><h3 class="card-title">{{ $year }} yılında tahsil edilen: {{ number_format((float) $total, 2, ',', '.') }} TL</h3></div>
         <div class="table-responsive">
             <table class="table table-vcenter card-table" data-no-datatable>
-                <thead><tr><th>Tarih</th><th>Bağışçı</th><th>Amaç</th><th>Yöntem</th><th class="text-end">Tutar</th><th>Durum</th></tr></thead>
+                <thead><tr><x-sort-header column="date" first="desc">Tarih</x-sort-header><x-sort-header column="donor">Bağışçı</x-sort-header><x-sort-header column="cause">Amaç</x-sort-header><x-sort-header column="method">Yöntem</x-sort-header><x-sort-header column="amount" first="desc" class="text-end">Tutar</x-sort-header><x-sort-header column="status">Durum</x-sort-header></tr></thead>
                 <tbody>
                     @forelse ($donations as $donation)
                         <tr>
