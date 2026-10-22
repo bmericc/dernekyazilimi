@@ -186,4 +186,41 @@ class PaymentsTest extends TestCase
         $this->actingAs($owner)->patch("/admin/payments/{$payment->id}/refund", ['note' => 'Yanlış hesap'])->assertRedirect();
         $this->assertSame(Payment::REFUNDED, $payment->fresh()->status);
     }
+
+    public function test_card_payments_whose_payer_did_not_come_back_are_asked_from_the_gateway(): void
+    {
+        Event::fake([PaymentSucceeded::class, \App\Events\PaymentFailed::class]);
+        $gateway = PaymentGateway::create(['driver' => 'iyzico', 'name' => 'iyzico', 'credentials' => ['api_key' => 'k', 'secret_key' => 's'], 'test_mode' => true]);
+        Http::fake(['*/checkoutform/auth/ecom/detail' => fn ($request) => Http::response($request['token'] === 'paid'
+            ? ['status' => 'success', 'paymentStatus' => 'SUCCESS', 'paymentId' => '42', 'price' => '100.0', 'conversationId' => $request['conversationId']]
+            : ['status' => 'failure', 'errorMessage' => 'Ödeme bulunamadı'])]);
+
+        $payments = app(Payments::class);
+        $card = function (string $token, int $minutes) use ($payments, $gateway) {
+            $payment = $payments->create('donation', null, '100', Payment::CARD, ['name' => 'Ada', 'email' => 'ada@example.org']);
+            $payment->forceFill(['payment_gateway_id' => $gateway->id, 'gateway_token' => $token, 'created_at' => now()->subMinutes($minutes)])->save();
+
+            return $payment;
+        };
+        $paid = $card('paid', 30);
+        $waiting = $card('open', 20);
+        $left = $card('gone', 120);
+        $fresh = $card('paid', 1);
+
+        $this->artisan('payments:check-cards')->assertSuccessful();
+
+        $this->assertTrue($paid->fresh()->isPaid());
+        $this->assertSame('42', $paid->fresh()->gateway_payment_id);
+        $this->assertTrue($waiting->fresh()->isPending());
+        $this->assertSame(Payment::CANCELLED, $left->fresh()->status);
+        $this->assertSame('Ödeme sayfasında tamamlanmadı.', $left->fresh()->note);
+        // A payer still on the page is not asked yet.
+        $this->assertTrue($fresh->fresh()->isPending());
+
+        Event::assertDispatchedTimes(PaymentSucceeded::class, 1);
+        // Leaving the page is not a refused card: the card guard must not count it.
+        Event::assertNotDispatched(\App\Events\PaymentFailed::class);
+        $this->assertSame(['payments:check-cards'], collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events())
+            ->map(fn ($event) => preg_replace('/^.*artisan.? /', '', $event->command))->filter(fn ($command) => str_contains($command, 'check-cards'))->values()->all());
+    }
 }

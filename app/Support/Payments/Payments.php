@@ -153,6 +153,44 @@ class Payments
     }
 
     /**
+     * A card payment whose payer never came back from the gateway's page:
+     * ask the gateway. Paid: it is settled as if the callback had come.
+     * Not paid and older than $abandonedBefore: the payer left the page, it
+     * is cancelled without counting as a refused card. Otherwise it waits.
+     *
+     * @return string the payment's status afterwards
+     */
+    public function checkCard(Payment $payment, Carbon $abandonedBefore): string
+    {
+        if (! $payment->isPending() || $payment->method !== Payment::CARD || ! $payment->gateway_token || ! $payment->gateway) {
+            return $payment->status;
+        }
+
+        try {
+            $result = $payment->gateway->client()->complete($payment);
+        } catch (Throwable $e) {
+            report($e);
+
+            return $payment->status;
+        }
+
+        // The callback may have settled it while the gateway answered.
+        if (! $payment->fresh()?->isPending()) {
+            return $payment->fresh()->status;
+        }
+
+        if ($result->succeeded) {
+            $payment->forceFill(['gateway_payment_id' => $result->paymentId, 'gateway_response' => $result->raw, 'note' => null]);
+            $this->succeed($payment, now());
+        } elseif ($payment->created_at->lt($abandonedBefore)) {
+            $payment->forceFill(['gateway_response' => $result->raw]);
+            $this->cancel($payment, 'Ödeme sayfasında tamamlanmadı.');
+        }
+
+        return $payment->status;
+    }
+
+    /**
      * Management confirms that a transfer arrived (or records cash).
      */
     public function confirm(Payment $payment, Carbon $paidAt, ?BankAccount $account = null, ?string $note = null): void

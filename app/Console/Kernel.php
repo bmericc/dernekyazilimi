@@ -17,6 +17,9 @@ class Kernel extends ConsoleKernel
     {
         // Birthday greetings and reminders; each is off until turned on in its settings.
         $schedule->command('notices:send')->dailyAt('10:00')->withoutOverlapping();
+
+        // Card payments whose payer did not come back from the gateway's page.
+        $schedule->command('payments:check-cards')->everyFiveMinutes()->withoutOverlapping();
     }
 
     /**
