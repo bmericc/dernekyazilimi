@@ -22,7 +22,8 @@
                 </dl>
                 <div class="mt-4 text-start">
                     <h3>Asıl yazı ve ekleri</h3>
-                    <p><a href="{{ route('correspondence.verify.pdf', $letter->document_id) }}" target="_blank" rel="noopener" class="btn btn-primary">Yazı ve PDF eklerini aç</a>
+                    <p><a href="{{ route('correspondence.verify.pdf', $letter->document_id) }}" target="_blank" rel="noopener" class="btn btn-primary">Birleşik PDF’yi aç</a>
+                    <a href="{{ route('correspondence.verify.pdf', ['code' => $letter->document_id, 'download' => 1]) }}" class="btn btn-outline-primary">Birleşik PDF’yi indir</a>
                     <a href="{{ route('correspondence.verify.pdf', ['code' => $letter->document_id, 'original' => 1]) }}" target="_blank" rel="noopener" class="btn btn-outline-secondary">Asıl PDF’yi aç</a></p>
                     <p class="text-secondary small">Birleşik PDF bir görüntüleme kopyasıdır. Elektronik imzayı doğrulamak için asıl dosyaları kullanın.</p>
                     @if ($letter->attachments->isNotEmpty())

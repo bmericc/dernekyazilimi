@@ -60,7 +60,7 @@ class VerifyController extends Controller
 
         return response($request->boolean('original') ? $pdf->render($letter) : $preview->render($letter), 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="'.$pdf->filename($letter).'"',
+            'Content-Disposition' => ($request->boolean('download') ? 'attachment' : 'inline').'; filename="'.$pdf->filename($letter).'"',
             'Cache-Control' => 'no-store',
             'X-Robots-Tag' => 'noindex, nofollow',
             'X-Content-Type-Options' => 'nosniff',

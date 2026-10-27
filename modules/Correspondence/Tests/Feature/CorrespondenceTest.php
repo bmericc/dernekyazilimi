@@ -760,8 +760,9 @@ class CorrespondenceTest extends TestCase
         auth()->logout();
         $publicPdf = route('correspondence.verify.pdf', $letter->document_id);
         $download = route('correspondence.verify.attachment', ['code' => $letter->document_id, 'attachment' => $attachment->id]);
-        $this->get('/belge-dogrula?kod='.$letter->document_id)->assertOk()->assertSee('Signed attachment')->assertSee($publicPdf, false);
+        $this->get('/belge-dogrula?kod='.$letter->document_id)->assertOk()->assertSee('Signed attachment')->assertSee('Birleşik PDF’yi aç')->assertSee('Birleşik PDF’yi indir')->assertSee($publicPdf, false);
         $this->get($publicPdf)->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        $this->get($publicPdf.'?download=1')->assertOk()->assertDownload(app(\Modules\Correspondence\Support\LetterPdf::class)->filename($letter));
         $this->assertSame($mainBytes, $this->get($publicPdf.'?original=1')->assertOk()->getContent());
         $this->assertSame($attachmentBytes, $this->get($download)->assertOk()->assertDownload('attachment.pdf')->streamedContent());
         $this->get(route('correspondence.verify.pdf', $draft->document_id))->assertNotFound();
