@@ -320,6 +320,28 @@ class CorrespondenceTest extends TestCase
         $this->assertStringNotContainsString('<td class="name">Örnek Derneği', $html);
     }
 
+    public function test_starting_pdf_signing_opens_the_local_application_and_rejects_other_addresses(): void
+    {
+        $owner = $this->owner();
+        $letter = $this->numbered($owner);
+        $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}")->assertOk()->assertSee('id="pdf-signing-form"', false);
+        $this->post("/admin/correspondence/{$letter->id}/pdf/signing-link", [
+            'signing_method' => 'application', 'launch_application' => 1,
+            'application_address' => 'https://evil.example/',
+        ])->assertSessionHasErrors('application_address');
+        $this->assertSame(0, SigningSession::where('letter_id', $letter->id)->count());
+        $response = $this->post("/admin/correspondence/{$letter->id}/pdf/signing-link", [
+            'signing_method' => 'application', 'launch_application' => 1,
+            'application_address' => SigningSession::APPLICATION_SECURE,
+        ])->assertSessionHas('pdf-signing-link');
+        $link = $response->getSession()->get('pdf-signing-link');
+        $response->assertRedirect(SigningSession::APPLICATION_SECURE.'?link='.rawurlencode($link));
+        $this->getJson($link)->assertOk()->assertJsonPath('step', SigningSession::PDF);
+        $this->post("/admin/correspondence/{$letter->id}/pdf/signing-link", [
+            'signing_method' => 'external', 'launch_application' => 1,
+        ])->assertSessionHas('pdf-signing-external')->assertRedirect();
+    }
+
     public function test_pdf_signing_is_required_and_unsigned_or_unrelated_uploads_are_rejected(): void
     {
         $owner = $this->owner();

@@ -7,6 +7,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Modules\Correspondence\Models\Letter;
 use Modules\Correspondence\Models\SigningSession;
 use Modules\Correspondence\Support\LetterPackage;
@@ -22,7 +23,12 @@ class SigningLinkController extends Controller
     public function pdf(Request $request, Letter $letter, LetterPdf $pdf): RedirectResponse
     {
         abort_unless($letter->isNumbered() && ! $letter->hasSignedPdf() && ! $letter->package_path, 403);
-        $method = $request->validate(['signing_method' => ['required', 'in:external,application']])['signing_method'];
+        $data = $request->validate([
+            'signing_method' => ['required', 'in:external,application'],
+            'launch_application' => ['nullable', 'boolean'],
+            'application_address' => ['nullable', Rule::in([SigningSession::APPLICATION, SigningSession::APPLICATION_SECURE])],
+        ]);
+        $method = $data['signing_method'];
         if ($method === 'external') {
             return back()->with('pdf-signing-external', true);
         }
@@ -32,7 +38,14 @@ class SigningLinkController extends Controller
         }
         [, $token] = SigningSession::issue($letter, SigningSession::PDF, Auth::user());
 
-        return back()->with('pdf-signing-link', route('correspondence.signing', $token));
+        $link = route('correspondence.signing', $token);
+        if ($request->boolean('launch_application')) {
+            $address = $data['application_address'] ?? SigningSession::APPLICATION;
+
+            return redirect()->away($address.'?link='.rawurlencode($link))->with('pdf-signing-link', $link);
+        }
+
+        return back()->with('pdf-signing-link', $link);
     }
 
     public function store(Letter $letter, LetterPackage $packages): RedirectResponse

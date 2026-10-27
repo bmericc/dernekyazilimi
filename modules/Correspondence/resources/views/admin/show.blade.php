@@ -143,13 +143,16 @@
                             @unless ($letter->hasSignedPdf())
                                 <div class="mb-3">
                                     @if ($canManage)
-                                        <form method="POST" action="{{ route('admin.correspondence.pdf.signing-link', $letter) }}" class="mb-3">
+                                        <form method="POST" action="{{ route('admin.correspondence.pdf.signing-link', $letter) }}" id="pdf-signing-form" class="mb-3" rel="noopener" data-addresses='@json([SigningSession::APPLICATION_SECURE, SigningSession::APPLICATION])'>
                                             @csrf
+                                            <input type="hidden" name="launch_application" value="0">
+                                            <input type="hidden" name="application_address" value="{{ SigningSession::APPLICATION }}">
                                             <label class="form-label required">PDF nasıl imzalanacak?</label>
                                             <label class="form-check"><input class="form-check-input" type="radio" name="signing_method" value="external" required><span class="form-check-label">Dışarıda imzala ve yükle</span></label>
                                             <label class="form-check"><input class="form-check-input" type="radio" name="signing_method" value="application" required><span class="form-check-label">İmza uygulamasıyla imzala</span></label>
                                             @error('signing_method')<div class="text-danger">{{ $message }}</div>@enderror
                                             <button class="btn btn-primary w-100">İmzalama sürecini başlat</button>
+                                            <p class="form-hint mt-2" id="pdf-signing-status" aria-live="polite">İmza uygulaması seçildiğinde bu bilgisayardaki imza ekranı yeni sekmede açılır. İşlem bitince bu sayfayı yenileyin.</p>
                                         </form>
                                     @endif
                                     @if (session('pdf-signing-link'))
@@ -288,26 +291,48 @@
 </div>
 
 <script>
-    // Tells whether the signing application is running on this computer, asking
-    // its HTTPS address first and its plain one next, and points the button at
-    // the one that answered.
     (function () {
-        var box = document.getElementById('signing-app');
+        var form = document.getElementById('pdf-signing-form');
+        var box = document.getElementById('signing-app') || document.getElementById('pdf-signing-status');
+        if (form) {
+            form.addEventListener('submit', function () {
+                var choice = form.querySelector('[name="signing_method"]:checked');
+                var application = choice && choice.value === 'application';
+                form.target = application ? '_blank' : '_self';
+                form.elements.launch_application.value = application ? '1' : '0';
+                if (application && box) {
+                    box.textContent = 'İmza ekranı yeni sekmede açılıyor. İmzalama bitince bu sayfayı yenileyin.';
+                    box.hidden = false;
+                }
+            });
+        }
         if (!box || !window.fetch) { return; }
-        var addresses = JSON.parse(box.dataset.addresses);
+        var addresses = JSON.parse((form || box).dataset.addresses);
 
         function ask(index) {
             if (index >= addresses.length) {
-                box.textContent = 'İmza uygulaması bu bilgisayarda çalışmıyor ya da tarayıcı ona ulaşamıyor; imzalamadan önce uygulamayı başlatın.';
+                box.textContent = 'Tarayıcı imza uygulamasına ulaşamadı. Uygulamanın açık olduğundan emin olun; varsa yerel ağ erişimi iznini verip tekrar deneyin.';
                 box.hidden = false;
                 return;
             }
-            fetch(addresses[index] + 'status').then(function (response) { return response.json(); }).then(function (status) {
-                box.textContent = 'İmza uygulaması bu bilgisayarda çalışıyor (sürüm ' + status.version + ').';
+            var controller = window.AbortController ? new AbortController() : null;
+            var timer = controller ? setTimeout(function () { controller.abort(); }, 2000) : null;
+            fetch(addresses[index] + 'status', controller ? { signal: controller.signal } : {}).then(function (response) {
+                if (!response.ok) { throw new Error('status'); }
+                return response.json();
+            }).then(function (status) {
+                if (timer) { clearTimeout(timer); }
+                if (status.name !== 'eyazisma-imza') { throw new Error('application'); }
+                box.textContent = 'İmza uygulaması hazır (sürüm ' + status.version + '). İmzalama bitince bu sayfayı yenileyin.';
                 box.hidden = false;
-                var button = document.querySelector('[data-signing-link]');
-                if (button) { button.href = addresses[index] + '?link=' + encodeURIComponent(button.dataset.signingLink); }
-            }).catch(function () { ask(index + 1); });
+                if (form) { form.elements.application_address.value = addresses[index]; }
+                document.querySelectorAll('[data-signing-link]').forEach(function (button) {
+                    button.href = addresses[index] + '?link=' + encodeURIComponent(button.dataset.signingLink);
+                });
+            }).catch(function () {
+                if (timer) { clearTimeout(timer); }
+                ask(index + 1);
+            });
         }
 
         ask(0);
