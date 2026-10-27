@@ -21,7 +21,25 @@ class LetterPdf
 
     public function render(Letter $letter): string
     {
-        // An uploaded letter is its own PDF, kept byte for byte: it may carry a signature.
+        if ($letter->hasSignedPdf()) {
+            return Storage::disk('local')->get($letter->signedPdfPath());
+        }
+        $prepared = $letter->directory().'/prepared.pdf';
+        if ($letter->isNumbered() && Storage::disk('local')->exists($prepared)) {
+            return Storage::disk('local')->get($prepared);
+        }
+        $content = $this->source($letter);
+        if ($letter->isNumbered()) {
+            $content = app(LetterVerification::class)->stamp($content, $letter);
+            Storage::disk('local')->put($prepared, $content);
+        }
+
+        return $content;
+    }
+
+    private function source(Letter $letter): string
+    {
+        // Source PDFs must be unsigned: verification is added before signing.
         if ($letter->isPdf()) {
             return Storage::disk('local')->get($letter->pdf_path) ?? throw new \RuntimeException('Yazının PDF dosyası bulunamadı.');
         }

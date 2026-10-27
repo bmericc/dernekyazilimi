@@ -33,6 +33,12 @@
                 <dd class="col-sm-9">{{ $settings->identifier() ?? '—' }} <span class="text-secondary small">e-Yazışma paketi oluşturmak için gereklidir.</span></dd>
             </dl>
 
+            <h3 class="card-title mt-4">Belge doğrulama</h3>
+            <label class="form-label" for="verification_url">WordPress belge doğrulama sayfası (isteğe bağlı)</label>
+            <input id="verification_url" name="verification_url" type="url" class="form-control @error('verification_url') is-invalid @enderror" value="{{ old('verification_url', $settings->verificationUrl() === route('correspondence.verify') ? '' : $settings->verificationUrl()) }}" placeholder="https://www.ornek.org.tr/belge-dogrula/" maxlength="255">
+            @error('verification_url')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            <span class="form-hint">WordPress sayfasına <code>[dernekyazilimi_verify]</code> ekleyin ve adresini buraya yazın. Boşsa portal kullanılır. Yalnız bundan sonra hazırlanan PDF ve EYP bağlantıları değişir; mevcut imzalı belgeler korunur.</span>
+
             <h3 class="card-title mt-4">e-Yazışma paketi</h3>
             <div class="row">
                 <div class="col-md-6 mb-3">

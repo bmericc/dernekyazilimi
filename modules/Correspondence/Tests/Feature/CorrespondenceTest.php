@@ -78,6 +78,65 @@ class CorrespondenceTest extends TestCase
         return $letter->fresh();
     }
 
+    private function signPdf(Letter $letter, User $owner): string
+    {
+        $link = $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/pdf/signing-link", ['signing_method' => 'application'])->assertSessionHasNoErrors()->getSession()->get('pdf-signing-link');
+        $session = $this->getJson($link)->assertOk()->assertJsonPath('step', 'pdf')->json();
+        $this->postJson($link, ['signature' => base64_encode('invalid CMS')])->assertUnprocessable();
+        $this->postJson($link, ['signature' => base64_encode($this->cmsSignature(base64_decode($session['content'])))])->assertOk();
+        $this->getJson($link)->assertNotFound();
+        return Storage::disk('local')->get($letter->signedPdfPath());
+    }
+
+    private function cmsSignature(string $content): string
+    {
+        $input = tmpfile();
+        $output = tmpfile();
+        try {
+            fwrite($input, $content);
+            $key = openssl_pkey_new(['private_key_bits' => 2048]);
+            $csr = openssl_csr_new(['commonName' => 'Test signer'], $key);
+            $certificate = openssl_csr_sign($csr, null, $key, 1);
+            $this->assertTrue(openssl_cms_sign(stream_get_meta_data($input)['uri'], stream_get_meta_data($output)['uri'], $certificate, $key, [], OPENSSL_CMS_BINARY, OPENSSL_ENCODING_DER));
+            rewind($output);
+            return stream_get_contents($output);
+        } finally {
+            fclose($input);
+            fclose($output);
+        }
+    }
+
+    /** A standard incremental PDF signature revision, as an external signer writes it. */
+    private function externalSigningDocument(string $source): string
+    {
+        preg_match_all('/\/Size (\d+)/', $source, $sizes);
+        preg_match_all('/startxref\s+(\d+)/', $source, $xrefs);
+        $first = (int) end($sizes[1]);
+        $previous = (int) end($xrefs[1]);
+        $catalog = $first + 2;
+        $objects = [
+            '<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached /ByteRange [0 0000000000 0000000000 0000000000] /Contents <'.str_repeat('0', \Modules\Correspondence\Support\PdfSigningDocument::CAPACITY * 2).'> >>',
+            '<< /Type /Annot /Subtype /Widget /FT /Sig /T (ExternalSignature) /Rect [0 0 0 0] /V '.$first.' 0 R >>',
+            '<< /Type /Catalog /Pages 1 0 R /AcroForm << /SigFlags 3 /Fields ['.($first + 1).' 0 R] >> >>',
+        ];
+        $pdf = $source."\n";
+        $offsets = [];
+        foreach ($objects as $index => $object) {
+            $offsets[] = strlen($pdf);
+            $pdf .= ($first + $index)." 0 obj\n".$object."\nendobj\n";
+        }
+        $xref = strlen($pdf);
+        $pdf .= "xref\n{$first} 3\n";
+        foreach ($offsets as $offset) {
+            $pdf .= sprintf("%010d 00000 n \n", $offset);
+        }
+        $pdf .= 'trailer << /Size '.($first + 3).' /Root '.$catalog.' 0 R /Prev '.$previous." >>\nstartxref\n{$xref}\n%%EOF\n";
+        $start = strpos($pdf, '/Contents <', strlen($source)) + strlen('/Contents ');
+        $end = $start + \Modules\Correspondence\Support\PdfSigningDocument::CAPACITY * 2 + 2;
+
+        return str_replace('/ByteRange [0 0000000000 0000000000 0000000000]', sprintf('/ByteRange [0 %010d %010d %010d]', $start, $end, strlen($pdf) - $end), $pdf);
+    }
+
     public function test_a_draft_is_written_and_edited(): void
     {
         $owner = $this->owner();
@@ -243,7 +302,9 @@ class CorrespondenceTest extends TestCase
         $html = view('correspondence::pdf.letter', ['letter' => $letter->fresh()->load(['recipients', 'attachments']), 'logo' => null])->render();
         $this->assertStringNotContainsString('TASLAK', $html);
         $this->assertStringContainsString($letter->fresh()->document_no, $html);
-        $this->assertStringContainsString($letter->document_id, $html);
+        $final = $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}/pdf")->assertOk()->getContent();
+        $this->assertNotSame($draft->getContent(), $final);
+        $this->assertStringContainsString(route('correspondence.verify', ['kod' => $letter->document_id]), $final);
 
         // The letterhead carries the registered address, not the public one.
         $this->actingAs($owner)->put('/admin/settings/organization', ['name' => 'Örnek Derneği', 'address' => 'PK 50 Yenişehir', 'official_address' => 'Deneme Sok. No: 1 Çankaya', 'kep_address' => 'ornek@hs01.kep.tr'])->assertSessionHasNoErrors();
@@ -259,6 +320,47 @@ class CorrespondenceTest extends TestCase
         $this->assertStringNotContainsString('<td class="name">Örnek Derneği', $html);
     }
 
+    public function test_pdf_signing_is_required_and_unsigned_or_unrelated_uploads_are_rejected(): void
+    {
+        $owner = $this->owner();
+        $letter = $this->numbered($owner);
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package")->assertSessionHas('danger-status');
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/pdf/signing-link")->assertSessionHasErrors('signing_method');
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/pdf/signing-link", ['signing_method' => 'external'])->assertSessionHas('pdf-signing-external');
+        $prepared = $this->get("/admin/correspondence/{$letter->id}/pdf")->assertOk()->getContent();
+        $this->post("/admin/correspondence/{$letter->id}/signed-pdf", ['signed_pdf' => UploadedFile::fake()->createWithContent('unsigned.pdf', $prepared)])->assertSessionHasErrors('signed_pdf');
+        $this->assertFalse($letter->hasSignedPdf());
+        $viewer = $this->userWith(['correspondence.view']);
+        $this->actingAs($viewer)->post("/admin/correspondence/{$letter->id}/pdf/signing-link", ['signing_method' => 'application'])->assertForbidden();
+        $this->actingAs($viewer)->post("/admin/correspondence/{$letter->id}/signed-pdf", ['signed_pdf' => UploadedFile::fake()->createWithContent('unsigned.pdf', $prepared)])->assertForbidden();
+        $signed = $this->signPdf($letter, $owner);
+        $this->assertNotSame($prepared, $signed);
+        $this->assertSame($signed, $this->get("/admin/correspondence/{$letter->id}/pdf")->getContent());
+        $this->post("/admin/correspondence/{$letter->id}/pdf/signing-link", ['signing_method' => 'application'])->assertForbidden();
+        $this->post("/admin/correspondence/{$letter->id}/signed-pdf", ['signed_pdf' => UploadedFile::fake()->createWithContent('signed.pdf', $signed)])->assertForbidden();
+    }
+
+    public function test_an_externally_signed_pdf_is_checked_and_packaged_without_changes(): void
+    {
+        $owner = $this->owner();
+        $letter = $this->numbered($owner);
+        $source = $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}/pdf")->assertOk()->getContent();
+        $prepared = $this->externalSigningDocument($source);
+        $signed = \Modules\Correspondence\Support\PdfSigningDocument::complete($prepared, $this->cmsSignature(\Modules\Correspondence\Support\PdfSigningDocument::bytes($prepared)));
+        $tampered = str_replace('ExternalSignature', 'ModifiedSignature', $signed);
+        $this->post("/admin/correspondence/{$letter->id}/signed-pdf", ['signed_pdf' => UploadedFile::fake()->createWithContent('tampered.pdf', $tampered)])->assertSessionHasErrors('signed_pdf');
+        $other = $this->numbered($owner);
+        $this->post("/admin/correspondence/{$other->id}/signed-pdf", ['signed_pdf' => UploadedFile::fake()->createWithContent('unrelated.pdf', $signed)])->assertSessionHasErrors('signed_pdf');
+        // Appending bytes after the signed revision invalidates full-document coverage.
+        $this->post("/admin/correspondence/{$letter->id}/signed-pdf", ['signed_pdf' => UploadedFile::fake()->createWithContent('tampered.pdf', $signed."\nchanged")])->assertSessionHasErrors('signed_pdf');
+        $this->assertFalse($letter->hasSignedPdf());
+        $this->post("/admin/correspondence/{$letter->id}/signed-pdf", ['signed_pdf' => UploadedFile::fake()->createWithContent('signed.pdf', $signed)])->assertSessionHasNoErrors()->assertSessionHas('success-status');
+        $this->assertSame($signed, $this->get("/admin/correspondence/{$letter->id}/pdf")->getContent());
+        $this->post("/admin/correspondence/{$letter->id}/package", ['generation' => '1'])->assertSessionHas('success-status');
+        $package = Paket::icerikten(Storage::disk('local')->get($letter->fresh()->package_path));
+        $this->assertSame($signed, $package->ustYazi()->icerik);
+    }
+
     public function test_the_package_is_built_signed_and_sealed(): void
     {
         $owner = $this->owner();
@@ -271,6 +373,7 @@ class CorrespondenceTest extends TestCase
         $this->actingAs($owner)->post("/admin/correspondence/{$draft->id}/attachments", ['name' => 'İki adet CD']);
         $this->actingAs($owner)->post("/admin/correspondence/{$draft->id}/approve");
         $letter = $draft->fresh();
+        $this->signPdf($letter, $owner);
 
         // The organization's identifier is needed first.
         $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package", ['generation' => '2'])->assertSessionHas('danger-status');
@@ -333,6 +436,7 @@ class CorrespondenceTest extends TestCase
     {
         $owner = $this->owner();
         $letter = $this->numbered($owner);
+        $this->signPdf($letter, $owner);
 
         // The old layout is offered first and needs no MERSİS number: the first signer is named as the creator.
         $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}")->assertOk()->assertSee('2.0 öncesi: yalnız e-imza')->assertSee('2.x: e-imza ve e-mühür');
@@ -377,6 +481,7 @@ class CorrespondenceTest extends TestCase
         // With the time-stamp service set, the signature of the old layout is asked time-stamped.
         app(Organization::class)->save(['name' => 'Örnek Derneği', 'correspondence_tsa_url' => 'http://zd.example.org', 'correspondence_package_generation' => '2', 'mersis_no' => '0123456789012345']);
         $other = $this->numbered($owner);
+        $this->signPdf($other, $owner);
         $this->actingAs($owner)->get("/admin/correspondence/{$other->id}")->assertSee('value="2" checked', false);
         $this->actingAs($owner)->post("/admin/correspondence/{$other->id}/package", ['generation' => '1']);
         $link = $this->actingAs($owner)->post("/admin/correspondence/{$other->id}/package/signing-link")->getSession()->get('signing-link');
@@ -387,7 +492,10 @@ class CorrespondenceTest extends TestCase
     public function test_a_finished_letter_is_uploaded_as_a_pdf_with_its_own_number(): void
     {
         $owner = $this->owner();
-        $pdf = "%PDF-1.7 imzalı yazı \x00\xff";
+        $document = new \Dompdf\Dompdf;
+        $document->loadHtml('<p>Uploaded letter</p>');
+        $document->render();
+        $pdf = $document->output();
         $form = fn (array $overrides = []) => array_replace($this->form(['body' => null]), [
             'source' => 'pdf',
             'pdf' => UploadedFile::fake()->createWithContent('06-061-115-2026-22 - Anadolu Üniversitesi (imzalı).pdf', $pdf),
@@ -432,10 +540,13 @@ class CorrespondenceTest extends TestCase
         $this->assertNull(LetterSequence::find(now()->year));
         $this->actingAs($owner)->put("/admin/correspondence/{$letter->id}", $form())->assertForbidden();
 
-        // The package carries the uploaded PDF byte for byte.
+        // Verification is added before signing. The package preserves the signed bytes.
+        $prepared = $this->actingAs($owner)->get("/admin/correspondence/{$letter->id}/pdf")->assertOk()->getContent();
+        $this->assertNotSame($pdf, $prepared);
+        $signed = $this->signPdf($letter, $owner);
         $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package")->assertSessionHas('success-status');
         $package = Paket::icerikten(Storage::disk('local')->get($letter->fresh()->package_path));
-        $this->assertSame($pdf, $package->ustYazi()->icerik);
+        $this->assertSame($signed, $package->ustYazi()->icerik);
         $this->assertSame('06-061-115-2026-22', $package->nihaiUstveri()->belgeNo);
         $this->assertSame('2026-10-03', $package->nihaiUstveri()->tarih->format('Y-m-d'));
 
@@ -449,9 +560,11 @@ class CorrespondenceTest extends TestCase
         app(Organization::class)->save(['mersis_no' => '0123456789012345']);
 
         $letter = $this->numbered($owner, ['recipients' => [['kind' => 'institution', 'name' => 'Numarasız Kurum', 'delivery' => 'GRG']]]);
+        $this->signPdf($letter, $owner);
         $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package", ['generation' => '2'])->assertSessionHas('danger-status', 'Paket için alıcının DETSİS no değeri gerekir: Numarasız Kurum');
 
         $letter = $this->numbered($owner);
+        $this->signPdf($letter, $owner);
         $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package", ['generation' => '2'])->assertSessionHas('success-status');
         $path = $letter->fresh()->package_path;
 
@@ -467,6 +580,7 @@ class CorrespondenceTest extends TestCase
         $owner = $this->owner();
         app(Organization::class)->save(['mersis_no' => '0123456789012345']);
         $letter = $this->numbered($owner);
+        $this->signPdf($letter, $owner);
 
         $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package/signing-link")->assertForbidden();
         $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package", ['generation' => '2']);
@@ -518,6 +632,48 @@ class CorrespondenceTest extends TestCase
         $this->assertSame(PaketAsamasi::Tamamlandi, $package->asama());
         $this->assertTrue($package->dogrula()->gecerli());
         $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package/signing-link")->assertForbidden();
+    }
+
+    public function test_wordpress_verification_api_only_returns_public_numbered_letter_details(): void
+    {
+        $owner = $this->owner();
+        $draft = $this->letter($owner);
+        $letter = $this->numbered($owner);
+        auth()->logout();
+        $this->getJson('/api/site/documents/verify?kod='.$letter->document_id)->assertUnauthorized();
+        app(Organization::class)->save(['frame_ancestors' => 'https://www.ornek.org.tr']);
+        $key = app(\App\Support\SiteApi::class)->generateKey();
+        $this->withHeaders(['X-Api-Key' => $key, 'X-Site-Url' => 'https://bad.example'])->getJson('/api/site/documents/verify?kod='.$letter->document_id)->assertForbidden();
+        $this->withHeaders(['X-Site-Url' => 'https://www.ornek.org.tr']);
+        $this->getJson('/api/site/config')->assertOk()->assertJsonPath('correspondence.open', true);
+        $this->getJson('/api/site/documents/verify?kod='.strtolower($letter->document_id))->assertOk()
+            ->assertExactJson(['document_no' => $letter->document_no, 'document_date' => $letter->document_date->format('d.m.Y'), 'subject' => $letter->subject, 'status' => Letter::NUMBERED])
+            ->assertHeader('Cache-Control', 'no-store, private')->assertHeader('X-Robots-Tag', 'noindex, nofollow');
+        $this->getJson('/api/site/documents/verify?kod='.$draft->document_id)->assertNotFound();
+        $this->getJson('/api/site/documents/verify?kod=not-a-code')->assertUnprocessable();
+        $this->getJson('/api/site/documents/verify?kod[]=bad')->assertUnprocessable();
+        $letter->forceFill(['status' => Letter::CANCELLED, 'cancel_reason' => 'Private reason'])->save();
+        $this->getJson('/api/site/documents/verify?kod='.$letter->document_id)->assertOk()->assertJsonPath('status', Letter::CANCELLED)->assertJsonMissingPath('cancel_reason');
+        $letter->delete();
+        $this->getJson('/api/site/documents/verify?kod='.$letter->document_id)->assertNotFound();
+    }
+
+    public function test_wordpress_verification_address_is_configurable_for_new_documents(): void
+    {
+        $owner = $this->owner();
+        $url = 'https://www.ornek.org.tr/belge-dogrula/';
+        $settings = app(\Modules\Correspondence\Support\CorrespondenceSettings::class);
+        $this->assertSame(route('correspondence.verify'), $settings->verificationUrl());
+        $form = ['number_format' => '{yil}/{sira}', 'start_number' => 1, 'verification_url' => $url];
+        $this->actingAs($owner)->put('/admin/correspondence/settings', $form)->assertSessionHasNoErrors();
+        $letter = $this->numbered($owner);
+        $this->assertSame($url.'?kod='.$letter->document_id, $settings->verificationUrl($letter->document_id));
+        $prepared = $this->get("/admin/correspondence/{$letter->id}/pdf")->getContent();
+        $this->assertStringContainsString($url.'?kod='.$letter->document_id, $prepared);
+        $this->put('/admin/correspondence/settings', array_replace($form, ['verification_url' => 'javascript:bad']))->assertSessionHasErrors('verification_url');
+        $this->put('/admin/correspondence/settings', array_replace($form, ['verification_url' => null]))->assertSessionHasNoErrors();
+        $this->assertSame(route('correspondence.verify'), $settings->verificationUrl());
+        $this->assertSame($prepared, $this->get("/admin/correspondence/{$letter->id}/pdf")->getContent());
     }
 
     public function test_anyone_can_verify_a_letter_by_its_code(): void

@@ -31,17 +31,19 @@ class SettingsController extends Controller
             }],
             'start_number' => ['required', 'integer', 'between:1,1000000'],
             'package_generation' => ['nullable', Rule::in([LetterPackage::OLD, LetterPackage::CURRENT])],
+            'verification_url' => ['nullable', 'url:https', 'max:255', 'not_regex:/[?#]/'],
             'tsa_url' => ['nullable', 'url:http,https', 'max:255'],
             'tsa_user' => ['nullable', 'string', 'max:100'],
             'tsa_password' => ['nullable', 'string', 'max:200'],
         ], ['number_format.regex' => 'Sayı biçiminde {sira} bulunmalıdır.'], [
-            'number_format' => 'Sayı biçimi', 'start_number' => 'Başlangıç numarası',
+            'number_format' => 'Sayı biçimi', 'start_number' => 'Başlangıç numarası', 'verification_url' => 'Belge doğrulama adresi',
             'tsa_url' => 'Zaman damgası adresi', 'tsa_user' => 'Zaman damgası kullanıcısı', 'tsa_password' => 'Zaman damgası parolası',
         ]);
 
         $settings->save([
             'correspondence_number_format' => $data['number_format'],
             'correspondence_start_number' => (string) $data['start_number'],
+            'correspondence_verification_url' => $data['verification_url'] ?? null,
             'correspondence_package_generation' => $data['package_generation'] ?? null,
         ]);
         $settings->saveTimestampService($data['tsa_url'] ?? null, $data['tsa_user'] ?? null, $data['tsa_password'] ?? null);

@@ -36,7 +36,6 @@
 
     <div class="foot">
         {{ implode(' · ', $contact) }}
-        @if ($letter->document_no)<br>Belge doğrulama kodu: {{ $letter->document_id }} · Doğrulama adresi: {{ route('correspondence.verify') }}@endif
     </div>
 
     <table class="head">

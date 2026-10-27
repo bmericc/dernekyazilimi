@@ -18,6 +18,8 @@ Route::middleware('permission:correspondence.manage')->group(function () {
     Route::get('/correspondence/{letter}/edit', [LetterController::class, 'edit'])->name('correspondence.edit');
     Route::put('/correspondence/{letter}', [LetterController::class, 'update'])->name('correspondence.update');
     Route::delete('/correspondence/{letter}', [LetterController::class, 'destroy'])->name('correspondence.destroy');
+    Route::post('/correspondence/{letter}/pdf/signing-link', [SigningLinkController::class, 'pdf'])->name('correspondence.pdf.signing-link');
+    Route::post('/correspondence/{letter}/signed-pdf', [LetterController::class, 'uploadSignedPdf'])->name('correspondence.signed-pdf');
     Route::post('/correspondence/{letter}/submit', [LetterController::class, 'submit'])->name('correspondence.submit');
     Route::post('/correspondence/{letter}/attachments', [AttachmentController::class, 'store'])->name('correspondence.attachments.store');
     Route::delete('/correspondence/{letter}/attachments/{attachment}', [AttachmentController::class, 'destroy'])->name('correspondence.attachments.destroy');

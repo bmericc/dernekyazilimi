@@ -58,6 +58,10 @@ class LetterPackage
             throw new PackageException('Paket yalnız sayı verilmiş yazı için oluşturulabilir.');
         }
 
+        if (! $letter->hasSignedPdf()) {
+            throw new PackageException('EYP oluşturmadan önce doğrulama bilgileri eklenmiş PDF’i imzalayıp yükleyin.');
+        }
+
         $old = $generation === self::OLD;
         $letter->loadMissing(['recipients', 'attachments']);
 
@@ -72,7 +76,7 @@ class LetterPackage
         // the verification address came with 2.0.
         $old
             ? $builder->surum(self::OLD_VERSION)->belge($letter->document_date, $letter->document_no)
-            : $builder->dogrulamaAdresi(route('correspondence.verify'));
+            : $builder->dogrulamaAdresi($this->settings->verificationUrl());
 
         foreach ($letter->recipients as $recipient) {
             $builder->dagitim($this->party($recipient), DagitimTuru::from($recipient->delivery));
