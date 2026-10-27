@@ -13,7 +13,7 @@
 <div class="container-xl">
     <div class="page-header mb-3">
         <h2 class="page-title">{{ $letter->exists ? 'Yazıyı düzenle' : ($letter->isPdf() ? 'Hazır PDF ile yazı' : 'Yeni yazı') }}</h2>
-        <div class="text-secondary mt-1">{{ $letter->isPdf() ? 'Portalın dışında hazırlanmış, sayısı ve tarihi üzerinde olan yazı. PDF olduğu gibi saklanır ve e-Yazışma paketine konur.' : 'Sayı ve tarih, yazı onaylandığında verilir.' }}</div>
+        <div class="text-secondary mt-1">{{ $letter->isPdf() ? 'Portalın dışında hazırlanmış, sayısı ve tarihi üzerinde olan yazı. İmzasız PDF yükleyin; onaydan sonra doğrulama bilgileri eklenir. Bu çıktıyı imzalayıp tekrar yükleyin.' : 'Sayı ve tarih, yazı onaylandığında verilir.' }}</div>
     </div>
 
     @include('admin::partials.status')

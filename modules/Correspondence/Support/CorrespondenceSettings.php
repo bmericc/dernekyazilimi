@@ -27,6 +27,14 @@ class CorrespondenceSettings
         return $this->organization->get('correspondence_number_format') ?: self::DEFAULT_FORMAT;
     }
 
+    /** Public verification page, optionally hosted by the WordPress site. */
+    public function verificationUrl(?string $code = null): string
+    {
+        $url = $this->organization->get('correspondence_verification_url') ?: route('correspondence.verify');
+
+        return $code === null ? $url : $url.(str_contains($url, '?') ? '&' : '?').http_build_query(['kod' => $code]);
+    }
+
     /** First number of a year that has no letters yet. */
     public function startNumber(): int
     {

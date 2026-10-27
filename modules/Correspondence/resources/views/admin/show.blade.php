@@ -59,7 +59,7 @@
                         <p class="mb-2"><strong>İlgi:</strong> @foreach ($letter->references as $index => $reference)<span class="d-block">{{ chr(ord('a') + $index) }}) {{ $reference }}</span>@endforeach</p>
                     @endif
                     @if ($letter->isPdf())
-                        <p class="mb-0"><i class="ti ti-file-type-pdf me-1"></i>Hazır PDF: <a href="{{ route('admin.correspondence.pdf', $letter) }}" target="_blank">{{ $letter->pdf_name }}</a> <span class="text-secondary small">Yazı portalın dışında hazırlandı; PDF olduğu gibi saklanıyor.</span></p>
+                        <p class="mb-0"><i class="ti ti-file-type-pdf me-1"></i>Hazır PDF: <a href="{{ route('admin.correspondence.pdf', $letter) }}" target="_blank">{{ $letter->pdf_name }}</a> <span class="text-secondary small">Yazı portalın dışında hazırlandı; doğrulama bilgileri onaydan sonra PDF’e eklenir.</span></p>
                     @else
                         <div class="markdown">{!! $letter->body !!}</div>
                     @endif
@@ -138,8 +138,45 @@
                     <div class="card-header"><h3 class="card-title">e-Yazışma paketi</h3>@if ($package)<div class="card-actions"><span class="badge bg-secondary-lt">{{ $old ? '2.0 öncesi' : '2.x' }}</span></div>@endif</div>
                     <div class="card-body">
                         @if (! $package)
-                            <p class="text-secondary small">Paket, yazının PDF'ini ve eklerini içerir. Oluşturulduktan sonra elektronik imza eklenir; imza portalın dışında, imzacının kartıyla atılır.</p>
-                            @if ($canManage)
+                            <p class="text-secondary small">Önce QR kod ve doğrulama bilgileri eklenmiş PDF imzalanır. EYP, yüklenen imzalı PDF ve eklerden oluşturulur; paket imzası sonraki adımdır.</p>
+                            @unless ($letter->hasSignedPdf())
+                                <div class="mb-3">
+                                    @if ($canManage)
+                                        <form method="POST" action="{{ route('admin.correspondence.pdf.signing-link', $letter) }}" class="mb-3">
+                                            @csrf
+                                            <label class="form-label required">PDF nasıl imzalanacak?</label>
+                                            <label class="form-check"><input class="form-check-input" type="radio" name="signing_method" value="external" required><span class="form-check-label">Dışarıda imzala ve yükle</span></label>
+                                            <label class="form-check"><input class="form-check-input" type="radio" name="signing_method" value="application" required><span class="form-check-label">İmza uygulamasıyla imzala</span></label>
+                                            @error('signing_method')<div class="text-danger">{{ $message }}</div>@enderror
+                                            <button class="btn btn-primary w-100">İmzalama sürecini başlat</button>
+                                        </form>
+                                    @endif
+                                    @if (session('pdf-signing-link'))
+                                        <div id="signing-app" data-addresses='@json([SigningSession::APPLICATION_SECURE, SigningSession::APPLICATION])' hidden></div>
+                                        <a href="{{ SigningSession::applicationUrl(session('pdf-signing-link')) }}" data-signing-link="{{ session('pdf-signing-link') }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary w-100 mb-2">İmza uygulamasında PDF’i imzala</a>
+                                        <input class="form-control form-control-sm" value="{{ session('pdf-signing-link') }}" readonly onclick="this.select()">
+                                        <div class="form-hint">Bağlantı {{ SigningSession::LIFETIME }} dakika geçerli ve tek kullanımlıktır. İşlem bitince sayfayı yenileyin.</div>
+                                    @endif
+                                    <details @if (session('pdf-signing-external') || $errors->has('signed_pdf')) open @endif>
+                                    <summary class="mb-2">Dışarıda imzala ve yükle</summary>
+                                    <p class="text-secondary small">İmza uygulamasında artımlı kaydetme kullanın.</p>
+                                    <a href="{{ route('admin.correspondence.pdf', $letter) }}" target="_blank" class="btn btn-outline-primary w-100">1. İmzalanacak PDF’i indir</a>
+                                    @if ($canManage)
+                                        <form method="POST" action="{{ route('admin.correspondence.signed-pdf', $letter) }}" enctype="multipart/form-data" class="mt-3">
+                                            @csrf
+                                            <label class="form-label" for="signed_pdf">2. Dışarıda imzalanan PDF’i yükle</label>
+                                            <input id="signed_pdf" type="file" name="signed_pdf" accept="application/pdf" required class="form-control @error('signed_pdf') is-invalid @enderror">
+                                            @error('signed_pdf')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                            <div class="form-hint">İmzanın içerik bütünlüğü kontrol edilir. Sertifika güveni ve iptal durumu imza uygulamasında doğrulanmalıdır.</div>
+                                            <button class="btn btn-primary w-100 mt-2">İmzalı PDF’i kaydet</button>
+                                        </form>
+                                    @endif
+                                    </details>
+                                </div>
+                            @else
+                                <p class="text-success">İmzalı PDF yüklendi; EYP oluşturulabilir.</p>
+                            @endunless
+                            @if ($canManage && $letter->hasSignedPdf())
                                 <form method="POST" action="{{ route('admin.correspondence.package.store', $letter) }}">
                                     @csrf
                                     @foreach ([LetterPackage::OLD => ['2.0 öncesi: yalnız e-imza', 'İmzayla tamamlanır; kurumlar arasında hâlâ kullanılır.'], LetterPackage::CURRENT => ['2.x: e-imza ve e-mühür', 'Kurumun e-mührü de gerekir.']] as $value => [$label, $hint])
