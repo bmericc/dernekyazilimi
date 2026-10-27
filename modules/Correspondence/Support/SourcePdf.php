@@ -54,16 +54,14 @@ class SourcePdf
         if ($binary === null) {
             throw ValidationException::withMessages(['pdf' => 'Bu standart PDF sıkıştırılmış nesneler içeriyor. Sunucudaki qpdf uyumluluk aracı kurulmalıdır.']);
         }
-        $input = tempnam(sys_get_temp_dir(), 'letter-pdf-');
-        $output = tempnam(sys_get_temp_dir(), 'letter-pdf-');
-        if ($input === false || $output === false) {
-            foreach ([$input, $output] as $path) {
-                if (is_string($path)) {
-                    unlink($path);
-                }
-            }
-            throw new \RuntimeException('PDF için geçici dosya oluşturulamadı.');
+        // Ubuntu's qpdf AppArmor profile permits .pdf paths in /tmp.
+        // A private directory also protects both input and output contents.
+        $directory = sys_get_temp_dir().'/letter-pdf-'.bin2hex(random_bytes(12));
+        if (! mkdir($directory, 0700)) {
+            throw new \RuntimeException('PDF için geçici dizin oluşturulamadı.');
         }
+        $input = $directory.'/input.pdf';
+        $output = $directory.'/output.pdf';
         try {
             file_put_contents($input, $content);
             $process = new Process([$binary, '--object-streams=disable', '--stream-data=preserve', $input, $output]);
@@ -77,8 +75,12 @@ class SourcePdf
         } catch (\Symfony\Component\Process\Exception\ProcessTimedOutException $e) {
             throw ValidationException::withMessages(['pdf' => 'PDF okunurken süre sınırı aşıldı. Daha küçük bir asıl yazı PDF’si yükleyin; ekleri ayrı dosyalar olarak seçin.']);
         } finally {
-            unlink($input);
-            unlink($output);
+            foreach ([$input, $output] as $file) {
+                if (is_file($file)) {
+                    unlink($file);
+                }
+            }
+            rmdir($directory);
         }
     }
 
