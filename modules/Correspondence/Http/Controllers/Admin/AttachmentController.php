@@ -21,19 +21,10 @@ class AttachmentController extends Controller
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'file' => ['nullable', 'file', 'max:20480', 'mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,odt,ods,jpg,jpeg,png,gif,tif,tiff,txt,csv,zip'],
+            'file' => ['nullable', 'file', 'max:20480', 'mimes:'.LetterAttachment::UPLOAD_MIMES],
         ], [], ['name' => 'Ekin adı', 'file' => 'Dosya']);
 
-        $file = $request->file('file');
-
-        $letter->attachments()->create([
-            'name' => $data['name'],
-            'path' => $file?->store($letter->directory().'/ekler', 'local'),
-            'original_name' => $file?->getClientOriginalName(),
-            'mime' => $file?->getMimeType(),
-            'size' => $file?->getSize(),
-            'sort' => (int) $letter->attachments()->max('sort') + 1,
-        ]);
+        $letter->addAttachment($data['name'], $request->file('file'));
 
         return back()->with('success-status', 'Ek eklendi.');
     }

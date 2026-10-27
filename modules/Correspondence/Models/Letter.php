@@ -69,6 +69,18 @@ class Letter extends Model
         return $this->hasMany(LetterRecipient::class)->orderBy('sort')->orderBy('id');
     }
 
+    public function addAttachment(string $name, ?\Illuminate\Http\UploadedFile $file): LetterAttachment
+    {
+        return $this->attachments()->create([
+            'name' => $name,
+            'path' => $file?->store($this->directory().'/ekler', 'local'),
+            'original_name' => $file?->getClientOriginalName(),
+            'mime' => $file?->getMimeType(),
+            'size' => $file?->getSize(),
+            'sort' => (int) $this->attachments()->max('sort') + 1,
+        ]);
+    }
+
     public function attachments(): HasMany
     {
         return $this->hasMany(LetterAttachment::class)->orderBy('sort')->orderBy('id');

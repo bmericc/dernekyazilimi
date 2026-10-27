@@ -10,6 +10,8 @@ class LetterAttachment extends Model
 {
     use SoftDeletes;
 
+    public const UPLOAD_MIMES = 'pdf,doc,docx,xls,xlsx,ppt,pptx,odt,ods,jpg,jpeg,png,gif,tif,tiff,txt,csv,zip';
+
     protected $table = 'correspondence_attachments';
 
     protected $fillable = ['name', 'path', 'original_name', 'mime', 'size', 'sort'];
