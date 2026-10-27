@@ -20,6 +20,8 @@ class CorrespondenceServiceProvider extends ModuleServiceProvider
 
     protected function bootModule(Menu $menu, Slots $slots): void
     {
+        $this->siteApi()->describe('correspondence', fn () => ['open' => true]);
+
         $this->permissions()->group('correspondence', 'Yazışmalar', 70);
         $this->trash()->register('letter', \Modules\Correspondence\Models\Letter::class);
         $this->permissions()->register('correspondence.view', 'Yazıları görebilsin', 'correspondence', 70);

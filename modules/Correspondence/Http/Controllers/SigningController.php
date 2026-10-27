@@ -9,10 +9,15 @@ use BahriCanli\EYazisma\Enums\Surum;
 use BahriCanli\EYazisma\Paket;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Modules\Correspondence\Models\Letter;
 use Modules\Correspondence\Models\SigningSession;
 use Modules\Correspondence\Support\CorrespondenceSettings;
 use Modules\Correspondence\Support\LetterPackage;
 use Modules\Correspondence\Support\PackageException;
+use Modules\Correspondence\Support\PdfSigningDocument;
+use Modules\Correspondence\Support\SignedLetterPdf;
 
 /**
  * What the signing application on the signer's computer talks to. The link
@@ -27,6 +32,22 @@ class SigningController extends Controller
     public function show(string $token, LetterPackage $packages, CorrespondenceSettings $settings, Organization $organization): JsonResponse
     {
         [$session, $package] = $this->session($token, $packages);
+        if ($session->step === SigningSession::PDF) {
+            $pdf = Storage::disk('local')->get($session->letter->directory().'/signing.pdf');
+
+            return response()->json([
+                'organization' => $organization->name(),
+                'document_no' => $session->letter->document_no,
+                'subject' => $session->letter->subject,
+                'step' => $session->step,
+                'step_label' => SigningSession::STEPS[$session->step],
+                'filename' => 'YaziPdfImzaVerisi.bin',
+                'content' => base64_encode(PdfSigningDocument::bytes($pdf)),
+                'profile' => $settings->timestampService() ? 'T' : 'BES',
+                'timestamp' => $settings->timestampService(),
+                'expires_at' => $session->expires_at->toIso8601String(),
+            ])->header('Cache-Control', 'no-store');
+        }
         $seal = $session->step === SigningSession::SEAL;
 
         return response()->json([
@@ -50,11 +71,37 @@ class SigningController extends Controller
     {
         [$session] = $this->session($token, $packages);
 
-        $data = $request->validate(['signature' => ['required', 'string', 'max:8000000']]);
+        $data = $request->validate(['signature' => ['required', 'string', 'max:60000000']]);
         $signature = base64_decode($data['signature'], true);
 
         if ($signature === false || $signature === '') {
             return response()->json(['message' => 'İmza base64 olarak gönderilmelidir.'], 422);
+        }
+
+        if ($session->step === SigningSession::PDF) {
+            return DB::transaction(function () use ($session, $signature) {
+                $locked = SigningSession::whereKey($session->id)->lockForUpdate()->firstOrFail();
+                $letter = Letter::whereKey($session->letter_id)->lockForUpdate()->firstOrFail();
+                abort_unless(! $locked->used_at && $locked->expires_at->isFuture() && $letter->isNumbered() && ! $letter->hasSignedPdf() && ! $letter->package_path, 409);
+                $disk = Storage::disk('local');
+                $prepared = $disk->get($letter->directory().'/signing.pdf');
+                try {
+                    $signed = PdfSigningDocument::complete($prepared, $signature);
+                    app(SignedLetterPdf::class)->validate($signed, $prepared, true);
+                } catch (PackageException $e) {
+                    return response()->json(['message' => $e->getMessage()], 422);
+                }
+                $disk->put($letter->signedPdfPath(), $signed);
+                $locked->forceFill(['used_at' => now()])->save();
+                (new ProcessLogs)->forceFill([
+                    'process_by' => $session->created_by,
+                    'process_type' => 'change',
+                    'process' => "İmza uygulamasından PDF imzalandı ({$letter->document_no})",
+                    'request_ip' => $this->getClientIp(),
+                ])->save();
+
+                return response()->json(['message' => 'PDF imzalandı. EYP oluşturabilirsiniz.', 'complete' => false]);
+            });
         }
 
         try {
@@ -99,11 +146,16 @@ class SigningController extends Controller
     }
 
     /**
-     * @return array{0: SigningSession, 1: Paket}
+     * @return array{0: SigningSession, 1: ?Paket}
      */
     private function session(string $token, LetterPackage $packages): array
     {
         $session = SigningSession::findUsable($token);
+        if ($session?->step === SigningSession::PDF) {
+            abort_unless($session->letter->isNumbered() && ! $session->letter->hasSignedPdf() && ! $session->letter->package_path, response()->json(['message' => 'PDF imza bağlantısı artık kullanılamaz.'], 404));
+
+            return [$session, null];
+        }
         $package = $session?->letter->isNumbered() ? $packages->open($session->letter) : null;
 
         // The link is for the step the package was waiting for when it was made.

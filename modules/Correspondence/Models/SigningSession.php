@@ -13,11 +13,14 @@ use Illuminate\Support\Str;
  */
 class SigningSession extends Model
 {
+    public const PDF = 'pdf';
+
     public const SIGNATURE = 'signature';
 
     public const SEAL = 'seal';
 
     public const STEPS = [
+        self::PDF => 'PDF imzası',
         self::SIGNATURE => 'Elektronik imza',
         self::SEAL => 'Elektronik mühür',
     ];

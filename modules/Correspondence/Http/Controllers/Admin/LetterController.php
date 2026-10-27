@@ -20,6 +20,7 @@ use Modules\Correspondence\Support\CorrespondenceSettings;
 use Modules\Correspondence\Support\LetterPackage;
 use Modules\Correspondence\Support\LetterPdf;
 use Modules\Correspondence\Support\Numbering;
+use Modules\Correspondence\Support\SignedLetterPdf;
 
 class LetterController extends Controller
 {
@@ -171,12 +172,40 @@ class LetterController extends Controller
         ]);
     }
 
+    public function uploadSignedPdf(Request $request, Letter $letter, LetterPdf $pdf, SignedLetterPdf $signatures): RedirectResponse
+    {
+        $request->validate(['signed_pdf' => ['required', 'file', 'mimes:pdf', 'max:30720']]);
+        DB::transaction(function () use ($request, $letter, $pdf, $signatures) {
+            $letter = Letter::whereKey($letter->id)->lockForUpdate()->firstOrFail();
+            abort_unless($letter->isNumbered() && ! $letter->package_path && ! $letter->hasSignedPdf(), 403);
+            $prepared = $pdf->render($letter);
+            $content = $request->file('signed_pdf')->get();
+            $signatures->validate($content, $prepared);
+            Storage::disk('local')->put($letter->signedPdfPath(), $content);
+            $this->set_log('change', "İmzalı yazı PDF’i yüklendi ({$letter->document_no})");
+        });
+
+        return back()->with('success-status', 'İmzalı PDF yüklendi. Şimdi EYP oluşturabilirsiniz.');
+    }
+
     /**
      * @return array<string, mixed>
      */
     private function validated(Request $request, Letter $letter): array
     {
         $pdf = $letter->isPdf();
+
+        if ($pdf && $request->hasFile('pdf') && $request->file('pdf')->isValid()) {
+            $content = $request->file('pdf')->get();
+            if (preg_match('/\/ByteRange\s*\[/', $content)) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['pdf' => 'Başlangıçta imzasız PDF yükleyin. Doğrulama bilgileri eklendikten sonra imzalı PDF ayrı adımda yüklenir.']);
+            }
+            try {
+                (new \setasign\Fpdi\Fpdi)->setSourceFile(\setasign\Fpdi\PdfParser\StreamReader::createByString($content));
+            } catch (\Exception $e) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['pdf' => 'PDF okunamadı. Şifresiz, standart PDF olarak kaydedip tekrar yükleyin.']);
+            }
+        }
 
         // Rows left empty in the form are not recipients or signers.
         $request->merge([

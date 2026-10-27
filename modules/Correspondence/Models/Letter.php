@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * An outgoing official letter.
@@ -81,6 +82,16 @@ class Letter extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function signedPdfPath(): string
+    {
+        return $this->directory().'/signed.pdf';
+    }
+
+    public function hasSignedPdf(): bool
+    {
+        return Storage::disk('local')->exists($this->signedPdfPath());
     }
 
     public function isPdf(): bool
