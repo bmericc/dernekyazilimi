@@ -676,6 +676,64 @@ class CorrespondenceTest extends TestCase
         $this->assertSame($prepared, $this->get("/admin/correspondence/{$letter->id}/pdf")->getContent());
     }
 
+    public function test_initial_upload_keeps_signed_attachments_separate_and_unchanged(): void
+    {
+        $owner = $this->owner();
+        $pdf = new \Dompdf\Dompdf;
+        $pdf->loadHtml('<p>Unsigned main letter</p>');
+        $pdf->render();
+        $main = $pdf->output();
+        $template = \Modules\Correspondence\Support\PdfSigningDocument::prepare($main);
+        $signedAttachment = \Modules\Correspondence\Support\PdfSigningDocument::complete($template, $this->cmsSignature(\Modules\Correspondence\Support\PdfSigningDocument::bytes($template)));
+        $this->actingAs($owner)->get('/admin/correspondence/create?source=pdf')->assertOk()->assertSee('Asıl yazı PDF dosyası')->assertSee('Ek dosyalar');
+        $this->post('/admin/correspondence', $this->form([
+            'source' => 'pdf', 'body' => null, 'document_no' => '2026/23', 'document_date' => '2026-10-23',
+            'pdf' => UploadedFile::fake()->createWithContent('main.pdf', $main),
+            'attachment_files' => [UploadedFile::fake()->createWithContent('signed-attachment.pdf', $signedAttachment)],
+        ]))->assertSessionHasNoErrors();
+        $letter = Letter::latest('id')->firstOrFail();
+        $this->assertSame($main, Storage::disk('local')->get($letter->pdf_path));
+        $attachment = $letter->attachments()->sole();
+        $this->assertSame($signedAttachment, Storage::disk('local')->get($attachment->path));
+        $this->post("/admin/correspondence/{$letter->id}/approve")->assertSessionHasNoErrors();
+        $this->signPdf($letter->fresh(), $owner);
+        $this->post("/admin/correspondence/{$letter->id}/package", ['generation' => '1'])->assertSessionHas('success-status');
+        $package = Paket::icerikten(Storage::disk('local')->get($letter->fresh()->package_path));
+        $this->assertSame($signedAttachment, array_values($package->ekDosyalari())[0]->icerik);
+    }
+
+    public function test_standard_compressed_pdfs_are_supported_without_changing_the_original(): void
+    {
+        $qpdf = (new \Symfony\Component\Process\ExecutableFinder)->find('qpdf');
+        if ($qpdf === null) {
+            $this->markTestSkipped('qpdf is required for compressed PDF compatibility.');
+        }
+        $pdf = new \Dompdf\Dompdf;
+        $pdf->loadHtml('<p>Standard compressed PDF</p>');
+        $pdf->render();
+        $input = tempnam(sys_get_temp_dir(), 'pdf-test-');
+        $output = tempnam(sys_get_temp_dir(), 'pdf-test-');
+        try {
+            file_put_contents($input, $pdf->output());
+            (new \Symfony\Component\Process\Process([$qpdf, '--object-streams=generate', $input, $output]))->mustRun();
+            $compressed = file_get_contents($output);
+            $prepared = app(\Modules\Correspondence\Support\SourcePdf::class)->prepare($compressed);
+            $reader = new \setasign\Fpdi\Fpdi;
+            $this->assertSame(1, $reader->setSourceFile(\setasign\Fpdi\PdfParser\StreamReader::createByString($prepared)));
+            $owner = $this->owner();
+            $this->actingAs($owner)->post('/admin/correspondence', $this->form([
+                'source' => 'pdf', 'body' => null, 'document_no' => '2026/23', 'document_date' => '2026-10-23',
+                'pdf' => UploadedFile::fake()->createWithContent('standard.pdf', $compressed),
+            ]))->assertSessionHasNoErrors();
+            $letter = Letter::latest('id')->firstOrFail();
+            $this->assertSame($compressed, Storage::disk('local')->get($letter->pdf_path));
+            $this->get("/admin/correspondence/{$letter->id}/pdf")->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        } finally {
+            unlink($input);
+            unlink($output);
+        }
+    }
+
     public function test_anyone_can_verify_a_letter_by_its_code(): void
     {
         $owner = $this->owner();

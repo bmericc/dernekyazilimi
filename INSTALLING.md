@@ -18,3 +18,7 @@
 
 * çalıştırmak için de ```php artisan serv```
 
+
+## Yazışma PDF desteği
+
+PDF 1.5 ve sonrasında kullanılan sıkıştırılmış nesneleri açmak için sunucuda `qpdf` bulunmalıdır (Debian/Ubuntu: `apt-get install qpdf`, macOS: `brew install qpdf`). Portal yalnız imzasız asıl yazının okuma kopyasını dönüştürür; yüklenen özgün dosya ve imzalı ekler olduğu gibi saklanır.

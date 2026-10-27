@@ -15,11 +15,13 @@ use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Correspondence\Models\Letter;
 use Modules\Correspondence\Models\LetterRecipient;
+use Modules\Correspondence\Models\LetterAttachment;
 use Modules\Correspondence\Support\CorrespondenceSettings;
 use Modules\Correspondence\Support\LetterPackage;
 use Modules\Correspondence\Support\LetterPdf;
 use Modules\Correspondence\Support\Numbering;
 use Modules\Correspondence\Support\SignedLetterPdf;
+use Modules\Correspondence\Support\SourcePdf;
 
 class LetterController extends Controller
 {
@@ -63,6 +65,7 @@ class LetterController extends Controller
             $letter->fill($this->attributes($data, $sanitizer));
             $letter->forceFill(['document_id' => Guid::uret(), 'created_by' => Auth::id()] + $this->documentDetails($letter, $data))->save();
             $this->storePdf($letter, $request);
+            $this->storeAttachments($letter, $request);
             $this->syncRecipients($letter, $data['recipients']);
         });
 
@@ -97,6 +100,7 @@ class LetterController extends Controller
         DB::transaction(function () use ($letter, $data, $sanitizer, $request) {
             $letter->fill($this->attributes($data, $sanitizer))->forceFill($this->documentDetails($letter, $data))->save();
             $this->storePdf($letter, $request);
+            $this->storeAttachments($letter, $request);
             $this->syncRecipients($letter, $data['recipients']);
         });
 
@@ -190,15 +194,7 @@ class LetterController extends Controller
         $pdf = $letter->isPdf();
 
         if ($pdf && $request->hasFile('pdf') && $request->file('pdf')->isValid()) {
-            $content = $request->file('pdf')->get();
-            if (preg_match('/\/ByteRange\s*\[/', $content)) {
-                throw \Illuminate\Validation\ValidationException::withMessages(['pdf' => 'Başlangıçta imzasız PDF yükleyin. Doğrulama bilgileri eklendikten sonra imzalı PDF ayrı adımda yüklenir.']);
-            }
-            try {
-                (new \setasign\Fpdi\Fpdi)->setSourceFile(\setasign\Fpdi\PdfParser\StreamReader::createByString($content));
-            } catch (\Exception $e) {
-                throw \Illuminate\Validation\ValidationException::withMessages(['pdf' => 'PDF okunamadı. Şifresiz, standart PDF olarak kaydedip tekrar yükleyin.']);
-            }
+            app(SourcePdf::class)->prepare($request->file('pdf')->get());
         }
 
         // Rows left empty in the form are not recipients or signers.
@@ -211,6 +207,8 @@ class LetterController extends Controller
             'subject' => ['required', 'string', 'max:255'],
             'body' => [$pdf ? 'nullable' : 'required', 'string', 'max:200000'],
             // An uploaded letter comes with its file, number and date.
+            'attachment_files' => ['nullable', 'array', 'max:20'],
+            'attachment_files.*' => ['file', 'max:20480', 'mimes:'.LetterAttachment::UPLOAD_MIMES],
             'pdf' => [$pdf && ! $letter->pdf_path ? 'required' : 'nullable', 'file', 'mimes:pdf', 'max:20480'],
             'document_no' => [$pdf ? 'required' : 'nullable', 'string', 'max:80', Rule::unique('correspondence_letters', 'document_no')->ignore($letter->id)],
             'document_date' => [$pdf ? 'required' : 'nullable', 'date'],
@@ -231,7 +229,7 @@ class LetterController extends Controller
             'recipients.required' => 'En az bir alıcı yazın.',
             'signers.required' => 'En az bir imzacı yazın.',
         ], [
-            'subject' => 'Konu', 'body' => 'Metin', 'pdf' => 'PDF dosyası', 'document_no' => 'Sayı', 'document_date' => 'Tarih', 'references' => 'İlgi', 'file_code' => 'Dosya planı kodu', 'file_name' => 'Dosya planı adı',
+            'subject' => 'Konu', 'body' => 'Metin', 'pdf' => 'Asıl yazı PDF dosyası', 'attachment_files' => 'Ek dosyalar', 'attachment_files.*' => 'Ek dosya', 'document_no' => 'Sayı', 'document_date' => 'Tarih', 'references' => 'İlgi', 'file_code' => 'Dosya planı kodu', 'file_name' => 'Dosya planı adı',
             'recipients.*.name' => 'Alıcı adı', 'recipients.*.kind' => 'Alıcı türü', 'recipients.*.identifier' => 'Alıcı kimliği',
             'recipients.*.address' => 'Alıcı adresi', 'recipients.*.delivery' => 'Dağıtım türü',
             'signers.*.first_name' => 'İmzacı adı', 'signers.*.last_name' => 'İmzacı soyadı', 'signers.*.title' => 'İmzacı unvanı',
@@ -282,6 +280,13 @@ class LetterController extends Controller
             'pdf_path' => $file->store($letter->directory(), 'local'),
             'pdf_name' => $file->getClientOriginalName(),
         ])->save();
+    }
+
+    private function storeAttachments(Letter $letter, Request $request): void
+    {
+        foreach ($request->file('attachment_files', []) as $file) {
+            $letter->addAttachment($file->getClientOriginalName(), $file);
+        }
     }
 
     /**

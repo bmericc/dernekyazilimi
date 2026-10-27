@@ -46,8 +46,9 @@
                 @if ($letter->isPdf())
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label @unless ($letter->pdf_path) required @endunless" for="pdf">PDF dosyası</label>
+                            <label class="form-label @unless ($letter->pdf_path) required @endunless" for="pdf">Asıl yazı PDF dosyası</label>
                             <input id="pdf" type="file" name="pdf" accept="application/pdf,.pdf" class="form-control @error('pdf') is-invalid @enderror" @required(! $letter->pdf_path)>
+                            <span class="form-hint">Yalnız kendi yazınızı yükleyin. Ek belgeleri bu PDF ile birleştirmeyin; aşağıdaki Ek dosyalar alanından seçin. QR ve doğrulama bağlantısı yalnız bu dosyaya eklenir.</span>
                             @error('pdf')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             @if ($letter->pdf_path)<span class="form-hint">Yüklü: {{ $letter->pdf_name }}. Değiştirmek için yeni dosya seçin.</span>@endif
                         </div>
@@ -55,6 +56,13 @@
                         <div class="col-md-3 mb-3"><label class="form-label required" for="document_date">Tarih</label><input id="document_date" type="date" name="document_date" class="form-control @error('document_date') is-invalid @enderror" value="{{ old('document_date', $letter->document_date?->toDateString()) }}" required></div>
                     </div>
                 @endif
+                <div class="mb-3">
+                    <label class="form-label" for="attachment_files">Ek dosyalar (isteğe bağlı)</label>
+                    <input id="attachment_files" type="file" name="attachment_files[]" multiple class="form-control @error('attachment_files') is-invalid @enderror @error('attachment_files.*') is-invalid @enderror">
+                    <span class="form-hint">İmzalı ekler dahil en fazla 20 dosya seçebilirsiniz; dosya başına 20 MB. Ekler değiştirilmez, QR eklenmez ve yeniden imzalanmaz. Düzenlerken seçilen dosyalar mevcut eklere eklenir.</span>
+                    @error('attachment_files')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    @error('attachment_files.*')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
                 <div class="mb-3"><label class="form-label" for="references">İlgi</label><textarea id="references" name="references" rows="2" class="form-control" placeholder="Her satıra bir ilgi; ör. 12.03.2026 tarihli ve 2026/12 sayılı yazımız.">{{ old('references', implode("\n", $letter->references ?? [])) }}</textarea></div>
                 @unless ($letter->isPdf())
                     <div class="mb-3"><label class="form-label required" for="body">Metin</label><textarea id="body" name="body" rows="14" class="form-control wysiwyg">{{ old('body', $letter->body) }}</textarea></div>

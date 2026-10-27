@@ -41,7 +41,7 @@ class LetterPdf
     {
         // Source PDFs must be unsigned: verification is added before signing.
         if ($letter->isPdf()) {
-            return Storage::disk('local')->get($letter->pdf_path) ?? throw new \RuntimeException('Yazının PDF dosyası bulunamadı.');
+            return app(SourcePdf::class)->prepare(Storage::disk('local')->get($letter->pdf_path) ?? throw new \RuntimeException('Yazının PDF dosyası bulunamadı.'));
         }
 
         $options = new Options();
