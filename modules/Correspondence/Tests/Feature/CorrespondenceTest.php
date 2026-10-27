@@ -647,7 +647,7 @@ class CorrespondenceTest extends TestCase
         $this->withHeaders(['X-Site-Url' => 'https://www.ornek.org.tr']);
         $this->getJson('/api/site/config')->assertOk()->assertJsonPath('correspondence.open', true);
         $this->getJson('/api/site/documents/verify?kod='.strtolower($letter->document_id))->assertOk()
-            ->assertExactJson(['document_no' => $letter->document_no, 'document_date' => $letter->document_date->format('d.m.Y'), 'subject' => $letter->subject, 'status' => Letter::NUMBERED])
+            ->assertExactJson(['document_no' => $letter->document_no, 'document_date' => $letter->document_date->format('d.m.Y'), 'subject' => $letter->subject, 'status' => Letter::NUMBERED, 'preview_url' => route('correspondence.verify.pdf', $letter->document_id), 'original_url' => route('correspondence.verify.pdf', ['code' => $letter->document_id, 'original' => 1]), 'attachments' => []])
             ->assertHeader('Cache-Control', 'no-store, private')->assertHeader('X-Robots-Tag', 'noindex, nofollow');
         $this->getJson('/api/site/documents/verify?kod='.$draft->document_id)->assertNotFound();
         $this->getJson('/api/site/documents/verify?kod=not-a-code')->assertUnprocessable();
@@ -732,6 +732,47 @@ class CorrespondenceTest extends TestCase
             unlink($input);
             unlink($output);
         }
+    }
+
+    public function test_pdf_views_include_attachments_but_preserve_signed_originals_and_access_boundaries(): void
+    {
+        if ((new \Symfony\Component\Process\ExecutableFinder)->find('qpdf') === null) {
+            $this->markTestSkipped('qpdf is required for combined PDF views.');
+        }
+        $owner = $this->owner();
+        $letter = $this->letter($owner);
+        $pdf = new \Dompdf\Dompdf;
+        $pdf->loadHtml('<p>Attachment page with its own signature</p>');
+        $pdf->render();
+        $template = \Modules\Correspondence\Support\PdfSigningDocument::prepare($pdf->output());
+        $attachmentBytes = \Modules\Correspondence\Support\PdfSigningDocument::complete($template, $this->cmsSignature(\Modules\Correspondence\Support\PdfSigningDocument::bytes($template)));
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/attachments", ['name' => 'Signed attachment', 'file' => UploadedFile::fake()->createWithContent('attachment.pdf', $attachmentBytes)])->assertSessionHasNoErrors();
+        $this->post("/admin/correspondence/{$letter->id}/attachments", ['name' => 'Notes', 'file' => UploadedFile::fake()->createWithContent('notes.txt', 'Original notes')])->assertSessionHasNoErrors();
+        $attachment = $letter->attachments()->firstOrFail();
+        $this->post("/admin/correspondence/{$letter->id}/approve")->assertSessionHasNoErrors();
+        $letter->refresh();
+        $mainBytes = $this->signPdf($letter, $owner);
+        $adminPdf = $this->get("/admin/correspondence/{$letter->id}/pdf")->assertOk()->getContent();
+        $reader = new \setasign\Fpdi\Fpdi;
+        $this->assertSame(2, $reader->setSourceFile(\setasign\Fpdi\PdfParser\StreamReader::createByString($adminPdf)));
+        $this->assertSame($mainBytes, $this->get("/admin/correspondence/{$letter->id}/pdf?original=1")->assertOk()->getContent());
+        $draft = $this->letter($owner);
+        auth()->logout();
+        $publicPdf = route('correspondence.verify.pdf', $letter->document_id);
+        $download = route('correspondence.verify.attachment', ['code' => $letter->document_id, 'attachment' => $attachment->id]);
+        $this->get('/belge-dogrula?kod='.$letter->document_id)->assertOk()->assertSee('Signed attachment')->assertSee($publicPdf, false);
+        $this->get($publicPdf)->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        $this->assertSame($mainBytes, $this->get($publicPdf.'?original=1')->assertOk()->getContent());
+        $this->assertSame($attachmentBytes, $this->get($download)->assertOk()->assertDownload('attachment.pdf')->streamedContent());
+        $this->get(route('correspondence.verify.pdf', $draft->document_id))->assertNotFound();
+        $this->get(route('correspondence.verify.attachment', ['code' => $draft->document_id, 'attachment' => $attachment->id]))->assertNotFound();
+        $this->get(route('correspondence.verify.attachment', ['code' => $letter->document_id, 'attachment' => 999999]))->assertNotFound();
+        $this->assertSame($mainBytes, Storage::disk('local')->get($letter->signedPdfPath()));
+        $this->assertSame($attachmentBytes, Storage::disk('local')->get($attachment->path));
+        $this->actingAs($owner)->post("/admin/correspondence/{$letter->id}/package", ['generation' => '1'])->assertSessionHas('success-status');
+        $package = Paket::icerikten(Storage::disk('local')->get($letter->fresh()->package_path));
+        $this->assertSame($mainBytes, $package->ustYazi()->icerik);
+        $this->assertSame($attachmentBytes, array_values($package->ekDosyalari())[0]->icerik);
     }
 
     public function test_anyone_can_verify_a_letter_by_its_code(): void

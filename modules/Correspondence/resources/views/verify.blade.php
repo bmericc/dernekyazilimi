@@ -3,7 +3,7 @@
 @section('title', 'Belge doğrulama')
 
 @section('content')
-<div class="container-tight py-4">
+<div class="{{ $letter ? 'container-xl' : 'container-tight' }} py-4">
     <div class="card card-md">
         @if ($letter)
             @php $cancelled = $letter->status === \Modules\Correspondence\Models\Letter::CANCELLED; @endphp
@@ -20,6 +20,20 @@
                     <dt class="col-4">Konu</dt>
                     <dd class="col-8">{{ $letter->subject }}</dd>
                 </dl>
+                <div class="mt-4 text-start">
+                    <h3>Asıl yazı ve ekleri</h3>
+                    <p><a href="{{ route('correspondence.verify.pdf', $letter->document_id) }}" target="_blank" rel="noopener" class="btn btn-primary">Yazı ve PDF eklerini aç</a>
+                    <a href="{{ route('correspondence.verify.pdf', ['code' => $letter->document_id, 'original' => 1]) }}" target="_blank" rel="noopener" class="btn btn-outline-secondary">Asıl PDF’yi aç</a></p>
+                    <p class="text-secondary small">Birleşik PDF bir görüntüleme kopyasıdır. Elektronik imzayı doğrulamak için asıl dosyaları kullanın.</p>
+                    @if ($letter->attachments->isNotEmpty())
+                        <ul>
+                            @foreach ($letter->attachments as $attachment)
+                                <li>@if ($attachment->hasFile())<a href="{{ route('correspondence.verify.attachment', ['code' => $letter->document_id, 'attachment' => $attachment->id]) }}">{{ $attachment->name }}</a>@else{{ $attachment->name }} (fiziksel ek)@endif</li>
+                            @endforeach
+                        </ul>
+                    @endif
+                    <iframe src="{{ route('correspondence.verify.pdf', $letter->document_id) }}" title="Asıl yazı ve PDF ekleri" style="width:100%;height:80vh;border:1px solid #ddd;"></iframe>
+                </div>
             </div>
         @else
             @if ($code !== '')<div class="card-status-top bg-danger"></div>@endif

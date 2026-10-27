@@ -20,6 +20,7 @@ use Modules\Correspondence\Models\LetterAttachment;
 use Modules\Correspondence\Support\CorrespondenceSettings;
 use Modules\Correspondence\Support\LetterPackage;
 use Modules\Correspondence\Support\LetterPdf;
+use Modules\Correspondence\Support\LetterPreview;
 use Modules\Correspondence\Support\Numbering;
 use Modules\Correspondence\Support\SignedLetterPdf;
 use Modules\Correspondence\Support\SourcePdf;
@@ -168,9 +169,9 @@ class LetterController extends Controller
         return back()->with('success-status', 'Yazı iptal edildi; sayısı yeniden kullanılmaz.');
     }
 
-    public function pdf(Letter $letter, LetterPdf $pdf): Response
+    public function pdf(Request $request, Letter $letter, LetterPdf $pdf, LetterPreview $preview): Response
     {
-        return response($pdf->render($letter), 200, [
+        return response($request->boolean('original') ? $pdf->render($letter) : $preview->render($letter), 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="'.$pdf->filename($letter).'"',
         ]);

@@ -28,7 +28,8 @@
             </div>
         </div>
         <div class="btn-list">
-            <a href="{{ route('admin.correspondence.pdf', $letter) }}" target="_blank" class="btn btn-outline-primary"><i class="ti ti-file-type-pdf me-1"></i>PDF</a>
+            <a href="{{ route('admin.correspondence.pdf', $letter) }}" target="_blank" class="btn btn-outline-primary"><i class="ti ti-file-type-pdf me-1"></i>Yazı ve PDF ekleri</a>
+            <a href="{{ route('admin.correspondence.pdf', [$letter, 'original' => 1]) }}" target="_blank" class="btn btn-outline-secondary">Asıl PDF</a>
             @if ($letter->isEditable() && $canManage)
                 <a href="{{ route('admin.correspondence.edit', $letter) }}" class="btn btn-outline-secondary"><i class="ti ti-edit me-1"></i>Düzenle</a>
                 @unless ($canApprove)
@@ -160,7 +161,7 @@
                                     <details @if (session('pdf-signing-external') || $errors->has('signed_pdf')) open @endif>
                                     <summary class="mb-2">Dışarıda imzala ve yükle</summary>
                                     <p class="text-secondary small">İmza uygulamasında artımlı kaydetme kullanın.</p>
-                                    <a href="{{ route('admin.correspondence.pdf', $letter) }}" target="_blank" class="btn btn-outline-primary w-100">1. İmzalanacak PDF’i indir</a>
+                                    <a href="{{ route('admin.correspondence.pdf', [$letter, 'original' => 1]) }}" target="_blank" class="btn btn-outline-primary w-100">1. İmzalanacak PDF’i indir</a>
                                     @if ($canManage)
                                         <form method="POST" action="{{ route('admin.correspondence.signed-pdf', $letter) }}" enctype="multipart/form-data" class="mt-3">
                                             @csrf

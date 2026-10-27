@@ -8,6 +8,11 @@ use Modules\Correspondence\Http\Controllers\VerifyController;
 // Public: the verification address printed on letters and written in e-Yazışma packages.
 Route::get('/belge-dogrula', [VerifyController::class, 'show'])->middleware('throttle:30,1')->name('correspondence.verify');
 
+Route::middleware('throttle:30,1')->where(['code' => '[A-Fa-f0-9-]{36}'])->group(function () {
+    Route::get('/belge-dogrula/{code}/pdf', [VerifyController::class, 'pdf'])->name('correspondence.verify.pdf');
+    Route::get('/belge-dogrula/{code}/ek/{attachment}', [VerifyController::class, 'attachment'])->name('correspondence.verify.attachment');
+});
+
 // The signing application: the single-use link is the credential, so there is no session or CSRF token.
 Route::middleware('throttle:30,1')->where(['token' => '[A-Za-z0-9]{64}'])->group(function () {
     Route::get('/imza/{token}', [SigningController::class, 'show'])->name('correspondence.signing');
