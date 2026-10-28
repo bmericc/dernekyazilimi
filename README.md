@@ -1,4 +1,4 @@
-# Linux Kullanıcıları Derneği Gönüllü Yazılımı
+# Dernek Yazılımı Projesi
 
 [![License (GPL version 3)](https://img.shields.io/badge/license-GNU%20GPL%20version%203-red.svg?style=flat-square)](https://www.gnu.org/licenses/gpl-3.0.en.html) [![Language (Php)](https://img.shields.io/badge/powered_by-Php-blue.svg?style=flat-square)](https://www.php.net/) [![Framework (Laravel)](https://img.shields.io/badge/powered_by-Laravel-orange.svg?style=flat-square)](https://www.laravel.com/) 
 
