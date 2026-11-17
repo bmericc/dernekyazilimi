@@ -1,6 +1,13 @@
 # Dernek Yazılımı Projesi
 
-[![License (GPL version 3)](https://img.shields.io/badge/license-GNU%20GPL%20version%203-red.svg?style=flat-square)](https://www.gnu.org/licenses/gpl-3.0.en.html) [![Language (Php)](https://img.shields.io/badge/powered_by-Php-blue.svg?style=flat-square)](https://www.php.net/) [![Framework (Laravel)](https://img.shields.io/badge/powered_by-Laravel-orange.svg?style=flat-square)](https://www.laravel.com/) 
+<p align="center">
+  <a href="https://github.com/bmericc/dernekyazilimi/actions/workflows/tests.yml"><img src="https://github.com/bmericc/dernekyazilimi/actions/workflows/tests.yml/badge.svg" alt="tests"></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/bmericc/dernekyazilimi"><img src="https://api.scorecard.dev/projects/github.com/bmericc/dernekyazilimi/badge" alt="OpenSSF Scorecard"></a>
+  <a href="https://github.com/bmericc/dernekyazilimi/actions/workflows/tests.yml"><img src="https://img.shields.io/badge/PHP-8.4-777BB4?logo=php&logoColor=white" alt="PHP 8.4"></a>
+  <a href="https://laravel.com"><img src="https://img.shields.io/badge/Laravel-13-FF2D20?logo=laravel&logoColor=white" alt="Laravel 13"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="GPL-3.0"></a>
+  <a href="https://github.com/sponsors/bmericc"><img src="https://img.shields.io/badge/sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors" alt="Sponsor"></a>
+</p>
 
 Laravel ile geliştirilmektedir.
 
