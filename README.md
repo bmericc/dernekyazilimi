@@ -13,6 +13,5 @@ Kurulum aşamaları [[Install](INSTALLING.md)].
 Bu projeye katkıda bulunanlar. [[Contribute](CONTRIBUTING.md)].
 
 ## Lisans
-Bu uygulama GPLv3 altındadır. Orjinal lisans dökümanını "[LICENSE](https://github.com/lkdtr/dernekyazilimi/blob/master/LICENSE)" dosyasından okuyabilirsiniz.
-Markdown formatında lisans -> [LICENSE.md](https://github.com/lkdtr/dernekyazilimi/blob/master/LICENSE.md)
 
+[GNU General Public License v3.0 veya sonrası](LICENSE) (GPL-3.0-or-later) ile lisanslanmıştır. Markdown biçimindeki metin: [LICENSE.md](LICENSE.md).

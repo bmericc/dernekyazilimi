@@ -22,6 +22,10 @@ Herhangi bir kod değişikliği çekme isteği olarak gönderilmelidir. Açıkla
 Çekme isteği ne kadar büyük olursa inceleme ve birleştirme de o kadar uzun sürer. Büyük çekme isteklerini, gözden geçirilmesi ve birleştirilmesi daha kolay olan daha küçük parçalara ayırmaya çalışın.
 Çekme isteğiniz için bir bağlamın olması da her zaman yararlıdır. Amaç neydi? Bu senin için neden önemli?
 
+## Lisans
+
+Gönderdiğiniz katkılar projenin lisansı olan [GNU General Public License v3.0 veya sonrası](LICENSE) (GPL-3.0-or-later) ile yayınlanır.
+
 ## Katkıda bulunanlar
 
 Bahri Meriç Canlı
