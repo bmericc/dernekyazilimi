@@ -14,5 +14,5 @@
 return [
     'name' => env('APP_NAME', 'Dernek'),
     // Source of this free software, linked from the footer.
-    'source_url' => env('ORGANIZATION_SOURCE_URL', 'https://github.com/lkdtr/dernekyazilimi'),
+    'source_url' => env('ORGANIZATION_SOURCE_URL', 'https://github.com/dernekyazilimi/dernekyazilimi'),
 ];

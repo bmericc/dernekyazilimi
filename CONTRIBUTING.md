@@ -6,7 +6,7 @@ Sadece kod değil her türlü katkıyı memnuniyetle karşılıyoruz. yardımcı
 - **QA**: hata raporlarını dosyalayın, ne kadar fazla ayrıntı verirseniz o kadar iyi olur (ör. konsol açıkken ekran görüntüleri)
 - **Pazarlama**: blog yazıları yazmak, nasıl yapılır, çıkartmalar yazdırmak, ...
 - **Topluluk**: projeyi toplantılarda sunmak, yerel topluluk için özel bir buluşma düzenlemek, ...
-- **Kod**: [açık sorunlara](https://github.com/lkdtr/dernekyazilimi/issues) göz atın. Kod yazamasanız bile onlara yorum yapmak, belirli bir konuyu önemsediğinizi göstermek önemlidir. Onları önceliklendirmemize yardımcı olur.
+- **Kod**: [açık sorunlara](https://github.com/dernekyazilimi/dernekyazilimi/issues) göz atın. Kod yazamasanız bile onlara yorum yapmak, belirli bir konuyu önemsediğinizi göstermek önemlidir. Onları önceliklendirmemize yardımcı olur.
 
 ## İlk Katkınız
 
@@ -21,6 +21,10 @@ Herhangi bir kod değişikliği çekme isteği olarak gönderilmelidir. Açıkla
 
 Çekme isteği ne kadar büyük olursa inceleme ve birleştirme de o kadar uzun sürer. Büyük çekme isteklerini, gözden geçirilmesi ve birleştirilmesi daha kolay olan daha küçük parçalara ayırmaya çalışın.
 Çekme isteğiniz için bir bağlamın olması da her zaman yararlıdır. Amaç neydi? Bu senin için neden önemli?
+
+## Lisans
+
+Gönderdiğiniz katkılar projenin lisansı olan [GNU General Public License v3.0 veya sonrası](LICENSE) (GPL-3.0-or-later) ile yayınlanır.
 
 ## Katkıda bulunanlar
 
