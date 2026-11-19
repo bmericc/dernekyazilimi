@@ -1,46 +1,26 @@
 <?php
 /**
- * Requires the Zend framework is installed and in the include path.
+ * Postfix Admin XML-RPC interface for the Dernek Yazılımı portal.
  *
- * Usage example:
- * require_once('Zend/XmlRpc/Client.php');
- * $xmlrpc = new Zend_XmlRpc_Client('https://server/xmlrpc.php');
+ * Replaces the stock xmlrpc.php, which needs Zend Framework 1 (not packaged
+ * on Debian 13). Uses laminas/laminas-xmlrpc, installed in /opt/pfa-xmlrpc.
  *
- * $http_client = $xmlrpc->getHttpClient();
- * $http_client->setCookieJar();
+ * Usage: log in as a PostfixAdmin admin with login(), then call alias.create
+ * and alias.update. The client must send the session cookie back with every
+ * request, otherwise the login does not persist.
  *
- * $login_object = $xmlrpc->getProxy('login');
- * $success = $login_object->login($email_address, $password);
- *
- * if($success) {
- *     echo "We're logged in";
- * }
- * else {
- *     die("Auth failed");
- * }
- * $user = $xmlrpc->getProxy('user');
- * $alias = $xmlrpc->getProxy('alias');
- * $vacation = $xmlrpc->getProxy('vacation');
- *
- * if($vacation->checkVacation()) {
- *     echo "Vacation turned on for user";
- * }
- *
- * Note, the requirement that your XmlRpc client provides cookies with each request.
- * If it does not do this, then your authentication details will not persist across requests, and
- * this XMLRPC interface will not work.
+ * The portal's copy of this file is mailserver/xmlrpc_server.php in the
+ * dernekyazilimi repository; keep both identical.
  */
 require_once(dirname(__FILE__) . '/common.php');
 
-if( ( $_SERVER['REMOTE_ADDR'] != "46.197.157.200" ) && ( $_SERVER['REMOTE_ADDR'] != "185.7.2.252" ) && ( $_SERVER['REMOTE_ADDR'] != "176.9.205.138" ) )  {
-	if ($CONF['xmlrpc_enabled'] == false) {
-	    die("xmlrpc support disabled");
-	}
+if ($CONF['xmlrpc_enabled'] == false) {
+    die("xmlrpc support disabled");
 }
 
+require_once('/opt/pfa-xmlrpc/vendor/autoload.php');
 
-use Laminas\XmlRpc\Server as Laminas_XmlRpc_Server;
-$server = new Laminas_XmlRpc_Server();
+$server = new Laminas\XmlRpc\Server();
 
 /**
  * @param string $username
@@ -48,15 +28,23 @@ $server = new Laminas_XmlRpc_Server();
  * @return boolean true on success, else false.
  */
 function login($username, $password) {
-    $h = new AdminHandler();
-    if ($h->login($username, $password)) {
-        session_regenerate_id();
-        $_SESSION['authenticated'] = true;
-        $_SESSION['sessid'] = array();
-        $_SESSION['sessid']['username'] = $username;
-        return true;
+    $login = new Login('admin');
+    if (!$login->login($username, $password)) {
+        return false;
     }
-    return false;
+
+    init_session($username, true);
+    $_SESSION['authenticated'] = true;
+
+    $h = new AdminHandler();
+    if ($h->init($username) && $h->view()) {
+        $admin = $h->result();
+        if (!empty($admin['superadmin'])) {
+            $_SESSION['sessid']['roles'][] = 'global-admin';
+        }
+    }
+
+    return true;
 }
 
 if (!isset($_SESSION['authenticated'])) {
@@ -66,94 +54,65 @@ if (!isset($_SESSION['authenticated'])) {
 }
 echo $server->handle();
 
+
 class AliasProxy {
     /**
-     * @return array - array of aliases this user has. Array may be empty.
-     */
-    public function get() {
-	$ah = new AliasHandler(0, $_SESSION['sessid']['username']);
-	$formconf = $ah->webformConfig(); # might change struct
-
-    	$aliasdomain_data = array(
-        	'struct'    => $ah->getStruct(),
-        	'msg'       => $ah->getMsg(),
-        	'formconf'  => $formconf,
-    	);
-    	$aliasdomain_data['msg']['show_simple_search'] = false; # hide search box
-    	$aliasdomain_data['msg']['can_create'] = 1;
-
-    	# hide create button if all domains (of this admin) are already used as alias domains
-	$ah->getList("");
-        $result = $ah->result();
-        return $result;
-
-    }
-
-    /**
-     * @param array of email addresses (Strings)
-     * @param string flag to set ('forward_and_store' or 'remote_only')
-     * @return boolean true
+     * Creates an alias that forwards to one address.
+     *
+     * @param string $email alias address (a one-element array is accepted too)
+     * @param string $forward target address
+     * @return boolean true on success
      */
     public function create($email, $forward) {
-	$ah = new AliasHandler(1, $_SESSION['sessid']['username']);
-	$formconf = $ah->webformConfig(); # might change struct
-	$form_fields = $ah->getStruct();
-	$id_field    = $ah->getId_field();
-
-	$ah->init($email[0]);
-
-	list($user, $domain) = explode('@', $email[0]);
-
-	$values[$id_field] = '';
-	$values['localpart'] = $user;
-	$values['domain'] = $domain;
-        $values['goto'] = [$forward];
-        $values['active'] = 1;
-    	$values['address'] = $email[0];
-        $values['on_vacation'] = 0;
-
-        if (!$ah->set($values)) {
-            error_log('ah->set failed' . print_r($values, true));
+        $email = is_array($email) ? (string) reset($email) : (string) $email;
+        if (strpos($email, '@') === false) {
             return false;
         }
-        $store = $ah->store();
-        return $store;
+        list($localpart, $domain) = explode('@', $email, 2);
+
+        $ah = new AliasHandler(1, $_SESSION['sessid']['username']);
+        if (!$ah->init($email)) {
+            error_log('xmlrpc alias.create: init failed for ' . $email . ': ' . print_r($ah->errormsg, true));
+            return false;
+        }
+
+        $values = [
+            'localpart' => $localpart,
+            'domain' => $domain,
+            'goto' => [$forward],
+            'active' => 1,
+        ];
+
+        if (!$ah->set($values)) {
+            error_log('xmlrpc alias.create: set failed for ' . $email . ': ' . print_r($ah->errormsg, true));
+            return false;
+        }
+
+        return $ah->save();
     }
 
     /**
-     * Changes the forward target of an existing alias; vacation and mailbox
-     * settings of the alias are kept as they are.
+     * Points an existing alias at a new address.
      *
-     * @param string $email alias address, e.g. name.surname@penguen.org.tr
+     * @param string $email alias address
      * @param string $forward new target address
      * @return boolean true on success
      */
     public function update($email, $forward) {
+        $email = (string) $email;
         $ah = new AliasHandler(0, $_SESSION['sessid']['username']);
 
         if (!$ah->init($email)) {
-            error_log('ah->init failed for ' . $email);
+            error_log('xmlrpc alias.update: init failed for ' . $email . ': ' . print_r($ah->errormsg, true));
             return false;
         }
 
-        if (!$ah->set(array('goto' => array($forward)))) {
-            error_log('ah->set failed for ' . $email . ': ' . print_r($ah->errormsg, true));
+        if (!$ah->set(['goto' => [$forward]])) {
+            error_log('xmlrpc alias.update: set failed for ' . $email . ': ' . print_r($ah->errormsg, true));
             return false;
         }
 
-        return $ah->store();
-    }
-
-    /**
-     * @return boolean true if the user has 'store_and_forward' set.
-     * (i.e. their email address is also in the alias table). IF it returns false, then it's 'remote_only'
-     */
-    public function hasStoreAndForward() {
-        $ah = new AliasHandler();
-        $ah->init($_SESSION['sessid']['username']);
-        $ah->view();
-        $result = $ah->result;
-        return $result['goto_mailbox'] == 1;
+        return $ah->save();
     }
 }
 /* vim: set expandtab softtabstop=4 tabstop=4 shiftwidth=4: */
