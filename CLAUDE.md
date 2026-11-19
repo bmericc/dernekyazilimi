@@ -18,14 +18,14 @@
 - `php:8.4-cli` imajında `pdo_mysql` ve `zip` eklentileri yok; veritabanına dokunan istekler bu imajla çalışmaz.
 
 ## Composer (Docker)
-- Resmi `composer:2` imajı kullanılır. İmajdaki PHP 8.5'tir ve `ext-intl` içermez; proje ise PHP 8.4 hedefler (`laminas/laminas-math` 8.5'i desteklemiyor, `bahricanli/tckimlik` `ext-intl` ister).
+- Resmi `composer:2` imajı kullanılır. İmajdaki PHP 8.5'tir, `ext-intl` ve `ext-gd` içermez; proje ise PHP 8.4 hedefler (`bahricanli/tckimlik` `ext-intl`, `setasign/fpdf` `ext-gd` ister).
 - Lock dosyasından kurulum (`install`): lock zaten 8.4'e göre çözülmüş olduğundan bu iki kontrol atlanır. `--ignore-platform-req=php` `vendor/composer/platform_check.php` dosyasını üretmediği için ardından `dump-autoload` ile yeniden üretilir:
   ```bash
-  docker run --rm -v "$PWD":/app -w /app composer:2 sh -c 'composer install --ignore-platform-req=php --ignore-platform-req=ext-intl && composer config -g platform.php 8.4.25 && composer dump-autoload'
+  docker run --rm -v "$PWD":/app -w /app composer:2 sh -c 'composer install --ignore-platform-req=php --ignore-platform-req=ext-intl --ignore-platform-req=ext-gd && composer config -g platform.php 8.4.25 && composer dump-autoload'
   ```
 - Bağımlılık çözen komutlar (`update`, `require`, `remove`): çözümlemenin 8.4'e göre yapılması için container içinde global `platform` ayarı verilir (proje `composer.json`'ı değişmez):
   ```bash
-  docker run --rm -v "$PWD":/app -w /app composer:2 sh -c 'composer config -g platform.php 8.4.25 && composer config -g platform.ext-intl 8.4.25 && composer update <paket>'
+  docker run --rm -v "$PWD":/app -w /app composer:2 sh -c 'composer config -g platform.php 8.4.25 && composer config -g platform.ext-intl 8.4.25 && composer config -g platform.ext-gd 8.4.25 && composer update <paket>'
   ```
 - Host'taki `/usr/local/bin/composer` Docker'a mount edilemez (`/usr/local/bin` Docker file sharing kapsamında değil).
 
@@ -128,6 +128,3 @@ TCKIMLIK_TOR_PROXY=socks5h://127.0.0.1:9050
   ```bash
   sudo sh -c 'mysqldump --defaults-file=/etc/mysql/debian.cnf --single-transaction --routines gonullulkdorgtr | gzip > /var/backups/gonullulkdorgtr-$(date +%Y%m%d-%H%M%S).sql.gz' && sudo chmod 600 /var/backups/gonullulkdorgtr-*.sql.gz
   ```
-
-## Bilinen Uyarılar
-- `laminas/laminas-loader` ve `laminas/laminas-math` abandoned uyarıları var, kritik değil. `laminas-math` PHP 8.5'i desteklemediği için PHP yükseltmesinin önünde engel.

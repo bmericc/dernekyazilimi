@@ -15,7 +15,7 @@
         "dompdf/dompdf": "^3.1",
         "ezyang/htmlpurifier": "^4.18",
         "guzzlehttp/guzzle": "^7.8",
-        "laminas/laminas-xmlrpc": "^2.16",
+        "laminas/laminas-xmlrpc": "^3.1",
         "laravel/framework": "^13.0",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",
