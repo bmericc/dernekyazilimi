@@ -1,15 +1,15 @@
 /*!
-  * Bootstrap v5.3.1 (https://getbootstrap.com/)
-  * Copyright 2011-2023 The Bootstrap Authors (https://github.com/twbs/bootstrap/graphs/contributors)
+  * Bootstrap v5.3.9 (https://getbootstrap.com/)
+  * Copyright 2011-2026 The Bootstrap Authors (https://github.com/twbs/bootstrap/graphs/contributors)
   * Licensed under MIT (https://github.com/twbs/bootstrap/blob/main/LICENSE)
   */
 
 /*!
  * dist/inputmask
  * https://github.com/RobinHerbots/Inputmask
- * Copyright (c) 2010 - 2023 Robin Herbots
+ * Copyright (c) 2010 - 2026 Robin Herbots
  * Licensed under the MIT license
- * Version: 5.0.8
+ * Version: 5.0.10
  */
 
 /*!
@@ -31,7 +31,7 @@
  * http://jquery.org/license
  */
 
-/*! Axios v1.19.0 Copyright (c) 2026 Matt Zabriskie and contributors */
+/*! Axios v1.21.1 Copyright (c) 2026 Matt Zabriskie and contributors */
 
 /*! Bootstrap 5 integration for DataTables' Responsive
  * © SpryMedia Ltd - datatables.net/license

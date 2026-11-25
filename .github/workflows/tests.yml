@@ -35,3 +35,17 @@ jobs:
 
       - name: Run tests
         run: vendor/bin/phpunit
+
+      # Front-end build: catches JS dependency bumps that break Laravel Mix.
+      # Needs vendor/tinymce/tinymce from the composer install above.
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install JS dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build assets
+        run: npx mix --production
