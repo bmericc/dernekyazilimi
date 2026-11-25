@@ -73,7 +73,7 @@
                                             <li><form method="POST" action="{{ route('admin.users.manager-role', $user) }}">@csrf @method('PATCH')<button class="dropdown-item" type="submit">{{ trans("panel.set_manager_role") }}</button></form></li>
                                             <li><form method="POST" action="{{ route('admin.users.user-role', $user) }}">@csrf @method('PATCH')<button class="dropdown-item" type="submit">{{ trans("panel.set_user_role") }}</button></form></li>
                                             <hr style="margin: 5px; color: #999;">
-                                            <li><form method="POST" action="{{ route('admin.users.destroy', $user) }}">@csrf @method('DELETE')<button class="dropdown-item" type="submit">{{ trans("panel.remove_user") }}</button></form></li>
+                                            <li><form method="POST" action="{{ route('admin.users.destroy', $user) }}" onsubmit="return confirm('Kişinin bütün kişisel verileri geri alınamaz biçimde silinecek. Emin misiniz?')">@csrf @method('DELETE')<button class="dropdown-item" type="submit">{{ trans("panel.remove_user") }}</button></form></li>
                                             @endif
 
                                         </ul>

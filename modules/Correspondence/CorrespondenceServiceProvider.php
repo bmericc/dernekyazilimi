@@ -30,6 +30,7 @@ class CorrespondenceServiceProvider extends ModuleServiceProvider
         ]);
 
         $this->permissions()->group('correspondence', 'Yazışmalar', 70);
+        \App\Support\Audit::subject(\Modules\Correspondence\Models\Letter::class, 'Yazı');
         $this->trash()->register('letter', \Modules\Correspondence\Models\Letter::class);
         $this->permissions()->register('correspondence.view', 'Yazıları görebilsin', 'correspondence', 70);
         $this->permissions()->register('correspondence.manage', 'Yazı yazabilsin, e-Yazışma paketini hazırlayabilsin', 'correspondence', 71);

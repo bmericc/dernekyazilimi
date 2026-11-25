@@ -39,7 +39,7 @@ class MailForwardingServiceProvider extends ModuleServiceProvider
         User::resolveRelationUsing('activeEmailRedirects', fn (User $user) => $user->hasMany(EmailRedirects::class)->where('status', 1)->orderBy('id'));
 
         if ($this->app->runningInConsole()) {
-            $this->commands([Console\aliasTest::class, Console\emailTest::class]);
+            $this->commands([Console\aliasTest::class]);
         }
 
         $slots->push('account.menu', 'mail-forwarding::partials.account-menu', 10);

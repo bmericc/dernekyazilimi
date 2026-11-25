@@ -81,25 +81,13 @@ class Controller extends BaseController
         return trim($newStr);
     }
 
-    public function getClientIp() {
-
-        $ipaddress = '';
-        if (getenv('HTTP_CLIENT_IP'))
-            $ipaddress = getenv('HTTP_CLIENT_IP');
-        else if(getenv('HTTP_X_FORWARDED_FOR'))
-            $ipaddress = getenv('HTTP_X_FORWARDED_FOR');
-        else if(getenv('HTTP_X_FORWARDED'))
-            $ipaddress = getenv('HTTP_X_FORWARDED');
-        else if(getenv('HTTP_FORWARDED_FOR'))
-            $ipaddress = getenv('HTTP_FORWARDED_FOR');
-        else if(getenv('HTTP_FORWARDED'))
-            $ipaddress = getenv('HTTP_FORWARDED');
-        else if(getenv('REMOTE_ADDR'))
-            $ipaddress = getenv('REMOTE_ADDR');
-        else
-            $ipaddress = 'UNKNOWN';
-
-        return $ipaddress;
+    /**
+     * The visitor's address. Forwarding headers count only when they come
+     * from a trusted proxy (TrustProxies); a client can't spoof them.
+     */
+    public function getClientIp(): string
+    {
+        return request()->ip() ?? 'UNKNOWN';
     }
 
     public function set_log($process_type="other", $process="") {

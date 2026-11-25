@@ -20,8 +20,8 @@ class Audit
     /** Stored masked: personal identifiers. */
     private const MASKED = ['national_id', 'identity_number'];
 
-    /** Labels of the record types shown in the admin panel. */
-    public const SUBJECTS = [
+    /** Labels of the core record types shown in the admin panel; modules add theirs with subject(). */
+    private const CORE_SUBJECTS = [
         \App\Models\User::class => 'Hesap',
         \App\Models\Contact::class => 'Kişi / kurum',
         \App\Models\ContactAffiliation::class => 'Sıfat',
@@ -38,13 +38,24 @@ class Audit
         \App\Models\Payment::class => 'Ödeme',
         \App\Models\BankAccount::class => 'Banka hesabı',
         \App\Models\PaymentGateway::class => 'Ödeme sistemi',
-        \Modules\IdCard\Models\IdCard::class => 'Kimlik kartı',
-        \Modules\Membership\Models\Membership::class => 'Üyelik',
-        \Modules\IdCard\Models\IdCardTemplate::class => 'Kart şablonu',
-        \Modules\Correspondence\Models\Letter::class => 'Yazı',
     ];
 
+    /** @var array<class-string, string> */
+    private static array $moduleSubjects = [];
+
     private static bool $paused = false;
+
+    /** A module names one of its audited models for the process log screen. */
+    public static function subject(string $model, string $label): void
+    {
+        self::$moduleSubjects[$model] = $label;
+    }
+
+    /** @return array<class-string, string> */
+    public static function subjects(): array
+    {
+        return self::CORE_SUBJECTS + self::$moduleSubjects;
+    }
 
     /**
      * @param  array<string, array{0: mixed, 1: mixed}>  $changes  attribute => [old, new]
@@ -96,7 +107,7 @@ class Audit
 
     public static function subjectLabel(?string $type): ?string
     {
-        return $type === null ? null : (self::SUBJECTS[$type] ?? class_basename($type));
+        return $type === null ? null : (self::subjects()[$type] ?? class_basename($type));
     }
 
     private static function clean(array $changes): array

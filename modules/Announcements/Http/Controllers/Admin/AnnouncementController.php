@@ -84,7 +84,7 @@ class AnnouncementController extends Controller
             $tomail = config('announcements.test_mailing_list');
         }
 
-        if($mailing) {
+        if($mailing && $tomail) {
             $data = (object) [
                 "subject" => $announcement->subject,
                 "content" => $announcement->detail
@@ -148,7 +148,7 @@ class AnnouncementController extends Controller
             $tomail = config('announcements.test_mailing_list');
         }
 
-        if($mailing) {
+        if($mailing && $tomail) {
             $data = (object) [
                 "subject" => $announcement->subject,
                 "content" => $announcement->detail

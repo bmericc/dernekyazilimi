@@ -141,6 +141,7 @@ return [
 
     'remove_user_success' => 'Remove user with success',
     'remove_user_failed' => 'Remove user could not be disabled',
+    'remove_user_self' => 'You cannot remove your own account here',
 
     'save_announcement_success' => 'Announcement has been save success',
     'save_announcement_failed' => 'Announcement has been save failed',

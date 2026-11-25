@@ -26,6 +26,8 @@ class IdCardServiceProvider extends ModuleServiceProvider
         AffiliationType::resolveRelationUsing('idCardTemplate', fn (AffiliationType $type) => $type->hasOne(IdCardTemplate::class));
 
         $this->permissions()->group('id-cards', 'Kimlik kartları', 40);
+        \App\Support\Audit::subject(\Modules\IdCard\Models\IdCard::class, 'Kimlik kartı');
+        \App\Support\Audit::subject(\Modules\IdCard\Models\IdCardTemplate::class, 'Kart şablonu');
         $this->trash()->register('id-card-template', \Modules\IdCard\Models\IdCardTemplate::class);
         $this->permissions()->register('id-cards.manage', 'Kart şablonlarını düzenleyebilsin, kartları iptal edebilsin', 'id-cards', 40);
 
