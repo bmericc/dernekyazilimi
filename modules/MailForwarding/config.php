@@ -2,7 +2,8 @@
 
 return [
 
-    // Domain of the forwarding addresses handed out, e.g. name.surname@penguen.org.tr.
-    'domain' => env('MAIL_FORWARDING_DOMAIN', 'penguen.org.tr'),
+    // Fallback domain of the forwarding addresses (name.surname@<domain>) when the
+    // mail_forwarding_domains setting is not saved yet. No default: it is the organization's.
+    'domain' => env('MAIL_FORWARDING_DOMAIN'),
 
 ];

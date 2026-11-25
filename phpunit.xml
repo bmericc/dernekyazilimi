@@ -24,6 +24,7 @@
     <server name="TELESCOPE_ENABLED" value="false"/>
     <server name="MESSAGING_SMS_DRIVER" value="log"/>
     <server name="MESSAGING_WHATSAPP_DRIVER" value="log"/>
+    <server name="MAIL_FORWARDING_DOMAIN" value="penguen.org.tr"/>
     <server name="MODULE_VOLUNTEER" value="true"/>
     <server name="MODULE_EMAIL_CHANGE" value="true"/>
     <server name="MODULE_ANNOUNCEMENTS" value="true"/>

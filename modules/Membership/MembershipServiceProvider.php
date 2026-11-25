@@ -29,6 +29,7 @@ class MembershipServiceProvider extends ModuleServiceProvider
 
     protected function bootModule(Menu $menu, Slots $slots): void
     {
+        \App\Support\Audit::subject(\Modules\Membership\Models\Membership::class, 'Üyelik');
         $this->mailTemplates()->group('membership', 'Üyelik', 30);
         $this->mailTemplates()->register('membership.application-received', 'Başvuru alındı: süreç bilgisi', 'membership',
             '{{organization}} üyelik başvurunuz işleme alındı',

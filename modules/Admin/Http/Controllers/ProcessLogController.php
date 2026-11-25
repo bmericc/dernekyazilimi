@@ -27,7 +27,7 @@ class ProcessLogController extends Controller
         $logs = ProcessLogs::query()
             ->when($filters['q'] !== '', fn ($query) => $query->where('process', 'like', "%{$filters['q']}%"))
             ->when(in_array($filters['type'], ['create', 'change', 'delete', 'other'], true), fn ($query) => $query->where('process_type', $filters['type']))
-            ->when(array_key_exists((string) $filters['subject'], Audit::SUBJECTS), fn ($query) => $query->where('subject_type', $filters['subject']))
+            ->when(array_key_exists((string) $filters['subject'], Audit::subjects()), fn ($query) => $query->where('subject_type', $filters['subject']))
             ->when($filters['subject_id'], fn ($query, $id) => $query->where('subject_id', $id))
             ->when($filters['by'], fn ($query, $by) => $query->where('process_by', $by))
             ->when($filters['from'], fn ($query, $from) => $query->where('created_at', '>=', $from->startOfDay()))

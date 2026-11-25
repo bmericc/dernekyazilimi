@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 
 use App\Models\User;
+use App\Support\Anonymizer;
 use BahriCanli\TcKimlik;
 
 class UserAdminController extends Controller
@@ -87,37 +88,28 @@ class UserAdminController extends Controller
 
     }
 
-    public function removeUser($user_id) {
+    /**
+     * Removes the person's personal data the same way an approved KVKK
+     * deletion does (App\Support\Anonymizer): rows stay, nothing identifies
+     * them, audit history is scrubbed, modules clean up on ContactAnonymized.
+     */
+    public function removeUser($user_id, Anonymizer $anonymizer) {
 
         if (! Auth::user()->isOwner()) {
             return Redirect::route('admin.users')->with("danger-status", trans("panel.unauthorized_process"));
         }
 
-        $user = User::where("id", $user_id)->first();
-        if($user==null) {
-            $this->set_log("other", "Kullanıcı yok");
+        $user = User::find($user_id);
+        if ($user === null || $user->contact === null) {
+            return Redirect::route('admin.users')->with("danger-status", trans("panel.remove_user_failed"));
         }
-        else {
-            $last_removed_user = User::selectRaw('*, SUBSTR(users.email, 5) AS email_sort')
-                                        ->where("email", "LIKE", "XXXX%")
-                                        ->orderByRaw("cast(email_sort as unsigned) DESC")
-                                        ->first();
-            if($last_removed_user==null) $last_removed_user = new User();
-            $last_id = intval($last_removed_user->email_sort) + 1;
-
-            $user->name = "XXXX$last_id";
-            $user->surname = "XXXX$last_id";
-            $user->email = "XXXX$last_id";
-            $user->status = 0;
-
-            if($user->save()) {
-                return Redirect::route('admin.users')->with("success-status", trans("panel.remove_user_success"));
-            }
-            else {
-                return Redirect::route('admin.users')->with("danger-status", trans("panel.remove_user_failed"));
-            }
+        if ($user->is(Auth::user())) {
+            return Redirect::route('admin.users')->with("danger-status", trans("panel.remove_user_self"));
         }
 
+        $anonymizer->anonymize($user->contact, 'yönetici tarafından kullanıcı kaldırma');
+
+        return Redirect::route('admin.users')->with("success-status", trans("panel.remove_user_success"));
     }
 
     public function tcKimlikDogrula($user_id) {

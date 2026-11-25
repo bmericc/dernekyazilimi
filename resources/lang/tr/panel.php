@@ -141,6 +141,7 @@ return [
 
     'remove_user_success' => 'Kullanıcı silindi',
     'remove_user_failed' => 'Kullanıcı silinemedi',
+    'remove_user_self' => 'Kendi hesabınızı buradan kaldıramazsınız',
 
     'save_announcement_success' => 'Duyuru başarı ile kaydedildi',
     'save_announcement_failed' => 'Duyuru kaydedilemedi',

@@ -26,7 +26,7 @@
             <div class="col-md-2">
                 <select name="subject" class="form-select">
                     <option value="">Tüm kayıtlar</option>
-                    @foreach (\App\Support\Audit::SUBJECTS as $class => $label)
+                    @foreach (\App\Support\Audit::subjects() as $class => $label)
                         <option value="{{ $class }}" @selected($filters['subject'] === $class)>{{ $label }}</option>
                     @endforeach
                 </select>
