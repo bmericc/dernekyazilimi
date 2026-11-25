@@ -22,7 +22,7 @@
     "datatables.net-bs5": "~1.13.6",
     "datatables.net-responsive-bs5": "~2.5.0",
     "inputmask": "^5.0.10",
-    "jquery": "^3.7.1",
+    "jquery": "^3.8.0",
     "laravel-mix": "^6.0.6",
     "lodash": "^4.17.19",
     "postcss": "^8.5.33",
